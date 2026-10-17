@@ -3,6 +3,7 @@ import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { crc32 } from "node:zlib";
 
+import type { UploadForm } from "../../src/net/cdn.ts";
 import { writePack, type Pack } from "../../src/stickers/pack.ts";
 import { STICKER_LIMITS } from "../../src/stickers/validate.ts";
 import { tempDir } from "./tempDir.ts";
@@ -61,6 +62,19 @@ export function stickerPng(
 /** Reads an image from `test/fixtures/images`. */
 export function imageFixture(name: string): Uint8Array {
 	return readFileSync(join(import.meta.dirname, "../fixtures/images", name));
+}
+
+/** An S3 upload slot for `key` as the chat service hands it out. */
+export function uploadForm(key: string): UploadForm {
+	return {
+		key,
+		credential: "AKIA/20261017/us-east-1/s3/aws4_request",
+		acl: "private",
+		algorithm: "AWS4-HMAC-SHA256",
+		date: "20261017T000000Z",
+		policy: "cG9saWN5",
+		signature: "c2lnbmF0dXJl",
+	};
 }
 
 const PNG_SIGNATURE = Uint8Array.of(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a);
