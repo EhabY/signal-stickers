@@ -36,6 +36,10 @@ function description(element: HTMLElement): string | undefined {
 	return id === null ? undefined : document.querySelector(`[id="${id}"]`)?.textContent.trim();
 }
 
+function coverButton(number: number): HTMLElement {
+	return screen.getByRole("button", { name: `Use sticker ${number} as the cover` });
+}
+
 function stickerCards(): HTMLElement[] {
 	return within(screen.getByRole("list", { name: "Stickers" }))
 		.getAllByRole("img")
@@ -110,24 +114,53 @@ describe("Editor", () => {
 		});
 	});
 
+	it("marks the cover sticker as pressed and makes another sticker the cover", async () => {
+		const { changed } = renderEditor();
+		expect(coverButton(1).getAttribute("aria-pressed")).toBe("true");
+		expect(coverButton(1).getAttribute("aria-disabled")).toBe("true");
+		expect(coverButton(2).getAttribute("aria-pressed")).toBe("false");
+		expect(coverButton(2).getAttribute("aria-disabled")).toBe("false");
+
+		await fireEvent.click(coverButton(2));
+
+		expect(changed()).toEqual({ ...CATS, cover: "002.png" });
+	});
+
 	it("uses a chosen image as a separate cover", async () => {
 		const { oncover } = renderEditor();
 		const image = new File(["png"], "cover.png", { type: "image/png" });
 
-		await fireEvent.change(screen.getByLabelText("Use a separate image as the cover"), {
+		await fireEvent.change(screen.getByLabelText("Upload a separate cover"), {
 			target: { files: [image] },
 		});
 
 		expect(oncover).toHaveBeenCalledWith(image);
 	});
 
-	it("switches from a separate cover back to a sticker", async () => {
+	it("replaces a separate cover with another image", async () => {
+		const { oncover } = renderEditor({ pack: { ...CATS, cover: "cover.webp" } });
+		const image = new File(["png"], "cover.png", { type: "image/png" });
+
+		await fireEvent.change(screen.getByLabelText("Replace the cover image"), {
+			target: { files: [image] },
+		});
+
+		expect(oncover).toHaveBeenCalledWith(image);
+	});
+
+	it("switches from a separate cover back to the first sticker", async () => {
 		const { changed } = renderEditor({ pack: { ...CATS, cover: "cover.webp" } });
-		expect(screen.getByLabelText("Replace the cover image")).toBeTruthy();
+		expect(coverButton(1).getAttribute("aria-pressed")).toBe("false");
 
-		await fireEvent.click(screen.getByRole("radio", { name: "Use sticker 2 as the cover" }));
+		await fireEvent.click(screen.getByRole("button", { name: "Use a sticker instead" }));
 
-		expect(changed()).toEqual({ ...CATS, cover: "002.png" });
+		expect(changed()).toEqual({ ...CATS, cover: "001.png" });
+	});
+
+	it("counts the stickers against the limit", () => {
+		renderEditor();
+
+		expect(screen.getByText("3 / 200 stickers")).toBeTruthy();
 	});
 
 	it("shows issues with the field and the sticker they concern", () => {

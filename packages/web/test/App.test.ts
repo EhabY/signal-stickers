@@ -89,12 +89,58 @@ describe("App", () => {
 		await fireEvent.click(await screen.findByRole("button", { name: "Remove sticker 2" }));
 
 		await vi.waitFor(() => {
-			expect(screen.getByRole("radio", { name: "Use sticker 1 as the cover" })).toHaveProperty(
-				"checked",
-				true,
-			);
+			expect(
+				screen
+					.getByRole("button", { name: "Use sticker 1 as the cover" })
+					.getAttribute("aria-pressed"),
+			).toBe("true");
 		});
 		expect(api.removeSticker).toHaveBeenCalledWith(1, "002.png");
+	});
+
+	it("moves focus to the new last sticker after removing the last one", async () => {
+		const api = fakeApi();
+		api.getPack.mockResolvedValue(packResponse());
+		api.removeSticker.mockResolvedValue(
+			packResponse({ ...CATS, stickers: CATS.stickers.slice(0, 2) }),
+		);
+		renderApp(api);
+		const remove = await screen.findByRole("button", { name: "Remove sticker 3" });
+		remove.focus();
+
+		await fireEvent.click(remove);
+
+		await vi.waitFor(() => {
+			expect(document.activeElement?.getAttribute("aria-label")).toBe("Remove sticker 2");
+		});
+	});
+
+	it("moves focus to Add images after removing the only sticker", async () => {
+		const api = fakeApi();
+		const onlySticker = { ...CATS, stickers: CATS.stickers.slice(0, 1) };
+		api.getPack.mockResolvedValue(packResponse(onlySticker));
+		api.removeSticker.mockResolvedValue(packResponse({ ...onlySticker, stickers: [] }));
+		renderApp(api);
+		const remove = await screen.findByRole("button", { name: "Remove sticker 1" });
+		remove.focus();
+
+		await fireEvent.click(remove);
+
+		await vi.waitFor(() => {
+			expect(document.activeElement).toBe(screen.getByLabelText("Add images"));
+		});
+	});
+
+	it("keeps focus on the cover controls after switching back to a sticker cover", async () => {
+		const api = fakeApi();
+		api.getPack.mockResolvedValue(packResponse({ ...CATS, cover: "cover.webp" }));
+		renderApp(api);
+
+		await fireEvent.click(await screen.findByRole("button", { name: "Use a sticker instead" }));
+
+		await vi.waitFor(() => {
+			expect(document.activeElement).toBe(screen.getByLabelText("Upload a separate cover"));
+		});
 	});
 
 	it("explains when the browser cannot convert an added image to WebP", async () => {

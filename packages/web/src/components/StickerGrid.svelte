@@ -3,6 +3,7 @@
 
 	import type { Pack, PackSticker, ValidationIssue } from "../lib/api.ts";
 	import EmojiPicker from "./EmojiPicker.svelte";
+	import Icon from "./Icon.svelte";
 	import IssueList from "./IssueList.svelte";
 
 	type Props = {
@@ -12,17 +13,33 @@
 		disabled?: boolean;
 		onchange: (pack: Pack) => void;
 		onremove: (index: number, file: string) => void;
+		/** Called after removing the last sticker, so the parent can place focus. */
+		onempty: () => void;
 	};
 
-	let { pack, issues, imageUrl, disabled = false, onchange, onremove }: Props = $props();
+	let { pack, issues, imageUrl, disabled = false, onchange, onremove, onempty }: Props = $props();
 	const id = $props.id();
 	let dragFrom: number | undefined = $state();
 	let dropAt: number | undefined = $state();
 	let pickingFor: number | undefined = $state();
 	let announcement = $state("");
 	let list: HTMLOListElement | undefined = $state();
+	let removedAt: number | undefined;
 
-	type Control = "emoji" | "earlier" | "later";
+	type Control = "emoji" | "earlier" | "later" | "remove";
+
+	// Removing disables the grid until the server answers; then focus the card now in that place.
+	$effect(() => {
+		if (disabled || removedAt === undefined) {
+			return;
+		}
+		if (pack.stickers.length === 0) {
+			onempty();
+		} else {
+			focusControl(Math.min(removedAt, pack.stickers.length - 1), "remove");
+		}
+		removedAt = undefined;
+	});
 
 	async function move(from: number, to: number, focus?: Control): Promise<void> {
 		const stickers = [...pack.stickers];
@@ -40,6 +57,11 @@
 				focusControl(to, "emoji");
 			}
 		}
+	}
+
+	function remove(index: number, file: string): void {
+		removedAt = index;
+		onremove(index, file);
 	}
 
 	function setEmoji(index: number, emoji: string): void {
@@ -111,9 +133,11 @@
 	<!-- Keyed by position, since stickers may share an image file. -->
 	{#each pack.stickers as sticker, index (index)}
 		{@const number = index + 1}
+		{@const isCover = pack.cover === sticker.file}
 		{@const stickerIssues = issues.filter(({ file }) => file === sticker.file)}
 		<li
 			class="card"
+			class:cover={isCover}
 			class:invalid={stickerIssues.length > 0}
 			class:dragging={dragFrom === index}
 			class:drop-target={dropAt === index && dragFrom !== index}
@@ -130,60 +154,79 @@
 			ondragend={endDrag}
 			aria-describedby={stickerIssues.length > 0 ? issuesId(index) : undefined}
 		>
-			<img src={imageUrl(sticker.file)} alt="Sticker {number}" draggable="false" />
-			<button
-				type="button"
-				class="emoji"
-				class:empty={sticker.emoji === undefined}
-				data-control="emoji"
-				aria-label={emojiLabel(sticker, number)}
-				aria-haspopup="dialog"
-				{disabled}
-				onclick={() => (pickingFor = index)}
-			>
-				{sticker.emoji ?? "+"}
-			</button>
-			<label class="cover">
-				<input
-					type="radio"
-					name="{id}-cover"
-					aria-label="Use sticker {number} as the cover"
-					checked={pack.cover === sticker.file}
+			<div class="frame">
+				<img src={imageUrl(sticker.file)} alt="Sticker {number}" draggable="false" />
+				{#if isCover}
+					<span class="cover-badge">Cover</span>
+				{/if}
+				<button
+					type="button"
+					class="emoji"
+					class:empty={sticker.emoji === undefined}
+					data-control="emoji"
+					aria-label={emojiLabel(sticker, number)}
+					aria-haspopup="dialog"
+					title={sticker.emoji === undefined ? "Choose an emoji" : "Change the emoji"}
 					{disabled}
-					onchange={() => {
-						onchange({ ...pack, cover: sticker.file });
-					}}
-				/>
-				Cover
-			</label>
-			<div class="tools">
-				<button
-					type="button"
-					data-control="earlier"
-					aria-label="Move sticker {number} earlier"
-					disabled={disabled || index === 0}
-					onclick={() => {
-						void move(index, index - 1, "earlier");
-					}}>&larr;</button
+					onclick={() => (pickingFor = index)}
 				>
-				<button
-					type="button"
-					data-control="later"
-					aria-label="Move sticker {number} later"
-					disabled={disabled || index === pack.stickers.length - 1}
-					onclick={() => {
-						void move(index, index + 1, "later");
-					}}>&rarr;</button
-				>
-				<button
-					type="button"
-					class="danger"
-					aria-label="Remove sticker {number}"
-					{disabled}
-					onclick={() => {
-						onremove(index, sticker.file);
-					}}>&times;</button
-				>
+					{sticker.emoji ?? "+"}
+				</button>
+				<div class="tools">
+					<button
+						type="button"
+						class="star"
+						aria-label="Use sticker {number} as the cover"
+						aria-pressed={isCover}
+						aria-disabled={isCover}
+						title={isCover ? "Cover" : "Make cover"}
+						{disabled}
+						onclick={() => {
+							if (!isCover) {
+								onchange({ ...pack, cover: sticker.file });
+							}
+						}}
+					>
+						<Icon name="star" />
+					</button>
+					<button
+						type="button"
+						data-control="earlier"
+						aria-label="Move sticker {number} earlier"
+						title="Move earlier"
+						disabled={disabled || index === 0}
+						onclick={() => {
+							void move(index, index - 1, "earlier");
+						}}
+					>
+						<Icon name="earlier" />
+					</button>
+					<button
+						type="button"
+						data-control="later"
+						aria-label="Move sticker {number} later"
+						title="Move later"
+						disabled={disabled || index === pack.stickers.length - 1}
+						onclick={() => {
+							void move(index, index + 1, "later");
+						}}
+					>
+						<Icon name="later" />
+					</button>
+					<button
+						type="button"
+						class="remove"
+						data-control="remove"
+						aria-label="Remove sticker {number}"
+						title="Remove"
+						{disabled}
+						onclick={() => {
+							remove(index, sticker.file);
+						}}
+					>
+						<Icon name="remove" />
+					</button>
+				</div>
 			</div>
 			{#if stickerIssues.length > 0}
 				<IssueList issues={stickerIssues} id={issuesId(index)} />
@@ -209,7 +252,7 @@
 <style>
 	.grid {
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(156px, 1fr));
+		grid-template-columns: repeat(auto-fill, minmax(136px, 1fr));
 		gap: 0.75rem;
 		margin: 0;
 		padding: 0;
@@ -217,48 +260,75 @@
 	}
 
 	.card {
-		position: relative;
 		display: grid;
 		align-content: start;
-		gap: 0.4rem;
-		padding: 0.6rem;
-		border: 1px solid var(--border);
-		border-radius: var(--radius);
-		background: var(--surface);
+		gap: 0.35rem;
 		cursor: grab;
-	}
-
-	.card.invalid {
-		border-color: var(--danger);
 	}
 
 	.card.dragging {
 		opacity: 0.4;
 	}
 
-	.card.drop-target {
+	.frame {
+		position: relative;
+		border: 1px solid var(--border);
+		border-radius: 14px;
+		background: repeating-conic-gradient(var(--surface-muted) 0 25%, var(--surface) 0 50%) 0 0 /
+			16px 16px;
+		transition:
+			box-shadow 0.15s,
+			border-color 0.15s;
+	}
+
+	.card:hover .frame {
+		box-shadow: var(--shadow);
+	}
+
+	.card.cover .frame {
+		border-color: var(--accent);
+		box-shadow: 0 0 0 2px var(--accent);
+	}
+
+	.card.invalid .frame {
+		border-color: var(--danger);
+		box-shadow: 0 0 0 2px var(--danger);
+	}
+
+	.card.drop-target .frame {
 		outline: 2px dashed var(--accent);
-		outline-offset: 2px;
+		outline-offset: 4px;
 	}
 
 	img {
+		display: block;
 		width: 100%;
 		aspect-ratio: 1;
 		object-fit: contain;
-		border-radius: 6px;
-		background: repeating-conic-gradient(var(--surface-muted) 0 25%, transparent 0 50%) 0 0 / 16px
-			16px;
+		border-radius: 13px;
+	}
+
+	.cover-badge {
+		position: absolute;
+		top: 0.5rem;
+		left: 0.5rem;
+		padding: 0.1rem 0.5rem;
+		border-radius: 999px;
+		background: var(--accent);
+		color: var(--accent-text);
+		font-size: 0.75rem;
+		font-weight: 700;
 	}
 
 	.emoji {
 		position: absolute;
-		top: 0.9rem;
-		right: 0.9rem;
-		min-width: 2.4rem;
-		height: 2.4rem;
+		top: 0.4rem;
+		right: 0.4rem;
+		min-width: 2.25rem;
+		height: 2.25rem;
 		padding: 0 0.3rem;
 		border-radius: 999px;
-		font-size: 1.3rem;
+		font-size: 1.2rem;
 		line-height: 1;
 		box-shadow: var(--shadow);
 	}
@@ -268,25 +338,74 @@
 		color: var(--danger);
 	}
 
-	.cover {
+	.tools {
+		position: absolute;
+		bottom: 0.4rem;
+		left: 50%;
 		display: flex;
-		gap: 0.35rem;
-		align-items: center;
-		font-weight: 500;
-		font-size: 0.9rem;
+		gap: 1px;
+		padding: 2px;
+		border: 1px solid var(--border);
+		border-radius: 999px;
+		background: var(--surface);
+		box-shadow: var(--shadow);
+		opacity: 0;
+		pointer-events: none;
+		transform: translateX(-50%);
+		transition: opacity 0.15s;
 	}
 
-	.tools {
-		display: flex;
-		gap: 0.3rem;
+	/* Hidden buttons must not take clicks; touch screens always show them. */
+	.card:hover .tools,
+	.card:has(:focus-visible) .tools {
+		opacity: 1;
+		pointer-events: auto;
+	}
+
+	@media (hover: none), (any-pointer: coarse) {
+		.tools {
+			opacity: 1;
+			pointer-events: auto;
+		}
 	}
 
 	.tools button {
-		flex: 1;
-		padding: 0.25rem;
+		display: grid;
+		place-items: center;
+		width: 30px;
+		height: 30px;
+		padding: 0;
+		border: 0;
+		border-radius: 999px;
+		background: transparent;
+	}
+
+	.tools button:hover:not(:disabled, [aria-disabled="true"]) {
+		background: var(--surface-muted);
+	}
+
+	.tools .star[aria-pressed="true"] {
+		color: var(--accent);
+		cursor: default;
+	}
+
+	.tools .star[aria-pressed="true"] :global(svg) {
+		fill: currentColor;
+	}
+
+	.tools .remove:hover:not(:disabled) {
+		background: var(--danger-soft);
+		color: var(--danger);
 	}
 
 	.card :global(.issues) {
-		font-size: 0.85rem;
+		font-size: 0.8rem;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.frame,
+		.tools {
+			transition: none;
+		}
 	}
 </style>

@@ -1,5 +1,8 @@
 <script lang="ts">
+	import { tick } from "svelte";
+
 	import type { Pack, StickerLimits, ValidationIssue } from "../lib/api.ts";
+	import Icon from "./Icon.svelte";
 	import IssueList from "./IssueList.svelte";
 	import StickerGrid from "./StickerGrid.svelte";
 
@@ -30,6 +33,9 @@
 	const titleIssues = $derived(issues.filter(({ code }) => code === "missingTitle"));
 	const authorIssues = $derived(issues.filter(({ code }) => code === "missingAuthor"));
 	const hasSeparateCover = $derived(!pack.stickers.some(({ file }) => file === pack.cover));
+	const firstSticker = $derived(pack.stickers.at(0));
+	let coverInput: HTMLInputElement | undefined = $state();
+	let addInput: HTMLInputElement | undefined = $state();
 
 	type FileInputEvent = Event & { currentTarget: HTMLInputElement };
 
@@ -44,6 +50,15 @@
 		const [image] = takeFiles(event);
 		if (image) {
 			oncover(image);
+		}
+	}
+
+	async function useFirstStickerAsCover(): Promise<void> {
+		if (firstSticker) {
+			onchange({ ...pack, cover: firstSticker.file });
+			// The button disappears with the separate cover; keep focus on the cover controls.
+			await tick();
+			coverInput?.focus();
 		}
 	}
 
@@ -104,35 +119,50 @@
 				<IssueList issues={authorIssues} id="{id}-author-issues" />
 			{/if}
 		</div>
-		<div class="cover">
-			<img src={imageUrl(pack.cover)} alt="Cover" />
-			<div>
-				<p class="muted">
+		<div class="field" role="group" aria-labelledby="{id}-cover">
+			<span id="{id}-cover" class="label">Cover</span>
+			<div class="cover">
+				<img src={imageUrl(pack.cover)} alt="Current cover" />
+				<div class="cover-actions">
+					<!-- One input for both states, so it keeps focus when the cover changes. -->
+					<label class="file-button small" class:disabled>
+						<input
+							class="visually-hidden"
+							type="file"
+							accept="image/*"
+							aria-label={hasSeparateCover ? "Replace the cover image" : "Upload a separate cover"}
+							{disabled}
+							onchange={chooseCover}
+							bind:this={coverInput}
+						/>
+						{hasSeparateCover ? "Replace" : "Upload a separate cover"}
+					</label>
 					{#if hasSeparateCover}
-						This pack has a separate cover image. To use a sticker instead, choose
-						<strong>Cover</strong> on it.
+						<button
+							type="button"
+							class="link"
+							disabled={disabled || firstSticker === undefined}
+							onclick={useFirstStickerAsCover}
+						>
+							Use a sticker instead
+						</button>
 					{:else}
-						The cover is a sticker. Choose another with <strong>Cover</strong> on a sticker.
+						<span class="muted star-hint"><Icon name="star" /> or star a sticker</span>
 					{/if}
-				</p>
-				<label class="file-button" class:disabled>
-					<input
-						class="visually-hidden"
-						type="file"
-						accept="image/*"
-						{disabled}
-						onchange={chooseCover}
-					/>
-					{hasSeparateCover ? "Replace the cover image" : "Use a separate image as the cover"}
-				</label>
+				</div>
 			</div>
 		</div>
 	</div>
 
 	<div class="toolbar">
-		<p class="muted">
-			{pack.stickers.length} of {limits.maxStickers} stickers. Drag them, or use the arrows, to reorder.
-		</p>
+		<div>
+			<p class="count">{pack.stickers.length} / {limits.maxStickers} stickers</p>
+			<p class="muted hint">
+				Drag to reorder. Images are fitted to {limits.size}&times;{limits.size} under {Math.floor(
+					limits.maxBytes / 1024,
+				)} KiB; PNG and WebP that already fit are kept.
+			</p>
+		</div>
 		<label class="file-button primary" class:disabled>
 			<input
 				class="visually-hidden"
@@ -141,17 +171,22 @@
 				multiple
 				{disabled}
 				onchange={addImages}
+				bind:this={addInput}
 			/>
+			<Icon name="add" />
 			Add images
 		</label>
 	</div>
-	<p class="muted hint">
-		Added images become {limits.size}&times;{limits.size} WebP under {Math.floor(
-			limits.maxBytes / 1024,
-		)} KiB. PNG and WebP images that already fit are kept as they are, animations included.
-	</p>
 
-	<StickerGrid {pack} {issues} {imageUrl} {disabled} {onchange} {onremove} />
+	<StickerGrid
+		{pack}
+		{issues}
+		{imageUrl}
+		{disabled}
+		{onchange}
+		{onremove}
+		onempty={() => addInput?.focus()}
+	/>
 </section>
 
 <style>
@@ -183,8 +218,8 @@
 
 	.details {
 		display: grid;
-		grid-template-columns: 1fr 1fr auto;
-		gap: 1rem;
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+		gap: 1rem 1.25rem;
 		align-items: start;
 	}
 
@@ -193,30 +228,50 @@
 		gap: 0.3rem;
 	}
 
+	.label {
+		font-weight: 600;
+	}
+
 	.cover {
 		display: flex;
 		gap: 0.75rem;
 		align-items: center;
-		max-width: 22rem;
 	}
 
 	.cover img {
-		width: 72px;
-		height: 72px;
+		width: 64px;
+		height: 64px;
 		object-fit: contain;
-		border-radius: 6px;
+		border: 1px solid var(--border);
+		border-radius: 10px;
 		background: var(--surface-muted);
 	}
 
-	.cover > div {
+	.cover-actions {
 		display: grid;
-		gap: 0.4rem;
+		gap: 0.3rem;
 		justify-items: start;
 	}
 
-	.cover p {
-		margin: 0;
+	.star-hint {
+		display: inline-flex;
+		gap: 0.3rem;
+		align-items: center;
+		font-size: 0.85rem;
+	}
+
+	.link {
+		padding: 0;
+		border: 0;
+		background: none;
+		color: var(--accent);
 		font-size: 0.9rem;
+		font-weight: 600;
+	}
+
+	.link:hover:not(:disabled) {
+		background: none;
+		text-decoration: underline;
 	}
 
 	.toolbar {
@@ -227,9 +282,12 @@
 		align-items: center;
 	}
 
-	.toolbar p,
-	.hint {
+	.toolbar p {
 		margin: 0;
+	}
+
+	.count {
+		font-weight: 600;
 	}
 
 	.hint {
@@ -237,6 +295,9 @@
 	}
 
 	.file-button {
+		display: inline-flex;
+		gap: 0.4rem;
+		align-items: center;
 		padding: 0.45rem 0.9rem;
 		border: 1px solid var(--border);
 		border-radius: 8px;
@@ -244,10 +305,24 @@
 		cursor: pointer;
 	}
 
+	.file-button:not(.primary, .disabled):hover {
+		background: var(--surface-muted);
+	}
+
+	.file-button.small {
+		padding: 0.25rem 0.7rem;
+		font-size: 0.9rem;
+	}
+
 	.file-button.primary {
 		border-color: var(--accent);
 		background: var(--accent);
 		color: var(--accent-text);
+		font-weight: 600;
+	}
+
+	.file-button.primary:hover:not(.disabled) {
+		filter: brightness(1.08);
 	}
 
 	.file-button:focus-within {

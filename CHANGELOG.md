@@ -22,6 +22,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Ask before an import replaces the pack you are editing
 - Publish a pack only once until you change it
 - Choose a separate cover image again after picking a sticker
+- Highlight the cover and tuck sticker actions into a hover toolbar
 
 ### Fixed
 
