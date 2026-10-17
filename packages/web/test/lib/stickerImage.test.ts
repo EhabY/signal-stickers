@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { encodeWithinLimit, fitInSquare } from "../../src/lib/stickerImage.ts";
+import { LIMITS } from "../support/api.ts";
 
 type Encode = (quality: number) => Promise<Blob>;
 
@@ -22,7 +23,7 @@ describe("encodeWithinLimit", () => {
 	it("lowers the quality until the image fits", async () => {
 		const encode = vi.fn<Encode>((quality) => Promise.resolve(blobOf(quality * 1000)));
 
-		const blob = await encodeWithinLimit(encode, 600, [0.9, 0.7, 0.5]);
+		const blob = await encodeWithinLimit(encode, { ...LIMITS, maxBytes: 600 }, [0.9, 0.7, 0.5]);
 
 		expect(blob.size).toBe(500);
 		expect(encode.mock.calls).toEqual([[0.9], [0.7], [0.5]]);
@@ -31,16 +32,26 @@ describe("encodeWithinLimit", () => {
 	it("fails when even the lowest quality is too large", async () => {
 		const encode = vi.fn<Encode>(() => Promise.resolve(blobOf(2048)));
 
-		await expect(encodeWithinLimit(encode, 1024, [0.9, 0.5])).rejects.toThrow(
-			"The image does not fit in 1 KiB",
-		);
+		await expect(
+			encodeWithinLimit(encode, { ...LIMITS, maxBytes: 1024 }, [0.9, 0.5]),
+		).rejects.toThrow("The image does not fit in 1 KiB");
 		expect(encode).toHaveBeenCalledTimes(2);
 	});
 
-	it("stops when the browser can only encode lossless PNG", async () => {
-		const encode = vi.fn<Encode>(() => Promise.resolve(blobOf(2048, "image/png")));
+	it("keeps the lossless PNG of a browser without a WebP encoder when it fits", async () => {
+		const encode = vi.fn<Encode>(() => Promise.resolve(blobOf(1024, "image/png")));
 
-		await expect(encodeWithinLimit(encode, 1024)).rejects.toThrow("does not fit");
+		const blob = await encodeWithinLimit(encode, LIMITS);
+
+		expect(blob.type).toBe("image/png");
+	});
+
+	it("explains what to do when the browser cannot encode WebP", async () => {
+		const encode = vi.fn<Encode>(() => Promise.resolve(blobOf(LIMITS.maxBytes + 1, "image/png")));
+
+		await expect(encodeWithinLimit(encode, LIMITS)).rejects.toThrow(
+			"This browser cannot convert images to WebP, and as PNG this one is over 300 KiB. Add a 512×512 PNG or WebP image under 300 KiB, or use a browser that can, such as Chrome or Firefox.",
+		);
 		expect(encode).toHaveBeenCalledOnce();
 	});
 });

@@ -4,16 +4,27 @@ import { describe, expect, it, vi } from "vitest";
 
 import App from "../src/App.svelte";
 import { ApiError } from "../src/lib/api.ts";
-import type { StickerEncoder } from "../src/lib/stickerImage.ts";
-import { CATS, fakeApi, LINKED, linkUntilAborted, packResponse, QR_URL } from "./support/api.ts";
+import { encodeWithinLimit, type StickerEncoder } from "../src/lib/stickerImage.ts";
+import {
+	CATS,
+	fakeApi,
+	LIMITS,
+	LINKED,
+	linkUntilAborted,
+	packResponse,
+	QR_URL,
+} from "./support/api.ts";
 
 const LINK = "https://signal.art/addstickers/#pack_id=abc&pack_key=def";
 
-function renderApp(api = fakeApi()) {
+function renderApp(
+	api = fakeApi(),
+	encode: StickerEncoder = vi.fn<StickerEncoder>((image) => Promise.resolve(image)),
+) {
 	const events: { send?: (event: ServerEvent) => void } = {};
 	render(App, {
 		api,
-		encode: vi.fn<StickerEncoder>((image) => Promise.resolve(image)),
+		encode,
 		connect: (onEvent: (event: ServerEvent) => void) => {
 			events.send = onEvent;
 			return vi.fn<() => void>();
@@ -84,6 +95,24 @@ describe("App", () => {
 			);
 		});
 		expect(api.removeSticker).toHaveBeenCalledWith("002.png");
+	});
+
+	it("explains when the browser cannot convert an added image to WebP", async () => {
+		const api = fakeApi();
+		api.getPack.mockResolvedValue(packResponse());
+		// Like Safari, whose canvas encodes PNG when asked for WebP.
+		const png = new Blob([new Uint8Array(LIMITS.maxBytes + 1)], { type: "image/png" });
+		renderApp(api, (_, limits) => encodeWithinLimit(() => Promise.resolve(png), limits));
+		const photo = new File(["jpeg"], "photo.jpg", { type: "image/jpeg" });
+
+		await fireEvent.change(await screen.findByLabelText("Add images"), {
+			target: { files: [photo] },
+		});
+
+		expect((await screen.findByRole("alert")).textContent).toContain(
+			"photo.jpg: This browser cannot convert images to WebP",
+		);
+		expect(api.addSticker).not.toHaveBeenCalled();
 	});
 
 	it("keeps a running publish and its link when switching views", async () => {

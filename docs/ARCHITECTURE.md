@@ -124,8 +124,10 @@ edited, shows edits at once, and saves them shortly after, in order. Every save 
 validation issues, so the editor shows them live without duplicating Signal's rules. Added images
 are converted in the browser with a `<canvas>` (`lib/stickerImage.ts`): PNG and WebP images that
 already fit are kept as they are, so animations survive; anything else becomes a 512x512 WebP within
-the size limit. The app talks to nothing but the local server: the emoji picker's data
-(`emoji-picker-element-data`) is bundled by Vite as an asset.
+the size limit. Browsers without a WebP encoder, such as Safari, give back a lossless PNG instead,
+which is kept if it fits; otherwise the error says which images still work. The app talks to nothing
+but the local server: the emoji picker's data (`emoji-picker-element-data`) is bundled by Vite as an
+asset.
 
 ## Environments
 

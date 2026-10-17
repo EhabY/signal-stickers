@@ -11,7 +11,8 @@ export class StickerImageError extends Error {
  * Keeps PNG and WebP images that already fit, so animations survive; otherwise draws the image
  * centered on a transparent square canvas and encodes it as WebP, lowering the quality until it fits.
  */
-export const encodeSticker: StickerEncoder = async (image, { size, maxBytes }) => {
+export const encodeSticker: StickerEncoder = async (image, limits) => {
+	const { size, maxBytes } = limits;
 	const bitmap = await createImageBitmap(image).catch((error: unknown) => {
 		throw new StickerImageError("The browser cannot read this image", { cause: error });
 	});
@@ -29,7 +30,7 @@ export const encodeSticker: StickerEncoder = async (image, { size, maxBytes }) =
 		}
 		const { x, y, width, height } = fitInSquare(bitmap, size);
 		context.drawImage(bitmap, x, y, width, height);
-		return await encodeWithinLimit((quality) => toWebp(canvas, quality), maxBytes);
+		return await encodeWithinLimit((quality) => toWebp(canvas, quality), limits);
 	} finally {
 		bitmap.close();
 	}
@@ -48,22 +49,30 @@ export function fitInSquare(
 	return { x: Math.floor((size - width) / 2), y: Math.floor((size - height) / 2), width, height };
 }
 
-/** Encodes at falling qualities until the result fits in `maxBytes`. */
+/**
+ * Encodes at falling qualities until the result fits in `maxBytes`. Browsers without a WebP encoder,
+ * such as Safari, return lossless PNG instead, which is kept only if it fits.
+ */
 export async function encodeWithinLimit(
 	encode: (quality: number) => Promise<Blob>,
-	maxBytes: number,
+	{ size, maxBytes }: Pick<StickerLimits, "size" | "maxBytes">,
 	qualities: readonly number[] = [0.9, 0.8, 0.7, 0.55, 0.4, 0.25],
 ): Promise<Blob> {
 	const [quality, ...lower] = qualities;
+	const kib = Math.floor(maxBytes / 1024);
 	if (quality === undefined) {
-		throw new StickerImageError(`The image does not fit in ${Math.floor(maxBytes / 1024)} KiB`);
+		throw new StickerImageError(`The image does not fit in ${kib} KiB`);
 	}
 	const blob = await encode(quality);
 	if (blob.size <= maxBytes) {
 		return blob;
 	}
-	// Browsers without a WebP encoder fall back to lossless PNG, which ignores the quality.
-	return encodeWithinLimit(encode, maxBytes, blob.type === "image/webp" ? lower : []);
+	if (blob.type !== "image/webp") {
+		throw new StickerImageError(
+			`This browser cannot convert images to WebP, and as PNG this one is over ${kib} KiB. Add a ${size}×${size} PNG or WebP image under ${kib} KiB, or use a browser that can, such as Chrome or Firefox.`,
+		);
+	}
+	return encodeWithinLimit(encode, { size, maxBytes }, lower);
 }
 
 function toWebp(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {

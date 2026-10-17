@@ -30,5 +30,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Refuse to push a pack where two stickers share an image
 - Reject oversized sticker files without loading them
 - Stop saying the web UI is not built when the dev server serves it
+- Explain what to do when the browser cannot make WebP stickers
 
 
