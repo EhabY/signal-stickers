@@ -1,11 +1,25 @@
 import { getEnvironmentConfig, type Environment } from "../env.ts";
 import { isPackIdValid, redactPackId } from "../stickers/link.ts";
+import { NotImplementedError } from "../util/notImplemented.ts";
 import { getBytes } from "./http.ts";
 import { SIGNAL_CA } from "./signalCa.ts";
 
 export type CdnClient = Readonly<{
 	getManifest(packId: string, signal?: AbortSignal): Promise<Uint8Array>;
 	getSticker(packId: string, stickerId: number, signal?: AbortSignal): Promise<Uint8Array>;
+	/** POSTs `data` to the CDN root as the S3 multipart form `form` describes. */
+	upload(form: UploadForm, data: Uint8Array, signal?: AbortSignal): Promise<void>;
+}>;
+
+/** One upload slot from `GET /v1/sticker/pack/form/{count}`, like libsignal's `S3UploadForm`. */
+export type UploadForm = Readonly<{
+	key: string;
+	credential: string;
+	acl: string;
+	algorithm: string;
+	date: string;
+	policy: string;
+	signature: string;
 }>;
 
 export type CdnClientOptions = Readonly<{ env: Environment; userAgent?: string }>;
@@ -37,5 +51,6 @@ export function createCdnClient({
 	return {
 		getManifest: (packId, signal) => get(packId, "manifest.proto", signal),
 		getSticker: (packId, stickerId, signal) => get(packId, `full/${stickerId}`, signal),
+		upload: () => Promise.reject(new NotImplementedError("CdnClient.upload")),
 	};
 }
