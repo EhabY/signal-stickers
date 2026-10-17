@@ -26,7 +26,8 @@ converted to 512x512 WebP in the browser, unless they are PNG or WebP images tha
 
 To upload, link your account from the Account tab by scanning its QR code with your phone (see
 [Link your account](#link-your-account)), then publish from the Publish tab. It lists anything
-Signal would reject, and once uploaded shows the new pack's link and QR code.
+Signal would reject, and once uploaded shows the new pack's link and QR code. Each publish makes a
+new pack, so publishing again waits until you change something.
 
 Every change is saved to a `pack` folder next to the credentials (see
 [Link your account](#link-your-account)), which the server prints when it starts:

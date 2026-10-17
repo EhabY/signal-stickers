@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { StatusResponse } from "@signal-stickers/server/api";
 
-	import { ApiError, errorMessage, type Api, type ValidationIssue } from "../lib/api.ts";
+	import { ApiError, errorMessage, type Api, type Pack, type ValidationIssue } from "../lib/api.ts";
 	import type { LiveProgress } from "../lib/events.svelte.ts";
 	import type { PackSession } from "../lib/packSession.svelte.ts";
 	import IssueList from "./IssueList.svelte";
@@ -19,12 +19,19 @@
 	let { api, status, session, progress, onaccount }: Props = $props();
 	let publishing = $state(false);
 	let published: string | undefined = $state();
+	/** The pack as published, so it is not published again until it changes. */
+	let publishedPack: Pack | undefined = $state.raw();
 	let copied = $state(false);
 	let error: string | undefined = $state();
 	let refusedIssues: readonly ValidationIssue[] = $state.raw([]);
 	const link = $derived(status.link);
+	const unchanged = $derived(published !== undefined && session.pack === publishedPack);
 	const ready = $derived(
-		link.linked && link.env === status.env && session.issues.length === 0 && !session.busy,
+		link.linked &&
+			link.env === status.env &&
+			session.issues.length === 0 &&
+			!session.busy &&
+			!unchanged,
 	);
 
 	async function publish(): Promise<void> {
@@ -34,9 +41,11 @@
 		error = undefined;
 		refusedIssues = [];
 		progress.push = undefined;
+		const pack = session.pack;
 		try {
 			await session.save();
 			published = (await api.push()).link;
+			publishedPack = pack;
 		} catch (caught) {
 			error = errorMessage(caught);
 			refusedIssues = caught instanceof ApiError ? caught.issues : [];
@@ -102,6 +111,9 @@
 		<div class="published" aria-live="polite">
 			<h3>Published</h3>
 			<p>Share this link, or scan the code with a phone that has Signal.</p>
+			{#if unchanged}
+				<p class="muted">Each publish makes a new pack, so change this one to publish it again.</p>
+			{/if}
 			<div class="link">
 				<a href={published} target="_blank" rel="noreferrer">{published}</a>
 				<button type="button" onclick={copyLink}>{copied ? "Copied" : "Copy link"}</button>

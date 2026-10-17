@@ -1,5 +1,6 @@
 import type { StatusResponse } from "@signal-stickers/server/api";
 import { fireEvent, render, screen } from "@testing-library/svelte";
+import { tick } from "svelte";
 import { describe, expect, it, vi } from "vitest";
 
 import PublishView from "../../src/components/PublishView.svelte";
@@ -40,6 +41,19 @@ describe("PublishView", () => {
 		expect(link.getAttribute("href")).toBe("https://signal.art/addstickers/#pack_id=new");
 		expect(api.savePack).toHaveBeenCalledWith({ ...CATS, title: "Dogs" });
 		expect(api.push).toHaveBeenCalledOnce();
+	});
+
+	it("publishes a pack once, until it changes", async () => {
+		const { session, publish } = renderPublish();
+
+		await fireEvent.click(publish);
+		await screen.findByRole("link");
+		expect(publish).toHaveProperty("disabled", true);
+		session.edit({ ...CATS, title: "Dogs" });
+		await tick();
+
+		expect(publish).toHaveProperty("disabled", false);
+		expect(screen.getByRole("link")).toBeTruthy();
 	});
 
 	it.each<[string, PublishOptions]>([
