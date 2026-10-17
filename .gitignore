@@ -11,3 +11,6 @@ pnpm-debug.log
 # Personal agent instructions and the local build plan
 AGENTS.local.md
 PLAN.md
+
+# Claude Code (settings, worktrees)
+/.claude/
