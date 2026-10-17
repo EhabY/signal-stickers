@@ -24,7 +24,11 @@ repo). Last verified against Signal-Desktop `8.34.0-alpha.1` on 2026-10-17.
 | Linking fails with "no longer accepts this version" (409)       | [Device link request](#device-link-request)      |
 | Linking fails with "rejected the link request's contents" (422) | [Device link request](#device-link-request)      |
 | The phone shows a garbled name for the device                   | [Device name](#device-name)                      |
-| `unlink` fails after the phone removed the device               | [Unlink](#unlink)                                |
+| Unlinking fails after the phone removed the device              | [Unlink](#unlink)                                |
+| `… returned an invalid upload form` when pushing                | [Upload form](#upload-form)                      |
+| `POST … failed with status 4xx` when pushing                    | [S3 upload](#s3-upload)                          |
+| Signal rejects a pack that passed validation, or the reverse    | [Sticker limits](#sticker-limits)                |
+| A pushed pack shows the wrong cover or images                   | [Pushed manifest](#pushed-manifest)              |
 
 ## Hosts
 
@@ -184,7 +188,43 @@ repo). Last verified against Signal-Desktop `8.34.0-alpha.1` on 2026-10-17.
 - `DELETE /v1/devices/{deviceId}` as `aci.deviceId`. A 401 or 403 counts as already unlinked,
   because the phone may have removed the device first.
 
-## Not implemented yet
+## Upload form
 
-Uploading packs will add `GET /v1/sticker/pack/form/{count}` and the S3 upload form field order;
-list them here when they land.
+- **Ours:** `packages/core/src/stickers/push.ts`
+- **Signal:** `ts/textsecure/WebAPI.preload.ts` (`StickerPackUploadFormSchema`, `putStickers`)
+- `GET /v1/sticker/pack/form/{count}` on the chat service as the linked device, where `count` is the
+  number of images including a separate cover. The reply is `{ packId, manifest, stickers }`, each
+  slot `{ key, credential, acl, algorithm, date, policy, signature }`. Slots pair with images by
+  position, as in `putStickers`; their `id` is not read.
+
+## S3 upload
+
+- **Ours:** `packages/core/src/net/cdn.ts` (`upload`)
+- **Signal:** `ts/textsecure/WebAPI.preload.ts` (`makePutParams`, `putStickers`)
+- `POST {cdn}/` with `multipart/form-data` and a boundary of 16 dashes and 32 hex characters. The
+  fields, in order: `key`, `x-amz-credential`, `acl`, `x-amz-algorithm`, `x-amz-date`, `policy`,
+  `x-amz-signature`, `Content-Type: application/octet-stream`, then the `file` part. The policy
+  fields are the only authentication.
+- The manifest goes first, then the images three at a time. Signal-Desktop sets no per-request
+  timeout; we allow 120 s per upload.
+
+## Pushed manifest
+
+- **Ours:** `packages/core/src/stickers/encryptPack.ts`
+- **Signal:** `sticker-creator/src/util/crypto.ts` (`encrypt`),
+  `sticker-creator/src/selectors/art.ts` (`selectUrl`)
+- A fresh random 32-byte pack key. Sticker ids are 0 to n-1 in pack order, with their emoji. The
+  cover reuses the first sticker with identical bytes, or else is an extra image with id
+  `stickers.length` and no emoji. Unlike the sticker creator, identical sticker images are uploaded
+  once per sticker, so ids always match the uploads.
+
+## Sticker limits
+
+- **Ours:** `packages/core/src/stickers/validate.ts` (`STICKER_LIMITS`, `validatePack`)
+- **Signal:** `sticker-creator/src/constants.ts`, `sticker-creator/src/selectors/art.ts`,
+  `sticker-creator/src/util/processImage.ts`, `sticker-creator/src/util/apng.ts`
+- 1 to 200 stickers of at most 300 KiB (300 × 1024 bytes) each. A title, an author, a cover, and an
+  emoji per sticker are required. Readers accept more stickers; see
+  [Pull semantics](#pull-semantics).
+- The creator uploads an APNG unchanged, so it must be square, 10x10 to 512x512, and loop forever
+  (`num_plays` 0). Any other image becomes a 512x512 WebP, so we require PNG and WebP to be 512x512.

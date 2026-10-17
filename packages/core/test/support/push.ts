@@ -3,9 +3,11 @@ import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { crc32 } from "node:zlib";
 
-import type { UploadForm } from "../../src/net/cdn.ts";
+import type { CdnClient, UploadForm } from "../../src/net/cdn.ts";
+import { HttpError } from "../../src/net/http.ts";
 import { writePack, type Pack } from "../../src/stickers/pack.ts";
 import { STICKER_LIMITS } from "../../src/stickers/validate.ts";
+import { fakeChat, type FakeChat } from "./chat.ts";
 import { tempDir } from "./tempDir.ts";
 
 /** Writes `pack.json` and `images` (by file name) into a fresh temporary pack folder. */
@@ -64,6 +66,9 @@ export function imageFixture(name: string): Uint8Array {
 	return readFileSync(join(import.meta.dirname, "../fixtures/images", name));
 }
 
+/** The pack id {@link fakeUploadChat} hands out. */
+export const NEW_PACK_ID = "0123456789abcdef0123456789abcdef";
+
 /** An S3 upload slot for `key` as the chat service hands it out. */
 export function uploadForm(key: string): UploadForm {
 	return {
@@ -74,6 +79,52 @@ export function uploadForm(key: string): UploadForm {
 		date: "20261017T000000Z",
 		policy: "cG9saWN5",
 		signature: "c2lnbmF0dXJl",
+	};
+}
+
+/** A chat service that answers `GET /v1/sticker/pack/form/{count}` with {@link stickerUploadForms}. */
+export function fakeUploadChat(): FakeChat {
+	return fakeChat(({ method, path }) => {
+		const count = /^\/v1\/sticker\/pack\/form\/(?<count>\d+)$/u.exec(path)?.groups?.count;
+		if (method !== "GET" || count === undefined) {
+			throw new HttpError(`${method} ${path} failed with status 404`, { status: 404 });
+		}
+		return stickerUploadForms(Number(count));
+	});
+}
+
+/** The chat service's answer to `GET /v1/sticker/pack/form/{count}`, for {@link NEW_PACK_ID}. */
+export function stickerUploadForms(count: number) {
+	return {
+		packId: NEW_PACK_ID,
+		manifest: uploadForm(`stickers/${NEW_PACK_ID}/manifest.proto`),
+		stickers: Array.from({ length: count }, (_, id) => ({
+			id,
+			...uploadForm(`stickers/${NEW_PACK_ID}/full/${id}`),
+		})),
+	};
+}
+
+export type CdnUpload = { form: UploadForm; data: Uint8Array };
+export type MemoryCdn = CdnClient & { uploads: CdnUpload[] };
+
+/** A CDN that serves each upload at its form's key, so `pullPack` reads back a pushed pack. */
+export function memoryCdn(): MemoryCdn {
+	const uploads: CdnUpload[] = [];
+	const serve = (key: string) => {
+		const upload = uploads.findLast(({ form }) => form.key === key);
+		return upload
+			? Promise.resolve(upload.data)
+			: Promise.reject(new HttpError("Not found", { status: 404 }));
+	};
+	return {
+		uploads,
+		getManifest: (packId) => serve(`stickers/${packId}/manifest.proto`),
+		getSticker: (packId, id) => serve(`stickers/${packId}/full/${id}`),
+		upload: (form, data) => {
+			uploads.push({ form, data });
+			return Promise.resolve();
+		},
 	};
 }
 
