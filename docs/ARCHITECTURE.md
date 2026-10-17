@@ -58,7 +58,8 @@ All requests use Signal's pinned CA (`net/signalCa.ts`); the default root store 
    the account's identity keys, aci, pni, number, and provisioning code.
 3. `registerDevice` (`account/register.ts`) generates a registration id, password, and signed
    prekeys (`account/keys.ts`), encrypts the device name (`account/deviceName.ts`), and sends
-   `PUT /v1/devices/link`.
+   `PUT /v1/devices/link`. Like Signal Desktop, it refuses a reply that names another ACI or PNI
+   than the phone sent.
 4. The front end saves the returned credentials with a `CredentialsStore`.
 
 Progress (`connecting`, `waitingForScan` with the QR URL, `registering`, `done`) carries no secrets,

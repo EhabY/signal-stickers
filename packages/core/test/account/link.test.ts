@@ -21,7 +21,7 @@ import {
 } from "../support/index.ts";
 
 type LinkSetup = Readonly<{
-	message?: ProvisionMessageProto;
+	message?: ProvisionMessageProto | undefined;
 	respond?: (request: ChatRequest) => unknown;
 }>;
 
@@ -133,6 +133,33 @@ describe("linkDevice", () => {
 		const { linking } = link({ respond: failWith(500) });
 
 		await expect(linking).rejects.toThrow(HttpError);
+	});
+
+	it.each([
+		["another PNI", undefined, { ...LINK_RESPONSE, pni: "11111111-2222-4333-8444-555555555555" }],
+		["a PNI the phone did not send", PROVISION_MESSAGE_WITHOUT_NUMBER, LINK_RESPONSE],
+	])("rejects a reply with %s, like Signal Desktop", async (_, message, reply) => {
+		const { linking } = link({ message, respond: () => reply });
+
+		await expect(linking).rejects.toThrow(LinkError);
+		await expect(linking).rejects.toThrow(
+			'different phone number identity (PNI) than your phone sent. Remove "signal-stickers"',
+		);
+	});
+
+	it("rejects a reply with another ACI, like Signal Desktop", async () => {
+		const reply = { ...LINK_RESPONSE, uuid: "11111111-2222-4333-8444-555555555555" };
+		const { linking } = link({ respond: () => reply });
+
+		await expect(linking).rejects.toThrow("different account (ACI) than your phone sent");
+	});
+
+	it("accepts the phone's PNI in upper case", async () => {
+		const { linking } = link({
+			respond: () => ({ ...LINK_RESPONSE, pni: LINKED_ACCOUNT.pni.toUpperCase() }),
+		});
+
+		await expect(linking).resolves.toMatchObject({ pni: LINKED_ACCOUNT.pni });
 	});
 
 	it("rejects an unexpected reply", async () => {

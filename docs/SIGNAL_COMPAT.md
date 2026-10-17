@@ -27,6 +27,7 @@ byte-identical images. If something breaks after that date, Signal changed it.
 | `DecryptionError` or "incomplete linking data" after a scan     | [Provisioning](#provisioning-cipher-and-message) |
 | Linking fails with "no longer accepts this version" (409)       | [Device link request](#device-link-request)      |
 | Linking fails with "rejected the link request's contents" (422) | [Device link request](#device-link-request)      |
+| Linking fails with "a different account (ACI)" or "(PNI)"       | [Device link request](#device-link-request)      |
 | The phone shows a garbled name for the device                   | [Device name](#device-name)                      |
 | Unlinking fails after the phone removed the device              | [Unlink](#unlink)                                |
 | `… returned an invalid upload form` when pushing                | [Upload form](#upload-form)                      |
@@ -153,12 +154,16 @@ byte-identical images. If something breaks after that date, Signal changed it.
 - **Signal:** `ts/textsecure/WebAPI.preload.ts` (`linkDevice`, `linkDeviceResultZod`,
   `serializeSignedPreKey`), `ts/util/getCapabilities.std.ts`, `ts/Crypto.node.ts`
   (`generateRegistrationId`), `ts/Curve.node.ts` (`generateSignedPreKey`, `generateKyberPreKey`),
-  `ts/textsecure/AccountManager.preload.ts`
+  `ts/textsecure/AccountManager.preload.ts` (`createAccount`)
 - `PUT /v1/devices/link` with Basic auth `aci:password`, where the password is base64 of 16 random
   bytes without its last 2 characters. The body, in Signal-Desktop's order: `verificationCode`,
   `accountAttributes` (`fetchesMessages: true`, `name`, `registrationId`, `pniRegistrationId` when
   the phone shares its number, `capabilities`), `aciSignedPreKey`, `aciPqLastResortPreKey`, and the
   PNI prekeys when there is a number. The reply is `{ uuid, pni?, deviceId }`.
+- As in `createAccount`, the reply's `uuid` must be the ACI the phone provisioned, and its `pni`,
+  when present, the PNI the phone provisioned (the reply's is untagged). Otherwise Signal has
+  already added the device, so linking fails and tells the user to remove `signal-stickers` on the
+  phone before linking again.
 - `fetchesMessages` must be `true`: Signal-Server's
   `LinkDeviceRequest.isExactlyOneMessageDeliveryChannel` accepts a device only if it fetches
   messages or has exactly one APNs/FCM push token, and answers 422 otherwise (confirmed against

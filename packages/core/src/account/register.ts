@@ -79,6 +79,7 @@ export async function registerDevice({
 		})
 		.catch(explainLinkFailure);
 	const { aci, pni, deviceId } = parseLinkResponse(response);
+	assertLinkedAccount(account, { aci, pni });
 	return {
 		env,
 		aci,
@@ -140,5 +141,27 @@ function parseLinkResponse(value: unknown): {
 	) {
 		throw new LinkError("Signal sent an unexpected reply to the link request. Try again.");
 	}
-	return { aci: value.uuid.toLowerCase(), pni: value.pni ?? undefined, deviceId: value.deviceId };
+	return { aci: value.uuid.toLowerCase(), pni: value.pni?.toLowerCase(), deviceId: value.deviceId };
+}
+
+/**
+ * Like Signal Desktop's `createAccount`: a PNI in the reply must be the one the phone sent, and its
+ * ACI the phone's. Signal has already added the device, so the user removes it before linking again.
+ */
+function assertLinkedAccount(
+	account: ProvisionedAccount,
+	{ aci, pni }: { aci: string; pni: string | undefined },
+): void {
+	const removeDevice =
+		'Remove "signal-stickers" from Linked devices on your phone, then link again.';
+	if (pni !== undefined && pni !== account.phoneNumber?.pni) {
+		throw new LinkError(
+			`Signal linked this device to a different phone number identity (PNI) than your phone sent. ${removeDevice}`,
+		);
+	}
+	if (aci !== account.aci) {
+		throw new LinkError(
+			`Signal linked this device to a different account (ACI) than your phone sent. ${removeDevice}`,
+		);
+	}
 }
