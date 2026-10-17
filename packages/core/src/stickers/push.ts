@@ -37,8 +37,8 @@ export async function pushPack({
 	signal,
 	onProgress,
 }: PushOptions): Promise<PushResult> {
-	const { pack, images } = await readPackFolder(dir);
-	const issues = validatePack(pack, images);
+	const { pack, images, oversizedImages } = await readPackFolder(dir);
+	const issues = validatePack(pack, images, oversizedImages);
 	if (issues.length > 0) {
 		throw new PackValidationError(issues);
 	}

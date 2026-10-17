@@ -75,7 +75,6 @@ export function readImageInfo(bytes: Uint8Array): ImageInfo | undefined {
  * Signal's sticker creator.
  */
 export function validateImage(file: string, bytes: Uint8Array): ValidationIssue[] {
-	const { maxBytes } = STICKER_LIMITS;
 	const issues: ValidationIssue[] = [];
 	const info = readImageInfo(bytes);
 	const sizeRule = info && brokenSizeRule(info);
@@ -91,12 +90,8 @@ export function validateImage(file: string, bytes: Uint8Array): ValidationIssue[
 	if (info?.plays !== undefined && info.plays !== 0) {
 		issues.push({ code: "mustLoopForever", file, message: `${file} must loop forever` });
 	}
-	if (bytes.length > maxBytes) {
-		issues.push({
-			code: "tooLarge",
-			file,
-			message: `${file} is ${kibibytes(bytes.length)} KiB; stickers must be at most ${kibibytes(maxBytes)} KiB`,
-		});
+	if (bytes.length > STICKER_LIMITS.maxBytes) {
+		issues.push(tooLarge(file, bytes.length));
 	}
 	return issues;
 }
@@ -104,11 +99,12 @@ export function validateImage(file: string, bytes: Uint8Array): ValidationIssue[
 /**
  * Checks a pack for push: title, author, sticker count, an emoji per sticker, every image it names
  * (the cover included), and that no two stickers share an image. `images` maps file names to their
- * bytes; a missing entry is reported.
+ * bytes, and `oversizedImages` to the length of those too large to read; others are missing.
  */
 export function validatePack(
 	pack: Pack,
 	images: ReadonlyMap<string, Uint8Array>,
+	oversizedImages: ReadonlyMap<string, number> = new Map(),
 ): ValidationIssue[] {
 	const { minStickers, maxStickers } = STICKER_LIMITS;
 	const issues: ValidationIssue[] = [];
@@ -137,10 +133,13 @@ export function validatePack(
 	}
 	for (const file of packImageFiles(pack)) {
 		const bytes = images.get(file);
+		const oversizedLength = oversizedImages.get(file);
 		if (bytes) {
 			issues.push(...validateImage(file, bytes));
-		} else {
+		} else if (oversizedLength === undefined) {
 			issues.push({ code: "missingImage", file, message: `${file} is missing` });
+		} else {
+			issues.push(tooLarge(file, oversizedLength));
 		}
 	}
 	issues.push(...findDuplicateImages(pack, images));
@@ -250,6 +249,12 @@ function brokenSizeRule({ width, height, plays }: ImageInfo): string | undefined
 	return width === height && width >= minAnimatedSize && width <= size
 		? undefined
 		: `animated stickers must be square, from ${minAnimatedSize}x${minAnimatedSize} to ${size}x${size}`;
+}
+
+function tooLarge(file: string, length: number): ValidationIssue {
+	const limit = kibibytes(STICKER_LIMITS.maxBytes);
+	const message = `${file} is ${kibibytes(length)} KiB; stickers must be at most ${limit} KiB`;
+	return { code: "tooLarge", file, message };
 }
 
 function kibibytes(bytes: number): number {

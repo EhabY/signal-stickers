@@ -82,9 +82,9 @@ goes through `getLinkStatus`, which drops it.
 
 `pushPack` (`stickers/push.ts`) uploads a pack folder as a new pack:
 
-1. Read `pack.json` and its images (`stickers/validateFolder.ts`) and check them against Signal's
-   limits (`stickers/validate.ts`). Any issue throws a `PackValidationError` listing all of them,
-   before any request.
+1. Read `pack.json` and its images (`stickers/validateFolder.ts`), leaving any over the size limit
+   unread, and check them against Signal's limits (`stickers/validate.ts`). Any issue throws a
+   `PackValidationError` listing all of them, before any request.
 2. Build and encrypt the manifest and images under a fresh pack key (`stickers/encryptPack.ts`). The
    cover reuses a sticker's id when it is the same image, as Signal's sticker creator does.
 3. Ask the chat service for upload forms: `GET /v1/sticker/pack/form/{count}`.

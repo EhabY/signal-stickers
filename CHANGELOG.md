@@ -22,5 +22,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Keep saved credentials private to your Windows user on every setup
 - Refuse a link whose account differs from the one the phone sent
 - Refuse to push a pack where two stickers share an image
+- Reject oversized sticker files without loading them
 
 
