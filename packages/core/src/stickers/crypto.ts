@@ -1,11 +1,12 @@
 import {
 	createCipheriv,
 	createDecipheriv,
-	createHmac,
 	hkdfSync,
 	randomBytes,
 	timingSafeEqual,
 } from "node:crypto";
+
+import { hmacSha256 } from "../util/hmacSha256.ts";
 
 export class DecryptionError extends Error {
 	override name = "DecryptionError";
@@ -30,7 +31,7 @@ export function encryptAttachment(plaintext: Uint8Array, { aesKey, macKey }: Pac
 	const iv = randomBytes(IV_SIZE);
 	const cipher = createCipheriv("aes-256-cbc", aesKey, iv);
 	const body = Buffer.concat([iv, cipher.update(plaintext), cipher.final()]);
-	return Buffer.concat([body, hmac(macKey, body)]);
+	return Buffer.concat([body, hmacSha256(macKey, body)]);
 }
 
 export function decryptAttachment(data: Uint8Array, { aesKey, macKey }: PackKeys): Uint8Array {
@@ -38,7 +39,7 @@ export function decryptAttachment(data: Uint8Array, { aesKey, macKey }: PackKeys
 		throw new DecryptionError("Attachment is too short");
 	}
 	const body = data.subarray(0, -MAC_SIZE);
-	if (!timingSafeEqual(hmac(macKey, body), data.subarray(-MAC_SIZE))) {
+	if (!timingSafeEqual(hmacSha256(macKey, body), data.subarray(-MAC_SIZE))) {
 		throw new DecryptionError("Attachment MAC does not match");
 	}
 	try {
@@ -47,8 +48,4 @@ export function decryptAttachment(data: Uint8Array, { aesKey, macKey }: PackKeys
 	} catch (error) {
 		throw new DecryptionError("Attachment could not be decrypted", { cause: error });
 	}
-}
-
-function hmac(key: Uint8Array, data: Uint8Array): Buffer {
-	return createHmac("sha256", key).update(data).digest();
 }
