@@ -13,6 +13,7 @@ describe("cli", () => {
 		["no command", []],
 		["an unknown command", ["frobnicate"]],
 		["an unknown option", ["pull", "--nope"]],
+		["an unexpected argument", ["status", "now"]],
 	])("fails with usage for %s", async (_, args) => {
 		const { code, stderr } = await runCli(args);
 

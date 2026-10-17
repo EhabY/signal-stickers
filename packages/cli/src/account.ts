@@ -1,0 +1,140 @@
+import {
+	createCredentialsStore,
+	credentialsWarning,
+	getLinkStatus,
+	linkDevice,
+	unlinkDevice,
+	type Credentials,
+	type CredentialsStore,
+	type Environment,
+	type LinkProgress,
+} from "@signal-stickers/core";
+
+import { assertNoArguments, terminalQr, type CliContext, type Output } from "./context.ts";
+
+const STEP_LINES: Record<Exclude<LinkProgress["step"], "waitingForScan">, string> = {
+	connecting: "Connecting\n",
+	registering: "Registering this device\n",
+	done: "",
+};
+const SCAN_INSTRUCTIONS =
+	"Scan this code in the Signal app on your phone: Settings > Linked devices > Link new device";
+
+/** Links this tool as a new device and saves its credentials, unless it is already linked. */
+export async function link(
+	args: readonly string[],
+	env: Environment,
+	{
+		stdout,
+		stderr,
+		signal,
+		createChat,
+		credentialsStore,
+		linkDevice: linkNewDevice = linkDevice,
+	}: CliContext,
+): Promise<void> {
+	assertNoArguments("link", args);
+	const store = credentialsStore ?? createCredentialsStore();
+	const saved = await store.load();
+	if (saved) {
+		throw new Error(
+			`Already linked to Signal ${saved.env} as device ${saved.deviceId}. Run "signal-stickers unlink" first.`,
+		);
+	}
+	stderr.write(`Linking to Signal ${env}\n`);
+	const credentials = await withLinkProgress(stderr, (onProgress) =>
+		linkNewDevice({ env, createChat, signal, onProgress }),
+	);
+	await saveLinked(store, credentials);
+	stdout.write(`Linked to Signal ${env} as device ${credentials.deviceId}\n`);
+	stderr.write(`${credentialsWarning(store.path)}\n`);
+}
+
+/** Prints which account and environment this tool is linked to, never the password. */
+export async function status(
+	args: readonly string[],
+	_env: Environment,
+	{ stdout, credentialsStore }: CliContext,
+): Promise<void> {
+	assertNoArguments("status", args);
+	const store = credentialsStore ?? createCredentialsStore();
+	const linkStatus = getLinkStatus(await store.load());
+	if (!linkStatus.linked) {
+		stdout.write(`Not linked. Run "signal-stickers link" to link this tool as a Signal device.\n`);
+		return;
+	}
+	const { env, deviceId, aci, number, createdAt } = linkStatus;
+	const lines = [
+		`Linked to Signal ${env} as device ${deviceId}`,
+		`Account: ${aci}`,
+		...(number === undefined ? [] : [`Phone number: ${number}`]),
+		`Linked at: ${createdAt}`,
+		`Credentials: ${store.path}`,
+	];
+	stdout.write(lines.map((line) => `${line}\n`).join(""));
+}
+
+/**
+ * Removes this device from the account, in the environment it was linked in whatever `--staging`
+ * says, then deletes its saved credentials.
+ */
+export async function unlink(
+	args: readonly string[],
+	_env: Environment,
+	{
+		stdout,
+		stderr,
+		signal,
+		createChat,
+		credentialsStore,
+		unlinkDevice: removeDevice = unlinkDevice,
+	}: CliContext,
+): Promise<void> {
+	assertNoArguments("unlink", args);
+	const store = credentialsStore ?? createCredentialsStore();
+	const credentials = await store.load();
+	if (!credentials) {
+		stdout.write("Not linked\n");
+		return;
+	}
+	stderr.write(`Unlinking device ${credentials.deviceId} from Signal ${credentials.env}\n`);
+	await removeDevice({ credentials, createChat, signal });
+	await store.delete();
+	stdout.write(`Unlinked and deleted ${store.path}\n`);
+}
+
+/** Runs `start`, printing its steps in order even though QR codes render asynchronously. */
+async function withLinkProgress<T>(
+	output: Output,
+	start: (onProgress: (progress: LinkProgress) => void) => Promise<T>,
+): Promise<T> {
+	let printed: Promise<unknown> = Promise.resolve();
+	try {
+		return await start((progress) => {
+			printed = printed.then(() => describeLinkStep(progress)).then((text) => output.write(text));
+			// The finally block reports a failed print; this only stops Node flagging it as unhandled.
+			printed.catch(() => null);
+		});
+	} finally {
+		await printed;
+	}
+}
+
+async function saveLinked(store: CredentialsStore, credentials: Credentials): Promise<void> {
+	try {
+		await store.save(credentials);
+	} catch (error) {
+		const reason = error instanceof Error ? error.message : String(error);
+		throw new Error(
+			`Linked, but could not save the credentials to ${store.path} (${reason}). Remove "signal-stickers" from Linked devices on your phone, then link again.`,
+			{ cause: error },
+		);
+	}
+}
+
+async function describeLinkStep(progress: LinkProgress): Promise<string> {
+	if (progress.step === "waitingForScan") {
+		return `${await terminalQr(progress.qrUrl)}\n${SCAN_INSTRUCTIONS}\n`;
+	}
+	return STEP_LINES[progress.step];
+}

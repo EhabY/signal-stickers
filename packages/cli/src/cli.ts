@@ -2,18 +2,31 @@ import { parseArgs } from "node:util";
 
 import { ENVIRONMENTS, isEnvironment, type Environment } from "@signal-stickers/core";
 
+import { link, status, unlink } from "./account.ts";
 import { UsageError, type CliContext } from "./context.ts";
 import { pull } from "./pull.ts";
 
 export const USAGE = `Usage: signal-stickers <command> [options]
 
 Commands:
+  link                Link this tool as a device of your Signal account
   pull <link> [dir]   Download and decrypt a sticker pack into dir (default: ./pack)
+  status              Show which account this tool is linked to
+  unlink              Remove this device from your account and delete its credentials
 
 Options:
   --staging           Use Signal's staging servers (or SIGNAL_STICKERS_ENV=staging)
   -h, --help          Show this help
 `;
+
+type Command = (args: readonly string[], env: Environment, context: CliContext) => Promise<void>;
+
+const COMMANDS = new Map<string, Command>([
+	["link", link],
+	["pull", pull],
+	["status", status],
+	["unlink", unlink],
+]);
 
 /** Runs the CLI and returns the process exit code. */
 export async function run(args: readonly string[], context: CliContext): Promise<number> {
@@ -29,15 +42,15 @@ export async function run(args: readonly string[], context: CliContext): Promise
 			return 0;
 		}
 		const env = resolveEnvironment(values.staging, context.env);
-		switch (command) {
-			case "pull":
-				await pull(rest, env, context);
-				return 0;
-			case undefined:
-				throw new UsageError("Missing command");
-			default:
-				throw new UsageError(`Unknown command: ${command}`);
+		if (command === undefined) {
+			throw new UsageError("Missing command");
 		}
+		const runCommand = COMMANDS.get(command);
+		if (!runCommand) {
+			throw new UsageError(`Unknown command: ${command}`);
+		}
+		await runCommand(rest, env, context);
+		return 0;
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
 		context.stderr.write(`Error: ${message}\n`);

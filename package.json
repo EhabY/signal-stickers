@@ -12,12 +12,15 @@
 		"dev": "pnpm --filter web dev",
 		"format": "node scripts/run-tool.ts oxfmt --write .",
 		"format:check": "node scripts/run-tool.ts oxfmt --check .",
+		"link": "node packages/cli/src/main.ts link",
 		"lint": "node scripts/run-tool.ts oxlint --type-aware .",
 		"lint:fix": "node scripts/run-tool.ts oxlint --type-aware --fix .",
 		"pull": "node packages/cli/src/main.ts pull",
+		"status": "node packages/cli/src/main.ts status",
 		"test": "vitest run",
 		"test:coverage": "vitest run --coverage",
 		"typecheck": "concurrently -g -n root,packages \"tsc --noEmit\" \"pnpm -r --parallel typecheck\"",
+		"unlink": "node packages/cli/src/main.ts unlink",
 		"watch": "pnpm -r --parallel watch"
 	},
 	"devDependencies": {

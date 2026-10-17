@@ -10,5 +10,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - Add `pull` to download and decrypt a sticker pack from its link
+- Add `link`, `status`, and `unlink` to manage the linked device
 
 

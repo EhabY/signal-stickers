@@ -1,4 +1,13 @@
-import { createCdnClient, type CdnClient, type Environment } from "@signal-stickers/core";
+import {
+	createCdnClient,
+	type CdnClient,
+	type ChatClientFactory,
+	type CredentialsStore,
+	type Environment,
+	type linkDevice,
+	type unlinkDevice,
+} from "@signal-stickers/core";
+import { toString as renderQr } from "qrcode";
 
 export type Output = { write(text: string): unknown; isTTY?: boolean };
 
@@ -11,6 +20,11 @@ export type CliContext = Readonly<{
 	cwd: string;
 	signal?: AbortSignal;
 	createCdn?: (env: Environment) => CdnClient;
+	createChat?: ChatClientFactory;
+	/** Defaults to the tool's own config directory. */
+	credentialsStore?: CredentialsStore;
+	linkDevice?: typeof linkDevice;
+	unlinkDevice?: typeof unlinkDevice;
 }>;
 
 export function defaultCdn(env: Environment): CdnClient {
@@ -19,6 +33,12 @@ export function defaultCdn(env: Environment): CdnClient {
 
 /** A mistake in the command line; the CLI prints the usage after it. */
 export class UsageError extends Error {}
+
+export function assertNoArguments(command: string, args: readonly string[]): void {
+	if (args.length > 0) {
+		throw new UsageError(`Usage: ${command}`);
+	}
+}
 
 /** On a terminal, redraws one line in place; elsewhere, prints a line per update. */
 export function progressLine(output: Output, verb: string) {
@@ -40,4 +60,9 @@ export function progressLine(output: Output, verb: string) {
 			}
 		},
 	};
+}
+
+/** Renders `text` as a QR code of half-block characters for a terminal. */
+export function terminalQr(text: string): Promise<string> {
+	return renderQr(text, { type: "terminal", small: true });
 }

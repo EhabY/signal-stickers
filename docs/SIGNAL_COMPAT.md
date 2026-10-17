@@ -188,6 +188,15 @@ repo). Last verified against Signal-Desktop `8.34.0-alpha.1` on 2026-10-17.
 - `DELETE /v1/devices/{deviceId}` as `aci.deviceId`. A 401 or 403 counts as already unlinked,
   because the phone may have removed the device first.
 
+## Linking instructions
+
+- **Ours:** `packages/cli/src/account.ts` (`SCAN_INSTRUCTIONS`, and the advice when saving fails)
+- **Signal:** `_locales/en/messages.json` (`icu:Install__scan-this-code`,
+  `icu:Install__instructions__1` to `__3`)
+- We tell users to scan in Settings > Linked devices > Link new device, and to remove
+  `signal-stickers` there when linking half-fails. If the phone app renames these screens, update
+  the wording.
+
 ## Upload form
 
 - **Ours:** `packages/core/src/stickers/push.ts`

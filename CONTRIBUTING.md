@@ -9,17 +9,20 @@ pnpm install
 
 ## Everyday commands
 
-| Command                             | What it does                            |
-| ----------------------------------- | --------------------------------------- |
-| `pnpm build` / `pnpm watch`         | Build the CLI bundle and the web app    |
-| `pnpm dev`                          | Run the web app's dev server            |
-| `pnpm pull <link> [dir]`            | Run the CLI from source                 |
-| `pnpm test` / `pnpm test:coverage`  | Run all tests, optionally with coverage |
-| `pnpm typecheck`                    | TypeScript 7 and svelte-check           |
-| `pnpm lint` / `pnpm lint:fix`       | Oxlint, type-aware                      |
-| `pnpm format` / `pnpm format:check` | Oxfmt                                   |
-| `pnpm changelog`                    | Regenerate `CHANGELOG.md` from commits  |
-| `pnpm clean`                        | Remove `node_modules` and build output  |
+| Command                                             | What it does                              |
+| --------------------------------------------------- | ----------------------------------------- |
+| `pnpm build` / `pnpm watch`                         | Build the CLI bundle and the web app      |
+| `pnpm dev`                                          | Run the web app's dev server              |
+| `pnpm pull <link> [dir]`                            | Run the CLI from source                   |
+| `pnpm run link` / `pnpm status` / `pnpm run unlink` | Link, inspect, or unlink the CLI's device |
+| `pnpm test` / `pnpm test:coverage`                  | Run all tests, optionally with coverage   |
+| `pnpm typecheck`                                    | TypeScript 7 and svelte-check             |
+| `pnpm lint` / `pnpm lint:fix`                       | Oxlint, type-aware                        |
+| `pnpm format` / `pnpm format:check`                 | Oxfmt                                     |
+| `pnpm changelog`                                    | Regenerate `CHANGELOG.md` from commits    |
+| `pnpm clean`                                        | Remove `node_modules` and build output    |
+
+`pnpm link` and `pnpm unlink` are pnpm built-ins, so those two need `pnpm run`.
 
 Run typecheck, lint, format check, and the affected tests before opening a pull request.
 
