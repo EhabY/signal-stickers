@@ -17,6 +17,7 @@
 		"lint:fix": "node scripts/run-tool.ts oxlint --type-aware --fix .",
 		"pull": "node packages/cli/src/main.ts pull",
 		"push": "node packages/cli/src/main.ts push",
+		"start": "pnpm --filter web build && node packages/server/src/main.ts",
 		"status": "node packages/cli/src/main.ts status",
 		"test": "vitest run",
 		"test:coverage": "vitest run --coverage",

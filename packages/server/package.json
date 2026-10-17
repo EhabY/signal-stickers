@@ -10,6 +10,8 @@
 		"./api": "./src/api.ts"
 	},
 	"scripts": {
+		"dev": "node src/main.ts --port 5174 --allow-origin http://localhost:5173 --no-open",
+		"start": "node src/main.ts",
 		"test": "vitest run --project server --root ../..",
 		"typecheck": "tsc --noEmit"
 	},

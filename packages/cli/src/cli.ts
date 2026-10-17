@@ -1,9 +1,9 @@
 import { parseArgs } from "node:util";
 
 import {
-	ENVIRONMENTS,
-	isEnvironment,
 	PackValidationError,
+	resolveEnvironment,
+	UnknownEnvironmentError,
 	type Environment,
 } from "@signal-stickers/core";
 
@@ -61,25 +61,15 @@ export async function run(args: readonly string[], context: CliContext): Promise
 		return 0;
 	} catch (error) {
 		context.stderr.write(`Error: ${describeError(error)}\n`);
-		if (error instanceof UsageError || isParseArgsError(error)) {
+		if (
+			error instanceof UsageError ||
+			error instanceof UnknownEnvironmentError ||
+			isParseArgsError(error)
+		) {
 			context.stderr.write(`\n${USAGE}`);
 		}
 		return 1;
 	}
-}
-
-function resolveEnvironment(staging: boolean | undefined, env: CliContext["env"]): Environment {
-	if (staging === true) {
-		return "staging";
-	}
-	const value = env.SIGNAL_STICKERS_ENV;
-	if (value === undefined || value === "") {
-		return "production";
-	}
-	if (!isEnvironment(value)) {
-		throw new UsageError(`SIGNAL_STICKERS_ENV must be one of: ${ENVIRONMENTS.join(", ")}`);
-	}
-	return value;
 }
 
 function describeError(error: unknown): string {
