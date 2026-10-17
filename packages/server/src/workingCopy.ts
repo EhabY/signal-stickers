@@ -27,8 +27,11 @@ export type WorkingCopy = Readonly<{
 	readImage(file: string): Promise<Uint8Array>;
 	/** Saves a PNG or WebP image as a new sticker without an emoji. */
 	addSticker(image: Uint8Array): Promise<{ pack: Pack; file: string }>;
-	/** Removes a sticker, and its image unless the pack still uses it. */
-	removeSticker(file: string): Promise<Pack>;
+	/**
+	 * Removes the sticker at `index` when its image is `file`, and the image unless the pack still
+	 * uses it.
+	 */
+	removeSticker(index: number, file: string): Promise<Pack>;
 	/** Saves a PNG or WebP image as the separate cover, removing the previous separate cover. */
 	setCover(image: Uint8Array): Promise<Pack>;
 	/** Lets `fill` write a fresh sibling folder and swaps it in only when `fill` succeeds. */
@@ -45,7 +48,7 @@ export function createWorkingCopy(dir: string): WorkingCopy {
 		update: (value) => serialize(() => updatePack(dir, value)),
 		readImage: (file) => readImage(dir, file),
 		addSticker: (image) => serialize(() => addSticker(dir, image)),
-		removeSticker: (file) => serialize(() => removeSticker(dir, file)),
+		removeSticker: (index, file) => serialize(() => removeSticker(dir, index, file)),
 		setCover: (image) => serialize(() => setCover(dir, image)),
 		replace: (fill) => serialize(() => replaceFolder(dir, fill)),
 		whileLocked: serialize,
@@ -122,15 +125,15 @@ async function nextImageNumber(dir: string): Promise<string> {
 	return String(Math.max(0, ...numbers) + 1).padStart(3, "0");
 }
 
-async function removeSticker(dir: string, file: string): Promise<Pack> {
+async function removeSticker(dir: string, index: number, file: string): Promise<Pack> {
 	const pack = await readWorkingPack(dir);
-	const index = pack.stickers.findIndex((sticker) => sticker.file === file);
-	if (index === -1) {
-		throw new ApiError(404, `${file} is not a sticker in the pack`);
+	if (pack.stickers[index]?.file !== file) {
+		throw new ApiError(404, `${file} is not sticker ${index + 1} in the pack`);
 	}
 	const stickers = pack.stickers.toSpliced(index, 1);
 	const [first] = stickers;
-	const cover = pack.cover === file && first ? first.file : pack.cover;
+	const coverRemoved = pack.cover === file && !stickers.some((sticker) => sticker.file === file);
+	const cover = coverRemoved && first ? first.file : pack.cover;
 	const updated = { ...pack, cover, stickers };
 	await writePack(dir, updated);
 	if (!packImageFiles(updated).includes(file)) {

@@ -1,6 +1,6 @@
 import type { ApiRoute } from "./api.ts";
 import { ApiError } from "./errors.ts";
-import type { ApiHandlers } from "./routes.ts";
+import type { ApiHandlers, RouteRequest } from "./routes.ts";
 
 export type Handler = ApiHandlers[ApiRoute];
 
@@ -27,6 +27,24 @@ export function createRouter(handlers: ApiHandlers): Router {
 		}
 		throw new ApiError(404, "Not found");
 	};
+}
+
+/** A `:name` segment of the matched route, which the router only matches when the path has it. */
+export function routeParam({ params }: RouteRequest, name: string): string {
+	const value = params[name];
+	if (value === undefined) {
+		throw new Error(`The route has no :${name} parameter`);
+	}
+	return value;
+}
+
+/** Like {@link routeParam}, answering 400 unless the segment is a whole number. */
+export function wholeNumberParam(request: RouteRequest, name: string): number {
+	const value = routeParam(request, name);
+	if (!/^\d+$/u.test(value)) {
+		throw new ApiError(400, `${name} must be a whole number, not ${value}`);
+	}
+	return Number(value);
 }
 
 function matchSegments(

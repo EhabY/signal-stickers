@@ -43,9 +43,9 @@ describe("createApi", () => {
 	it("encodes file names into sticker paths", async () => {
 		const { api, fetch } = serve(packResponse());
 
-		await api.removeSticker("my cat#1.png");
+		await api.removeSticker(2, "my cat#1.png");
 
-		expect(fetch.mock.calls[0]?.[0]).toBe("/api/pack/sticker/my%20cat%231.png");
+		expect(fetch.mock.calls[0]?.[0]).toBe("/api/pack/sticker/2/my%20cat%231.png");
 		expect(api.stickerUrl("my cat#1.png", 3)).toBe("/api/pack/sticker/my%20cat%231.png?v=3");
 	});
 

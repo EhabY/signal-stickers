@@ -15,6 +15,7 @@ function renderEditor({
 	issues = [],
 }: { pack?: Pack; issues?: ValidationIssue[] } = {}) {
 	const onchange = vi.fn<(pack: Pack) => void>();
+	const onremove = vi.fn<(index: number, file: string) => void>();
 	const oncover = vi.fn<(image: File) => void>();
 	render(Editor, {
 		pack,
@@ -23,10 +24,10 @@ function renderEditor({
 		imageUrl: (file) => `/stickers/${file}`,
 		onchange,
 		onadd: vi.fn<(images: File[]) => void>(),
-		onremove: vi.fn<(file: string) => void>(),
+		onremove,
 		oncover,
 	});
-	return { oncover, changed: () => onchange.mock.lastCall?.[0] };
+	return { onremove, oncover, changed: () => onchange.mock.lastCall?.[0] };
 }
 
 /** The text of what `aria-describedby` points at. */
@@ -60,6 +61,15 @@ describe("Editor", () => {
 		renderEditor({ pack: { ...CATS, stickers } });
 
 		expect(stickerCards()).toHaveLength(2);
+	});
+
+	it("removes the sticker clicked when stickers share an image", async () => {
+		const stickers = [{ file: "001.png" }, { file: "001.png", emoji: "😺" }];
+		const { onremove } = renderEditor({ pack: { ...CATS, stickers } });
+
+		await fireEvent.click(screen.getByRole("button", { name: "Remove sticker 2" }));
+
+		expect(onremove).toHaveBeenCalledWith(1, "001.png");
 	});
 
 	it("moves a sticker with its arrow buttons", async () => {

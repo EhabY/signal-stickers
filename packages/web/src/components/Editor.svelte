@@ -11,7 +11,7 @@
 		disabled?: boolean;
 		onchange: (pack: Pack) => void;
 		onadd: (images: File[]) => void;
-		onremove: (file: string) => void;
+		onremove: (index: number, file: string) => void;
 		oncover: (image: File) => void;
 	};
 

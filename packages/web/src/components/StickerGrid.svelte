@@ -11,7 +11,7 @@
 		imageUrl: (file: string) => string;
 		disabled?: boolean;
 		onchange: (pack: Pack) => void;
-		onremove: (file: string) => void;
+		onremove: (index: number, file: string) => void;
 	};
 
 	let { pack, issues, imageUrl, disabled = false, onchange, onremove }: Props = $props();
@@ -181,7 +181,7 @@
 					aria-label="Remove sticker {number}"
 					{disabled}
 					onclick={() => {
-						onremove(sticker.file);
+						onremove(index, sticker.file);
 					}}>&times;</button
 				>
 			</div>

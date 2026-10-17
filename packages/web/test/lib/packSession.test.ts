@@ -65,10 +65,10 @@ describe("PackSession", () => {
 		await expect(editing.save()).rejects.toThrow("offline");
 
 		editing.load(packResponse());
-		await editing.remove("003.webp");
+		await editing.remove(2, "003.webp");
 
 		expect(api.savePack).toHaveBeenCalledOnce();
-		expect(api.removeSticker).toHaveBeenCalledWith("003.webp");
+		expect(api.removeSticker).toHaveBeenCalledWith(2, "003.webp");
 		expect([editing.saveError, editing.error]).toEqual([undefined, undefined]);
 	});
 

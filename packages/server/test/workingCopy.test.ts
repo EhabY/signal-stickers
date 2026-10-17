@@ -200,7 +200,7 @@ describe("pack editing", () => {
 	it("removes a sticker and its image, moving the cover to the next sticker", async () => {
 		const server = await servePack();
 
-		const reply = await server.send("DELETE", "/api/pack/sticker/001.png");
+		const reply = await server.send("DELETE", "/api/pack/sticker/0/001.png");
 
 		const remaining = { ...PACK, cover: "002.png", stickers: PACK.stickers.slice(1) };
 		expect(reply).toEqual({ status: 200, body: { pack: remaining, issues: [] } });
@@ -211,7 +211,7 @@ describe("pack editing", () => {
 		const server = await servePack();
 		await server.send("PUT", "/api/pack", { ...PACK, cover: "002.png" });
 
-		const reply = await server.send("DELETE", "/api/pack/sticker/002.png");
+		const reply = await server.send("DELETE", "/api/pack/sticker/1/002.png");
 
 		const remaining = { ...PACK, cover: "001.png", stickers: PACK.stickers.slice(0, 1) };
 		expect(reply).toEqual({ status: 200, body: { pack: remaining, issues: [] } });
@@ -221,12 +221,32 @@ describe("pack editing", () => {
 
 	it("keeps the image of a removed sticker that is still the cover", async () => {
 		const server = await servePack();
-		await server.send("DELETE", "/api/pack/sticker/002.png");
+		await server.send("DELETE", "/api/pack/sticker/1/002.png");
 
-		const reply = await server.send("DELETE", "/api/pack/sticker/001.png");
+		const reply = await server.send("DELETE", "/api/pack/sticker/0/001.png");
 
 		expect(reply).toMatchObject({ body: { pack: { cover: "001.png", stickers: [] } } });
 		expect(await readdir(server.packDir)).toEqual(["001.png", "pack.json"]);
+	});
+
+	it("removes the sticker at its position when stickers share an image", async () => {
+		const stickers = [{ file: "002.png" }, { file: "001.png", emoji: "😀" }, PACK.stickers[0]!];
+		const server = await servePack({ pack: { ...PACK, stickers } });
+
+		const reply = await server.send("DELETE", "/api/pack/sticker/2/001.png");
+
+		expect(reply).toMatchObject({ body: { pack: { ...PACK, stickers: stickers.slice(0, 2) } } });
+		expect(await readdir(server.packDir)).toEqual(["001.png", "002.png", "pack.json"]);
+	});
+
+	it.each([
+		["/api/pack/sticker/1/001.png", 404],
+		["/api/pack/sticker/first/001.png", 400],
+	])("refuses DELETE %s, which names no sticker", async (path, status) => {
+		const server = await servePack();
+
+		expect(await server.send("DELETE", path)).toMatchObject({ status });
+		expect(await readPack(server.packDir)).toEqual(PACK);
 	});
 
 	it("sets a separate cover, replacing the previous one", async () => {
@@ -272,7 +292,7 @@ describe("pack editing", () => {
 		startRequest(server, "POST", "/api/pull", { link: PACK_LINK });
 		await started;
 
-		expect(await server.send("DELETE", "/api/pack/sticker/001.png")).toEqual({
+		expect(await server.send("DELETE", "/api/pack/sticker/0/001.png")).toEqual({
 			status: 409,
 			body: { error: "Wait for the pull to finish" },
 		});

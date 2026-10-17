@@ -86,9 +86,9 @@ export class PackSession {
 		});
 	}
 
-	remove(file: string): Promise<void> {
+	remove(index: number, file: string): Promise<void> {
 		return this.#exclusive(async () => {
-			this.load(await this.#api.removeSticker(file));
+			this.load(await this.#api.removeSticker(index, file));
 		});
 	}
 

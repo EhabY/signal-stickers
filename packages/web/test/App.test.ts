@@ -94,7 +94,7 @@ describe("App", () => {
 				true,
 			);
 		});
-		expect(api.removeSticker).toHaveBeenCalledWith("002.png");
+		expect(api.removeSticker).toHaveBeenCalledWith(1, "002.png");
 	});
 
 	it("explains when the browser cannot convert an added image to WebP", async () => {

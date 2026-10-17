@@ -31,7 +31,8 @@ export type Api = Readonly<{
 	getPack(): Promise<PackResponse | undefined>;
 	savePack(pack: Pack): Promise<PackResponse>;
 	addSticker(image: Blob): Promise<AddStickerResponse>;
-	removeSticker(file: string): Promise<PackResponse>;
+	/** Removes the sticker at `index`, failing unless its image is still `file`. */
+	removeSticker(index: number, file: string): Promise<PackResponse>;
 	setCover(image: Blob): Promise<PackResponse>;
 	push(): Promise<PushResponse>;
 	/** The URL of a working-copy image; a new `version` makes the browser fetch it again. */
@@ -51,7 +52,12 @@ export class ApiError extends Error {
 	}
 }
 
-type CallOptions = Readonly<{ file?: string; body?: unknown; signal?: AbortSignal | undefined }>;
+type CallOptions = Readonly<{
+	params?: RouteParams;
+	body?: unknown;
+	signal?: AbortSignal | undefined;
+}>;
+type RouteParams = Readonly<Record<string, string>>;
 
 export function createApi(fetchFn: typeof fetch = (input, init) => fetch(input, init)): Api {
 	function call<R extends JsonRoute>(
@@ -69,10 +75,11 @@ export function createApi(fetchFn: typeof fetch = (input, init) => fetch(input, 
 		getPack: () => call("GET /api/pack").catch(ignoreNotFound),
 		savePack: (pack) => call("PUT /api/pack", { body: pack }),
 		addSticker: (image) => call("POST /api/pack/sticker", { body: image }),
-		removeSticker: (file) => call("DELETE /api/pack/sticker/:file", { file }),
+		removeSticker: (index, file) =>
+			call("DELETE /api/pack/sticker/:index/:file", { params: { index: String(index), file } }),
 		setCover: (image) => call("PUT /api/pack/cover", { body: image }),
 		push: () => call("POST /api/push"),
-		stickerUrl: (file, version) => `${routePath("/api/pack/sticker/:file", file)}?v=${version}`,
+		stickerUrl: (file, version) => `${routePath("/api/pack/sticker/:file", { file })}?v=${version}`,
 	};
 }
 
@@ -90,7 +97,7 @@ type JsonRoute = Exclude<ApiRoute, "GET /api/pack/sticker/:file">;
 async function callApi<R extends JsonRoute>(
 	fetchFn: typeof fetch,
 	route: R,
-	{ file, body, signal }: CallOptions,
+	{ params, body, signal }: CallOptions,
 ): Promise<ApiRoutes[R]["response"]> {
 	const [method = "GET", template = ""] = route.split(" ");
 	const init: RequestInit = { method, signal: signal ?? null };
@@ -101,7 +108,7 @@ async function callApi<R extends JsonRoute>(
 		init.body = JSON.stringify(body);
 		init.headers = { "Content-Type": "application/json" };
 	}
-	const response = await fetchFn(routePath(template, file), init);
+	const response = await fetchFn(routePath(template, params), init);
 	if (!response.ok) {
 		throw await readError(response);
 	}
@@ -113,8 +120,11 @@ async function callApi<R extends JsonRoute>(
 	return result;
 }
 
-function routePath(template: string, file?: string): string {
-	return file === undefined ? template : template.replace(":file", encodeURIComponent(file));
+function routePath(template: string, params: RouteParams = {}): string {
+	return template.replaceAll(/:(\w+)/gu, (param, name: string) => {
+		const value = params[name];
+		return value === undefined ? param : encodeURIComponent(value);
+	});
 }
 
 async function readError(response: Response): Promise<ApiError> {
@@ -140,7 +150,7 @@ const RESPONSE_GUARDS: {
 	"GET /api/pack": isPackResponse,
 	"PUT /api/pack": isPackResponse,
 	"POST /api/pack/sticker": isAddStickerResponse,
-	"DELETE /api/pack/sticker/:file": isPackResponse,
+	"DELETE /api/pack/sticker/:index/:file": isPackResponse,
 	"PUT /api/pack/cover": isPackResponse,
 	"POST /api/push": isPushResponse,
 };

@@ -32,8 +32,11 @@ export type ApiRoutes = {
 	"GET /api/pack/sticker/:file": { request: undefined; response: Blob };
 	/** Appends a sticker without an emoji. The body is the image itself (PNG or WebP), not JSON. */
 	"POST /api/pack/sticker": { request: Blob; response: AddStickerResponse };
-	/** Removes the sticker `file` (URI-encoded) and its image. */
-	"DELETE /api/pack/sticker/:file": { request: undefined; response: PackResponse };
+	/**
+	 * Removes the sticker at position `index` (from 0), and its image unless the pack still uses it.
+	 * 404 unless that sticker's image is `file` (URI-encoded), so a stale position removes nothing.
+	 */
+	"DELETE /api/pack/sticker/:index/:file": { request: undefined; response: PackResponse };
 	/**
 	 * Makes the image the separate cover, saved as `cover.png` or `cover.webp` in place of any
 	 * earlier separate cover. The body is the image itself (PNG or WebP), not JSON.

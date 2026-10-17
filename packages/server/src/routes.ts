@@ -28,6 +28,7 @@ import type {
 	StatusResponse,
 } from "./api.ts";
 import { ApiError } from "./errors.ts";
+import { routeParam, wholeNumberParam } from "./router.ts";
 import type { WorkingCopy } from "./workingCopy.ts";
 
 /** The engine the server drives; tests swap in fakes. */
@@ -229,7 +230,7 @@ function packHandlers(
 	| "PUT /api/pack"
 	| "GET /api/pack/sticker/:file"
 	| "POST /api/pack/sticker"
-	| "DELETE /api/pack/sticker/:file"
+	| "DELETE /api/pack/sticker/:index/:file"
 	| "PUT /api/pack/cover"
 > {
 	const { workingCopy } = context;
@@ -240,16 +241,18 @@ function packHandlers(
 			assertEditable();
 			return packResponse(await workingCopy.update(value), context);
 		},
-		"GET /api/pack/sticker/:file": (request) => workingCopy.readImage(fileParam(request)),
+		"GET /api/pack/sticker/:file": (request) => workingCopy.readImage(routeParam(request, "file")),
 		"POST /api/pack/sticker": async (request) => {
 			const image = await request.body(STICKER_LIMITS.maxBytes);
 			assertEditable();
 			const { pack, file } = await workingCopy.addSticker(image);
 			return { ...(await packResponse(pack, context)), file };
 		},
-		"DELETE /api/pack/sticker/:file": async (request) => {
+		"DELETE /api/pack/sticker/:index/:file": async (request) => {
+			const index = wholeNumberParam(request, "index");
 			assertEditable();
-			return packResponse(await workingCopy.removeSticker(fileParam(request)), context);
+			const pack = await workingCopy.removeSticker(index, routeParam(request, "file"));
+			return packResponse(pack, context);
 		},
 		"PUT /api/pack/cover": async (request) => {
 			const image = await request.body(STICKER_LIMITS.maxBytes);
@@ -257,14 +260,6 @@ function packHandlers(
 			return packResponse(await workingCopy.setCover(image), context);
 		},
 	};
-}
-
-/** The router only matches `:file` routes when the path has that segment. */
-function fileParam({ params: { file } }: RouteRequest): string {
-	if (file === undefined) {
-		throw new Error("The route has no :file parameter");
-	}
-	return file;
 }
 
 function pushHandler(

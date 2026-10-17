@@ -86,9 +86,12 @@ export const PACK: Pack = {
 	],
 };
 
-/** Like {@link serve}, with {@link PACK} and its images as the working copy. */
-export async function servePack(options: ServeOptions = {}): Promise<TestServer> {
-	const packDir = await writePackFolder(PACK, { "001.png": png(1), "002.png": png(2) });
+/** Like {@link serve}, with `pack` (default {@link PACK}) and PACK's images as the working copy. */
+export async function servePack({
+	pack = PACK,
+	...options
+}: ServeOptions & { pack?: Pack } = {}): Promise<TestServer> {
+	const packDir = await writePackFolder(pack, { "001.png": png(1), "002.png": png(2) });
 	return serve({ packDir, ...options });
 }
 

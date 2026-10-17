@@ -118,8 +118,8 @@
 					onadd={(images) => {
 						void session.add(images, limits);
 					}}
-					onremove={(file) => {
-						void session.remove(file);
+					onremove={(index, file) => {
+						void session.remove(index, file);
 					}}
 					oncover={(image) => {
 						void session.setCover(image, limits);
