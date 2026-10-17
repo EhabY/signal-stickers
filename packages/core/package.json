@@ -12,5 +12,8 @@
 	"scripts": {
 		"test": "vitest run --project core --root ../..",
 		"typecheck": "tsc --noEmit"
+	},
+	"dependencies": {
+		"@signalapp/libsignal-client": "catalog:"
 	}
 }

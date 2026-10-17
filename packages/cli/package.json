@@ -15,9 +15,12 @@
 		"watch": "node scripts/build.ts --watch"
 	},
 	"dependencies": {
-		"@signal-stickers/core": "workspace:*"
+		"@signal-stickers/core": "workspace:*",
+		"@signalapp/libsignal-client": "catalog:",
+		"qrcode": "catalog:"
 	},
 	"devDependencies": {
+		"@types/qrcode": "catalog:",
 		"esbuild": "catalog:"
 	}
 }

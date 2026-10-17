@@ -9,9 +9,14 @@
 		".": "./src/index.ts"
 	},
 	"scripts": {
+		"test": "vitest run --project server --root ../..",
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
-		"@signal-stickers/core": "workspace:*"
+		"@signal-stickers/core": "workspace:*",
+		"ws": "catalog:"
+	},
+	"devDependencies": {
+		"@types/ws": "catalog:"
 	}
 }

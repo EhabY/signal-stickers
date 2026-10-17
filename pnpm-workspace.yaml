@@ -2,25 +2,34 @@ packages:
   - packages/*
 
 catalog:
+  # Signal-Desktop's exact version, so linking behaves like the client Signal ships.
+  "@signalapp/libsignal-client": 0.105.0
   "@sveltejs/vite-plugin-svelte": ^7.3.1
+  "@testing-library/svelte": ^5.4.2
   "@tsconfig/node24": ^24.0.5
   # Match the minimum supported Node.js so newer APIs fail to typecheck.
   "@types/node": ^24.19.2
+  "@types/qrcode": ^1.5.6
+  "@types/ws": ^8.18.2
   # TypeScript 7 provides `tsc`; svelte-check still needs the 6.0 API.
   # https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/
   "@typescript/native": npm:typescript@^7.0.2
   "@vitest/coverage-v8": ^5.0.5
   concurrently: ^10.0.6
+  emoji-picker-element: ^1.29.1
   esbuild: ^0.28.2
   git-cliff: ^2.14.2
+  jsdom: ^30.1.3
   oxfmt: ^0.73.0
   oxlint: ^1.88.0
   oxlint-tsgolint: ^7.0.2004
+  qrcode: ^1.5.4
   svelte: ^5.57.2
   svelte-check: ^4.7.7
   typescript: npm:@typescript/typescript6@^6.0.2
   vite: ^8.3.4
   vitest: ^5.0.5
+  ws: ^8.22.0
 
 catalogMode: strict
 
