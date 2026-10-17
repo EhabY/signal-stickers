@@ -145,7 +145,8 @@ async function serve(
 		},
 	});
 	stderr.write(`Serving Signal ${options.env} with the pack in ${options.packDir}\n`);
-	if (!(await exists(join(webDir, "index.html")))) {
+	// With --allow-origin, the web UI is usually served by the Vite dev server.
+	if (options.allowedOrigins.length === 0 && !(await exists(join(webDir, "index.html")))) {
 		stderr.write("The web UI is not built, so only the API is available: run pnpm build\n");
 	}
 	stdout.write(`${server.url}\n`);

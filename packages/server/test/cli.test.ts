@@ -112,6 +112,17 @@ describe("server cli", () => {
 		expect(cli.opened).toEqual([]);
 	});
 
+	it("leaves the web UI to the dev server it accepts requests from", async () => {
+		const cli = await startCli(["--allow-origin", "http://localhost:5173", "--no-open"]);
+		await untilListening(cli);
+
+		const { stderr } = await cli.stop();
+
+		expect(stderr).toBe(
+			`Serving Signal production with the pack in ${join(cli.cwd, "config", "pack")}\n`,
+		);
+	});
+
 	it("tells the user to open the URL when no browser opens", async () => {
 		const cli = await startCli([], { opens: false });
 		const url = await untilListening(cli);
