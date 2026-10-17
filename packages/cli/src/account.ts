@@ -58,11 +58,14 @@ export async function link(
 	stderr.write(`${credentialsWarning(store.path)}\n`);
 }
 
-/** Prints which account and environment this tool is linked to, never the password. */
+/**
+ * Prints which account and environment this tool is linked to, never the password, and warns when
+ * the selected environment is another one.
+ */
 export async function status(
 	args: readonly string[],
-	_options: CommandOptions,
-	{ stdout, credentialsStore }: CliContext,
+	{ env }: CommandOptions,
+	{ stdout, stderr, credentialsStore }: CliContext,
 ): Promise<void> {
 	assertNoArguments("status", args);
 	const store = credentialsStore ?? createCredentialsStore();
@@ -71,15 +74,18 @@ export async function status(
 		stdout.write(`Not linked. Run "signal-stickers link" to link this tool as a Signal device.\n`);
 		return;
 	}
-	const { env, deviceId, aci, number, createdAt } = linkStatus;
+	const { deviceId, aci, number, createdAt } = linkStatus;
 	const lines = [
-		`Linked to Signal ${env} as device ${deviceId}`,
+		`Linked to Signal ${linkStatus.env} as device ${deviceId}`,
 		`Account: ${aci}`,
 		...(number === undefined ? [] : [`Phone number: ${number}`]),
 		`Linked at: ${createdAt}`,
 		`Credentials: ${store.path}`,
 	];
 	stdout.write(lines.map((line) => `${line}\n`).join(""));
+	if (linkStatus.env !== env) {
+		stderr.write(`Warning: ${describeOtherEnvironment(linkStatus.env, env)}\n`);
+	}
 }
 
 /**
@@ -163,6 +169,11 @@ async function saveLinked(store: CredentialsStore, credentials: Credentials): Pr
 	}
 }
 
+function describeOtherEnvironment(linked: Environment, selected: Environment): string {
+	const fix = linked === "staging" ? "Add --staging" : "Remove --staging and SIGNAL_STICKERS_ENV";
+	return `Linked to Signal ${linked}, not ${selected}. ${fix} to use it.`;
+}
+
 function suggestLocalUnlink(error: unknown): never {
 	if (error instanceof Error && error.name !== "AbortError") {
 		throw new Error(
@@ -176,9 +187,7 @@ function suggestLocalUnlink(error: unknown): never {
 
 function assertLinkedTo(env: Environment, credentials: Credentials): void {
 	if (credentials.env !== env) {
-		const fix =
-			credentials.env === "staging" ? "Add --staging" : "Remove --staging and SIGNAL_STICKERS_ENV";
-		throw new Error(`Linked to Signal ${credentials.env}, not ${env}. ${fix} to use it.`);
+		throw new Error(describeOtherEnvironment(credentials.env, env));
 	}
 }
 

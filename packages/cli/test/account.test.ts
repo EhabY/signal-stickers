@@ -121,7 +121,7 @@ describe("status", () => {
 	it("describes the linked account without the password", async () => {
 		const credentials = { ...CREDENTIALS, number: LINKED_ACCOUNT.number };
 
-		const { code, stdout } = await runCli(["status"], {
+		const { code, stdout, stderr } = await runCli(["status"], {
 			credentialsStore: memoryCredentialsStore(credentials),
 		});
 
@@ -137,6 +137,32 @@ describe("status", () => {
 			].join("\n"),
 		);
 		expect(stdout).not.toContain(CREDENTIALS.password);
+		expect(stderr).toBe("");
+	});
+
+	it.each([
+		["--staging", ["--staging"], {}],
+		["SIGNAL_STICKERS_ENV", [], { SIGNAL_STICKERS_ENV: "staging" }],
+	])("warns when %s selects another environment than the device's", async (_, flags, env) => {
+		const { code, stderr } = await runCli(["status", ...flags], {
+			env,
+			credentialsStore: memoryCredentialsStore(CREDENTIALS),
+		});
+
+		expect(code).toBe(0);
+		expect(stderr).toBe(
+			"Warning: Linked to Signal production, not staging. Remove --staging and SIGNAL_STICKERS_ENV to use it.\n",
+		);
+	});
+
+	it("tells how to select a device linked on staging", async () => {
+		const { stderr } = await runCli(["status"], {
+			credentialsStore: memoryCredentialsStore({ ...CREDENTIALS, env: "staging" }),
+		});
+
+		expect(stderr).toBe(
+			"Warning: Linked to Signal staging, not production. Add --staging to use it.\n",
+		);
 	});
 
 	it("explains how to link when not linked", async () => {

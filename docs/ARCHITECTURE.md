@@ -129,6 +129,7 @@ the size limit. The app talks to nothing but the local server: the emoji picker'
 
 Production is the default. Staging is opt-in with `--staging` or `SIGNAL_STICKERS_ENV=staging`, and
 the CLI and server print which one they use. Saved credentials remember their environment: unlinking
-always uses it, and pushing refuses credentials from the other environment.
+always uses it, pushing refuses credentials from the other environment, and the CLI's `status` warns
+when the selected environment is not theirs.
 
 Signal-side details that could change are tracked in [SIGNAL_COMPAT.md](SIGNAL_COMPAT.md).

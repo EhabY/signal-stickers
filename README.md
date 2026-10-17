@@ -71,6 +71,9 @@ pnpm status       # which account and environment this tool is linked to
 pnpm run unlink   # remove the device from your account and delete the credentials
 ```
 
+`status` warns when `--staging` or `SIGNAL_STICKERS_ENV` selects another environment than the one
+the device was linked in.
+
 If Signal cannot be reached, or the saved credentials no longer load, `pnpm run unlink --local` only
 deletes the credentials. Remove `signal-stickers` from Linked devices on your phone too, if it is
 still there.

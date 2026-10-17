@@ -17,6 +17,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Import a sticker pack and edit it in the browser
 - Link your Signal account and publish packs from the browser
 - Forget this device locally with `unlink --local`
+- Warn in status when the selected environment is not the device's
 
 ### Fixed
 
