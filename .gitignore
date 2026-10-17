@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.svelte-check/
+/coverage/
+# Default output of `pnpm pull`
+/pack/
+/.pnpm-store/
+pnpm-debug.log
+*.log
+
+# Personal agent instructions and the local build plan
+AGENTS.local.md
+PLAN.md

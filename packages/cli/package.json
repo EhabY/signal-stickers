@@ -1,0 +1,23 @@
+{
+	"name": "@signal-stickers/cli",
+	"version": "0.1.0",
+	"private": true,
+	"description": "Command-line interface for signal-stickers.",
+	"license": "AGPL-3.0-only",
+	"bin": {
+		"signal-stickers": "./dist/signal-stickers.mjs"
+	},
+	"type": "module",
+	"scripts": {
+		"build": "node scripts/build.ts",
+		"test": "vitest run --project cli --root ../..",
+		"typecheck": "tsc --noEmit",
+		"watch": "node scripts/build.ts --watch"
+	},
+	"dependencies": {
+		"@signal-stickers/core": "workspace:*"
+	},
+	"devDependencies": {
+		"esbuild": "catalog:"
+	}
+}

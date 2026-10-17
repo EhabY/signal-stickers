@@ -1,0 +1,104 @@
+{
+	"$schema": "./node_modules/oxlint/configuration_schema.json",
+	"plugins": ["eslint", "typescript", "unicorn", "oxc", "import", "node", "promise", "vitest"],
+	"categories": {
+		"correctness": "error",
+		"suspicious": "error",
+		"pedantic": "error",
+		"perf": "error",
+	},
+	"options": { "typeAware": true },
+	"env": { "builtin": true, "node": true },
+	"ignorePatterns": ["**/dist/**"],
+	"rules": {
+		"no-console": "error",
+		"no-var": "error",
+		"typescript/no-explicit-any": "error",
+		// With verbatimModuleSyntax, `import { type X }` still loads the module at runtime.
+		"typescript/no-import-type-side-effects": "error",
+		"typescript/no-non-null-assertion": "error",
+		// Byte arrays and Node streams cannot be typed readonly.
+		"typescript/prefer-readonly-parameter-types": "off",
+		// Error classes live next to the module that throws them.
+		"max-classes-per-file": "off",
+	},
+	"overrides": [
+		{
+			"files": ["**/test/**/*.ts"],
+			"rules": { "max-lines-per-function": "off", "typescript/no-non-null-assertion": "off" },
+		},
+		{
+			"files": ["scripts/**/*.ts", "packages/*/scripts/**/*.ts"],
+			"rules": { "no-console": "off" },
+		},
+		{
+			"files": ["packages/*/src/**/*.{ts,svelte}"],
+			"rules": {
+				"no-restricted-imports": [
+					"error",
+					{
+						"patterns": [
+							{
+								"group": ["@signal-stickers/*/testing", "**/test/**"],
+								"message": "Test support is for tests only.",
+							},
+						],
+					},
+				],
+			},
+		},
+		{
+			"files": ["packages/core/src/**/*.ts"],
+			"rules": {
+				"no-restricted-imports": [
+					"error",
+					{
+						"patterns": [
+							{
+								"group": ["@signal-stickers/*/testing", "**/test/**"],
+								"message": "Test support is for tests only.",
+							},
+							{
+								"group": ["@signal-stickers/**"],
+								"message": "core depends on nothing in the repo.",
+							},
+							{
+								"group": ["ws"],
+								"message": "core stays transport-agnostic: no WebSocket servers.",
+							},
+						],
+					},
+				],
+			},
+		},
+		{
+			"files": ["packages/web/**/*.{ts,svelte}"],
+			"env": { "browser": true, "node": false },
+			"rules": {
+				"no-restricted-imports": [
+					"error",
+					{
+						"patterns": [
+							{
+								"group": ["@signal-stickers/core/**"],
+								"allowTypeImports": true,
+								"message": "core is Node-only; web talks to the server over HTTP/WS.",
+							},
+							{
+								"group": ["@signal-stickers/*/testing", "**/test/**"],
+								"message": "Test support is for tests only.",
+							},
+						],
+						"paths": [
+							{
+								"name": "@signal-stickers/core",
+								"allowTypeImports": true,
+								"message": "core is Node-only; web talks to the server over HTTP/WS.",
+							},
+						],
+					},
+				],
+			},
+		},
+	],
+}

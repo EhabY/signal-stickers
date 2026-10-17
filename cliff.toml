@@ -1,0 +1,59 @@
+# Generates CHANGELOG.md in Keep a Changelog format from Conventional Commits.
+# https://git-cliff.org/docs/configuration
+
+[changelog]
+header = """
+# Changelog\n
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
+adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).\n
+"""
+body = """
+{% if version -%}
+## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+{% else -%}
+## [Unreleased]
+{% endif -%}
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group | striptags | trim }}
+{% for commit in commits %}
+- {% if commit.breaking %}**Breaking:** {% endif %}{{ commit.message | upper_first }}\
+  {% if commit.breaking_description and commit.breaking_description != commit.message %}: {{ commit.breaking_description }}{% endif %}\
+{% endfor %}
+{% endfor %}\n
+"""
+# Links are written out rather than using [remote.github], which calls the GitHub API on every run.
+footer = """
+{% for release in releases -%}
+{% if release.version and release.previous and release.previous.version -%}
+[{{ release.version | trim_start_matches(pat="v") }}]: https://github.com/EhabY/signal-stickers/compare/{{ release.previous.version }}...{{ release.version }}
+{% elif release.version -%}
+[{{ release.version | trim_start_matches(pat="v") }}]: https://github.com/EhabY/signal-stickers/releases/tag/{{ release.version }}
+{% elif release.previous and release.previous.version -%}
+[unreleased]: https://github.com/EhabY/signal-stickers/compare/{{ release.previous.version }}...HEAD
+{% endif -%}
+{% endfor %}
+"""
+trim = true
+
+[git]
+conventional_commits = true
+filter_unconventional = true
+tag_pattern = "^v[0-9]+\\.[0-9]+\\.[0-9]+"
+# Only user-facing types make it in; the comments order sections as Keep a Changelog does.
+commit_parsers = [
+	{ message = "^feat", group = "<!-- 0 -->Added" },
+	{ message = "^perf", group = "<!-- 1 -->Changed" },
+	{ message = "^fix", group = "<!-- 2 -->Fixed" },
+	{ message = "^security", group = "<!-- 3 -->Security" },
+	{ message = ".*", group = "<!-- 1 -->Changed", skip = true },
+]
+protect_breaking_commits = true
+sort_commits = "oldest"
+
+[bump]
+# While on 0.x, features and breaking changes bump the minor version.
+features_always_bump_minor = true
+breaking_always_bump_major = false
+initial_tag = "v0.1.0"

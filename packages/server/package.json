@@ -1,0 +1,17 @@
+{
+	"name": "@signal-stickers/server",
+	"version": "0.1.0",
+	"private": true,
+	"description": "Local HTTP and WebSocket API over the signal-stickers engine.",
+	"license": "AGPL-3.0-only",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"scripts": {
+		"typecheck": "tsc --noEmit"
+	},
+	"dependencies": {
+		"@signal-stickers/core": "workspace:*"
+	}
+}

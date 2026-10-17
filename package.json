@@ -1,0 +1,40 @@
+{
+	"name": "signal-stickers",
+	"version": "0.1.0",
+	"private": true,
+	"description": "Import, edit, and re-upload Signal sticker packs.",
+	"license": "AGPL-3.0-only",
+	"type": "module",
+	"scripts": {
+		"build": "pnpm -r --parallel build",
+		"changelog": "git-cliff --output CHANGELOG.md",
+		"clean": "node scripts/clean.ts",
+		"dev": "pnpm --filter web dev",
+		"format": "node scripts/run-tool.ts oxfmt --write .",
+		"format:check": "node scripts/run-tool.ts oxfmt --check .",
+		"lint": "node scripts/run-tool.ts oxlint --type-aware .",
+		"lint:fix": "node scripts/run-tool.ts oxlint --type-aware --fix .",
+		"pull": "node packages/cli/src/main.ts pull",
+		"test": "vitest run",
+		"test:coverage": "vitest run --coverage",
+		"typecheck": "concurrently -g -n root,packages \"tsc --noEmit\" \"pnpm -r --parallel typecheck\"",
+		"watch": "pnpm -r --parallel watch"
+	},
+	"devDependencies": {
+		"@tsconfig/node24": "catalog:",
+		"@types/node": "catalog:",
+		"@typescript/native": "catalog:",
+		"@vitest/coverage-v8": "catalog:",
+		"concurrently": "catalog:",
+		"git-cliff": "catalog:",
+		"oxfmt": "catalog:",
+		"oxlint": "catalog:",
+		"oxlint-tsgolint": "catalog:",
+		"typescript": "catalog:",
+		"vitest": "catalog:"
+	},
+	"engines": {
+		"node": ">= 24"
+	},
+	"packageManager": "pnpm@12.14.0+sha512.c18ba6d87993d3d164cb5e8948f32b2c06ee854487e06cd8d86781342fb3e5bb4634367034711e86802baa9c37bea906ce1929ad08d70884c97d801df13389a6"
+}
