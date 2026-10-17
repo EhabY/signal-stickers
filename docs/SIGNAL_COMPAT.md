@@ -7,9 +7,10 @@ Re-check each item against the reference files in
 [Signal-Desktop](https://github.com/signalapp/Signal-Desktop) (paths below are relative to that
 repo). Last verified against Signal-Desktop `8.34.0-alpha.1` on 2026-10-17.
 
-Last confirmed end to end against Signal production on 2026-10-17: linking a device (QR scan,
-`PUT /v1/devices/link`), pushing a pack (upload form and S3 upload), and pulling it back with
-byte-identical images. If something breaks after that date, Signal changed it.
+Last confirmed end to end against Signal production on 2026-10-17: linking a device from the CLI and
+from the web editor (QR scan, `PUT /v1/devices/link`), unlinking it (`DELETE /v1/devices/{id}`),
+pushing a pack (upload form and S3 upload), and pulling it back with byte-identical images. If
+something breaks after that date, Signal changed it.
 
 ## Triage by symptom
 
