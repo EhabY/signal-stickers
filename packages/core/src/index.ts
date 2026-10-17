@@ -1,6 +1,7 @@
 export * from "./env.ts";
 export * from "./net/cdn.ts";
-export { HttpError } from "./net/http.ts";
+export * from "./net/chat.ts";
+export { HttpError, type HttpMethod } from "./net/http.ts";
 export { ProtobufError } from "./protocol/protobuf.ts";
 export { DecryptionError } from "./stickers/crypto.ts";
 export * from "./stickers/image.ts";

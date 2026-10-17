@@ -5,8 +5,9 @@ import { getBytes } from "../../src/net/http.ts";
 import { SIGNAL_CA } from "../../src/net/signalCa.ts";
 import { PACK_ID } from "../support/index.ts";
 
-vi.mock("../../src/net/http.ts", () => ({
-	getBytes: vi.fn<() => Promise<Uint8Array>>(() => Promise.resolve(new Uint8Array())),
+vi.mock(import("../../src/net/http.ts"), async (importOriginal) => ({
+	...(await importOriginal()),
+	getBytes: vi.fn<typeof getBytes>(() => Promise.resolve(new Uint8Array())),
 }));
 
 function requests() {

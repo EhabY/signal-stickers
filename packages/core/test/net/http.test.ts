@@ -6,7 +6,7 @@ import { describe, expect, it, onTestFinished } from "vitest";
 
 import { getBytes, HttpError, request, type GetBytesOptions } from "../../src/net/http.ts";
 import { SIGNAL_CA } from "../../src/net/signalCa.ts";
-import { readBody, serveHttps, TEST_CA, type HttpsHandler } from "../support/index.ts";
+import { serveAndRecord, serveHttps, TEST_CA, type HttpsHandler } from "../support/index.ts";
 
 const ok: HttpsHandler = (_, res) => {
 	res.end("ok");
@@ -130,14 +130,16 @@ describe("getBytes", () => {
 
 describe("request", () => {
 	it("sends the method and the body with its length", async () => {
-		const url = await serve(async (req, res) => {
-			const body = await readBody(req);
-			res.writeHead(201).end(`${req.method} ${req.headers["content-length"]} ${body}`);
+		const { origin, requests } = await serveAndRecord((res) => {
+			res.writeHead(201).end("created");
 		});
 
-		const response = await request(url, { ...OPTIONS, method: "PUT", body: "héllo" });
+		const response = await request(origin, { ...OPTIONS, method: "PUT", body: "héllo" });
 
-		expect(Buffer.from(response).toString()).toBe("PUT 6 héllo");
+		expect(Buffer.from(response).toString()).toBe("created");
+		expect(requests).toMatchObject([
+			{ method: "PUT", headers: { "content-length": "6" }, body: Buffer.from("héllo") },
+		]);
 	});
 
 	it("returns an empty body for 204", async () => {

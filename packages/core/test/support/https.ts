@@ -1,6 +1,6 @@
 import { once } from "node:events";
 import { readFileSync } from "node:fs";
-import type { IncomingMessage, ServerResponse } from "node:http";
+import type { IncomingHttpHeaders, IncomingMessage, ServerResponse } from "node:http";
 import { createServer } from "node:https";
 import { join } from "node:path";
 
@@ -35,7 +35,32 @@ export async function serveHttps(handler: HttpsHandler): Promise<string> {
 	return `https://127.0.0.1:${address.port}`;
 }
 
-export async function readBody(req: IncomingMessage): Promise<string> {
+export type ReceivedRequest = Readonly<{
+	method: string | undefined;
+	url: string | undefined;
+	headers: IncomingHttpHeaders;
+	body: Buffer;
+}>;
+
+/** Like {@link serveHttps}, but records each request before `respond` answers it. */
+export async function serveAndRecord(
+	respond: (res: ServerResponse, req: ReceivedRequest) => void,
+): Promise<{ origin: string; requests: ReceivedRequest[] }> {
+	const requests: ReceivedRequest[] = [];
+	const origin = await serveHttps(async (req, res) => {
+		const received = {
+			method: req.method,
+			url: req.url,
+			headers: req.headers,
+			body: await readBody(req),
+		};
+		requests.push(received);
+		respond(res, received);
+	});
+	return { origin, requests };
+}
+
+export async function readBody(req: IncomingMessage): Promise<Buffer> {
 	const chunks: AsyncIterable<Buffer> = req;
-	return Buffer.concat(await Array.fromAsync(chunks)).toString();
+	return Buffer.concat(await Array.fromAsync(chunks));
 }
