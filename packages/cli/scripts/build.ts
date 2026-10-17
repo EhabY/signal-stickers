@@ -10,7 +10,14 @@ const options: esbuild.BuildOptions = {
 	sourcemap: true,
 	// Native addons cannot be bundled and must be resolved at runtime.
 	external: ["@signalapp/libsignal-client"],
-	banner: { js: "#!/usr/bin/env node" },
+	// Bundled CommonJS dependencies (qrcode) require Node built-ins, which an ES module lacks.
+	banner: {
+		js: [
+			"#!/usr/bin/env node",
+			'import { createRequire } from "node:module";',
+			"const require = createRequire(import.meta.url);",
+		].join("\n"),
+	},
 	// Only `pnpm pull` from source should resolve paths against INIT_CWD; see src/main.ts.
 	define: { "process.env.INIT_CWD": "undefined" },
 	logLevel: "info",
