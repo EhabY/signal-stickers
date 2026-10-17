@@ -28,6 +28,28 @@ export const UNLINKED: StatusResponse = {
 	limits: LIMITS,
 };
 
+export const LINKED: StatusResponse = {
+	...UNLINKED,
+	link: {
+		linked: true,
+		env: "production",
+		aci: "aci",
+		deviceId: 2,
+		createdAt: "2026-10-17T12:00:00.000Z",
+	},
+};
+
+export const QR_URL = "sgnl://linkdevice?uuid=address&pub_key=key";
+
+/** A fake `Api["link"]` that waits for a scan that never comes, until its signal aborts. */
+export function linkUntilAborted(signal?: AbortSignal): Promise<StatusResponse> {
+	return new Promise((_, reject) => {
+		signal?.addEventListener("abort", () => {
+			reject(new Error("Linking was cancelled"));
+		});
+	});
+}
+
 export function packResponse(
 	pack: Pack = CATS,
 	issues: readonly ValidationIssue[] = [],

@@ -2,15 +2,17 @@
 	import type { PackResponse, StatusResponse } from "@signal-stickers/server/api";
 	import { onMount } from "svelte";
 
+	import AccountView from "./components/AccountView.svelte";
 	import Editor from "./components/Editor.svelte";
 	import ImportView from "./components/ImportView.svelte";
+	import PublishView from "./components/PublishView.svelte";
 	import { createApi, errorMessage, type Api } from "./lib/api.ts";
 	import { connectEvents, LiveProgress, type ConnectEvents } from "./lib/events.svelte.ts";
 	import { PackSession } from "./lib/packSession.svelte.ts";
 	import { encodeSticker, type StickerEncoder } from "./lib/stickerImage.ts";
 
 	type Props = { api?: Api; connect?: ConnectEvents; encode?: StickerEncoder };
-	type View = "import" | "edit";
+	type View = "import" | "edit" | "publish" | "account";
 
 	let { api = createApi(), connect = connectEvents, encode = encodeSticker }: Props = $props();
 	const session = $derived(new PackSession(api, encode));
@@ -23,6 +25,8 @@
 	const views: readonly { view: View; label: string; needsPack: boolean }[] = [
 		{ view: "import", label: "Import", needsPack: false },
 		{ view: "edit", label: "Edit", needsPack: true },
+		{ view: "publish", label: "Publish", needsPack: true },
+		{ view: "account", label: "Account", needsPack: false },
 	];
 
 	onMount(() => {
@@ -86,7 +90,7 @@
 	{:else if !status}
 		<p class="muted">Loading…</p>
 	{:else}
-		<!-- Views stay mounted while hidden, so a running pull and its outcome survive. -->
+		<!-- Views stay mounted while hidden, so a running link, pull, or push and its outcome survive. -->
 		<div class="view" hidden={view !== "import"}>
 			{#if packError !== undefined}
 				<p class="alert" role="alert">{packError}</p>
@@ -119,7 +123,13 @@
 					}}
 				/>
 			</div>
+			<div class="view" hidden={view !== "publish"}>
+				<PublishView {api} {status} {session} {progress} onaccount={() => (view = "account")} />
+			</div>
 		{/if}
+		<div class="view" hidden={view !== "account"}>
+			<AccountView {api} {status} {progress} onstatus={(updated) => (status = updated)} />
+		</div>
 	{/if}
 </main>
 

@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import App from "../src/App.svelte";
 import { ApiError } from "../src/lib/api.ts";
 import type { StickerEncoder } from "../src/lib/stickerImage.ts";
-import { fakeApi, packResponse } from "./support/api.ts";
+import { fakeApi, LINKED, linkUntilAborted, packResponse, QR_URL } from "./support/api.ts";
 
 const LINK = "https://signal.art/addstickers/#pack_id=abc&pack_key=def";
 
@@ -65,6 +65,40 @@ describe("App", () => {
 
 		expect(await screen.findByRole("heading", { name: "Edit pack" })).toBeTruthy();
 		expect(screen.queryByText(/Could not open the pack folder/u)).toBeNull();
+	});
+
+	it("keeps a running publish and its link when switching views", async () => {
+		const api = fakeApi();
+		api.getStatus.mockResolvedValue(LINKED);
+		api.getPack.mockResolvedValue(packResponse());
+		const pushed = Promise.withResolvers<{ link: string }>();
+		api.push.mockReturnValue(pushed.promise);
+		renderApp(api);
+
+		await fireEvent.click(await screen.findByRole("button", { name: "Publish" }));
+		await fireEvent.click(screen.getByRole("button", { name: "Publish to Signal production" }));
+		await fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+		pushed.resolve({ link: LINK });
+		await fireEvent.click(screen.getByRole("button", { name: "Publish" }));
+
+		expect((await screen.findByRole("link")).getAttribute("href")).toBe(LINK);
+		expect(api.push).toHaveBeenCalledOnce();
+	});
+
+	it("keeps the QR code and Cancel when switching views while linking", async () => {
+		const api = fakeApi();
+		api.link.mockImplementation(linkUntilAborted);
+		const { events } = renderApp(api);
+
+		await fireEvent.click(await screen.findByRole("button", { name: "Account" }));
+		await fireEvent.click(screen.getByRole("button", { name: "Link to Signal production" }));
+		events.send?.({ type: "link", progress: { step: "waitingForScan", qrUrl: QR_URL } });
+		await fireEvent.click(screen.getByRole("button", { name: "Import" }));
+		await fireEvent.click(screen.getByRole("button", { name: "Account" }));
+
+		expect(await screen.findByRole("img", { name: "QR code to link this device" })).toBeTruthy();
+		await fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+		expect(api.link.mock.calls[0]?.[0]?.aborted).toBe(true);
 	});
 
 	it("says when the server cannot be reached", async () => {

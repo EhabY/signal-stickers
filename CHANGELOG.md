@@ -15,5 +15,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Serve a local API to link, pull, edit, and upload packs
 - Start the editor from the command line and open a browser
 - Import a sticker pack and edit it in the browser
+- Link your Signal account and publish packs from the browser
 
 

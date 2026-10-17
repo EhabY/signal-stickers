@@ -1,0 +1,149 @@
+<script lang="ts">
+	import type { StatusResponse } from "@signal-stickers/server/api";
+
+	import { ApiError, errorMessage, type Api, type ValidationIssue } from "../lib/api.ts";
+	import type { LiveProgress } from "../lib/events.svelte.ts";
+	import type { PackSession } from "../lib/packSession.svelte.ts";
+	import IssueList from "./IssueList.svelte";
+	import ProgressBar from "./ProgressBar.svelte";
+	import QrCode from "./QrCode.svelte";
+
+	type Props = {
+		api: Api;
+		status: StatusResponse;
+		session: PackSession;
+		progress: LiveProgress;
+		onaccount: () => void;
+	};
+
+	let { api, status, session, progress, onaccount }: Props = $props();
+	let publishing = $state(false);
+	let published: string | undefined = $state();
+	let copied = $state(false);
+	let error: string | undefined = $state();
+	let refusedIssues: readonly ValidationIssue[] = $state.raw([]);
+	const link = $derived(status.link);
+	const ready = $derived(
+		link.linked && link.env === status.env && session.issues.length === 0 && !session.busy,
+	);
+
+	async function publish(): Promise<void> {
+		publishing = true;
+		published = undefined;
+		copied = false;
+		error = undefined;
+		refusedIssues = [];
+		progress.push = undefined;
+		try {
+			await session.save();
+			published = (await api.push()).link;
+		} catch (caught) {
+			error = errorMessage(caught);
+			refusedIssues = caught instanceof ApiError ? caught.issues : [];
+		} finally {
+			publishing = false;
+		}
+	}
+
+	async function copyLink(): Promise<void> {
+		if (published === undefined) {
+			return;
+		}
+		try {
+			await navigator.clipboard.writeText(published);
+			copied = true;
+		} catch (caught) {
+			error = `Could not copy the link: ${errorMessage(caught)}`;
+		}
+	}
+</script>
+
+<section class="panel" aria-labelledby="publish-heading">
+	<h2 id="publish-heading">Publish</h2>
+	<p>
+		Uploads <strong>{session.pack?.title || "this pack"}</strong> to Signal {status.env} as a new pack
+		with its own link. Anyone with the link can install it; the original pack is unchanged.
+	</p>
+
+	{#if !link.linked}
+		<p class="warning">Link this tool to your Signal account before publishing.</p>
+		<button type="button" onclick={onaccount}>Go to Account</button>
+	{:else if link.env !== status.env}
+		<p class="warning">
+			This device is linked to Signal {link.env}, but the server is using Signal {status.env}.
+		</p>
+	{/if}
+
+	{#if session.issues.length > 0}
+		<div>
+			<p>Fix these in the editor first:</p>
+			<IssueList issues={session.issues} />
+		</div>
+	{/if}
+
+	<button type="button" class="primary" disabled={!ready || publishing} onclick={publish}>
+		{publishing ? "Publishing…" : `Publish to Signal ${status.env}`}
+	</button>
+
+	{#if publishing && progress.push}
+		<ProgressBar done={progress.push.done} total={progress.push.total} label="Uploaded" />
+	{/if}
+
+	{#if error !== undefined}
+		<div class="alert" role="alert">
+			<p>{error}</p>
+			{#if refusedIssues.length > 0}
+				<IssueList issues={refusedIssues} />
+			{/if}
+		</div>
+	{/if}
+
+	{#if published !== undefined}
+		<div class="published" aria-live="polite">
+			<h3>Published</h3>
+			<p>Share this link, or scan the code with a phone that has Signal.</p>
+			<div class="link">
+				<a href={published} target="_blank" rel="noreferrer">{published}</a>
+				<button type="button" onclick={copyLink}>{copied ? "Copied" : "Copy link"}</button>
+			</div>
+			<QrCode text={published} label="QR code for the new pack link" />
+		</div>
+	{/if}
+</section>
+
+<style>
+	section {
+		display: grid;
+		gap: 0.75rem;
+		justify-items: start;
+	}
+
+	section > :global(*) {
+		max-width: 100%;
+	}
+
+	.alert p {
+		margin: 0;
+	}
+
+	.published {
+		display: grid;
+		gap: 0.6rem;
+	}
+
+	.published h3 {
+		margin: 0;
+		color: var(--success);
+	}
+
+	.link {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+		align-items: center;
+	}
+
+	.link a {
+		word-break: break-all;
+	}
+</style>

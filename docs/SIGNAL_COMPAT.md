@@ -190,7 +190,8 @@ repo). Last verified against Signal-Desktop `8.34.0-alpha.1` on 2026-10-17.
 
 ## Linking instructions
 
-- **Ours:** `packages/cli/src/account.ts` (`SCAN_INSTRUCTIONS`, and the advice when saving fails)
+- **Ours:** `packages/cli/src/account.ts` (`SCAN_INSTRUCTIONS`, and the advice when saving fails),
+  `packages/web/src/components/AccountView.svelte`
 - **Signal:** `_locales/en/messages.json` (`icu:Install__scan-this-code`,
   `icu:Install__instructions__1` to `__3`)
 - We tell users to scan in Settings > Linked devices > Link new device, and to remove

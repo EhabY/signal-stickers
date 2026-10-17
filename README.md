@@ -2,8 +2,7 @@
 
 Import, edit, and re-upload [Signal](https://signal.org) sticker packs, without Signal Desktop.
 
-> Early development. The command line can pull, link, and push; the web editor can import and edit
-> packs, and linking and publishing from it are in progress.
+> Early development. Expect rough edges, and see [How it works](#how-it-works) before linking.
 
 ## Requirements
 
@@ -24,6 +23,10 @@ This builds the editor, serves it on this computer only (127.0.0.1), and opens i
 Paste a pack's share link to import it, then edit the title and author, pick an emoji for each
 sticker, drag stickers into order, choose the cover, and add or remove images. Added images are
 converted to 512x512 WebP in the browser, unless they are PNG or WebP images that already fit.
+
+To upload, link your account from the Account tab by scanning its QR code with your phone (see
+[Link your account](#link-your-account)), then publish from the Publish tab. It lists anything
+Signal would reject, and once uploaded shows the new pack's link and QR code.
 
 Every change is saved to the pack folder, `./pack` by default and the same one the command line
 uses; `pnpm start --dir ./my-pack` picks another. Importing a pack replaces that folder, which must
