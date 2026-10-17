@@ -95,7 +95,7 @@
 			{#if packError !== undefined}
 				<p class="alert" role="alert">{packError}</p>
 			{/if}
-			<ImportView {api} {progress} hasPack={session.pack !== undefined} onpulled={showPulled} />
+			<ImportView {api} {progress} packTitle={session.pack?.title} onpulled={showPulled} />
 		</div>
 		{#if session.pack}
 			{@const limits = status.limits}

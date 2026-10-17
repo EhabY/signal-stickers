@@ -4,13 +4,11 @@ import { describe, expect, it, vi } from "vitest";
 import Editor from "../../src/components/Editor.svelte";
 import type { Pack, ValidationIssue } from "../../src/lib/api.ts";
 import { CATS, files, LIMITS } from "../support/api.ts";
+import { stubModalDialogs } from "../support/dialog.ts";
 
 // The real picker fetches its emoji data from a CDN; tests drive the element's events instead.
 vi.mock("emoji-picker-element", () => ({}));
-// jsdom has no modal dialogs.
-HTMLDialogElement.prototype.showModal = function showModal(this: HTMLDialogElement) {
-	this.open = true;
-};
+stubModalDialogs();
 
 function renderEditor({
 	pack = CATS,

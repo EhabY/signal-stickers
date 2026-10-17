@@ -19,6 +19,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Forget this device locally with `unlink --local`
 - Warn in status when the selected environment is not the device's
 - Keep the edited pack in the tool's config folder by default
+- Ask before an import replaces the pack you are editing
 
 ### Fixed
 

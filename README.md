@@ -37,8 +37,8 @@ Every change is saved to a `pack` folder next to the credentials (see
 
 `pnpm start --dir ./my-pack` picks another folder, such as one the command line pulled into (it uses
 `./pack` by default). Importing a pack replaces that folder, which must hold a pack, be empty, or
-not exist yet. Add `--staging` for Signal's staging servers, `--no-open` to skip opening the
-browser, or `--port` to choose the port.
+not exist yet, so the editor asks first when you are editing a pack. Add `--staging` for Signal's
+staging servers, `--no-open` to skip opening the browser, or `--port` to choose the port.
 
 ## Pull a pack
 
