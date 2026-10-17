@@ -10,6 +10,7 @@ import { encodeStickerPack, type StickerPackProto } from "../../src/protocol/pro
 import { derivePackKeys, encryptAttachment } from "../../src/stickers/crypto.ts";
 import { buildPackLink, type PackLocator } from "../../src/stickers/link.ts";
 
+export * from "./https.ts";
 export type { StickerPackProto };
 
 export const PACK_ID = "b9439fa5fdc8b9873fe64f01b88b8ccf";

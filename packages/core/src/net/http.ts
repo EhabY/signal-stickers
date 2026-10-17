@@ -1,5 +1,5 @@
 import type { IncomingMessage } from "node:http";
-import { request } from "node:https";
+import { request as httpsRequest } from "node:https";
 
 export class HttpError extends Error {
 	override name = "HttpError";
@@ -11,10 +11,15 @@ export class HttpError extends Error {
 	}
 }
 
-export type GetBytesOptions = Readonly<{
+export type HttpMethod = "GET" | "PUT" | "POST" | "DELETE";
+
+export type RequestOptions = Readonly<{
+	method: HttpMethod;
 	/** Trusted CA in PEM form; replaces the default root store. */
 	ca: string;
 	headers: Readonly<Record<string, string>>;
+	body?: Uint8Array | string | undefined;
+	/** Largest response body accepted. */
 	maxBytes: number;
 	timeoutMs: number;
 	/** Used in error messages so secrets in the URL are never surfaced. */
@@ -22,15 +27,17 @@ export type GetBytesOptions = Readonly<{
 	signal?: AbortSignal | undefined;
 }>;
 
+export type GetBytesOptions = Omit<RequestOptions, "method" | "body">;
+
 /**
- * GETs `url` and returns the body. Rejects with the caller's abort reason when `signal` aborts, and
- * with an {@link HttpError} for anything else, including timeouts.
+ * Sends a request and returns the body of its 2xx response. Rejects with the caller's abort reason
+ * when `signal` aborts, and with an {@link HttpError} for anything else, including timeouts.
  */
-export async function getBytes(url: string, options: GetBytesOptions): Promise<Uint8Array> {
-	const { redactedUrl, timeoutMs, signal } = options;
+export async function request(url: string, options: RequestOptions): Promise<Uint8Array> {
+	const { method, redactedUrl, timeoutMs, signal } = options;
 	const timeout = AbortSignal.timeout(timeoutMs);
 	try {
-		return await download(url, options, signal ? AbortSignal.any([signal, timeout]) : timeout);
+		return await exchange(url, options, signal ? AbortSignal.any([signal, timeout]) : timeout);
 	} catch (error) {
 		signal?.throwIfAborted();
 		if (error instanceof HttpError) {
@@ -39,39 +46,46 @@ export async function getBytes(url: string, options: GetBytesOptions): Promise<U
 		const reason = timeout.aborted
 			? `timed out after ${timeoutMs}ms`
 			: `failed: ${describeError(error)}`;
-		throw new HttpError(`GET ${redactedUrl} ${reason}`, { cause: error });
+		throw new HttpError(`${method} ${redactedUrl} ${reason}`, { cause: error });
 	}
 }
 
-async function download(
+export function getBytes(url: string, options: GetBytesOptions): Promise<Uint8Array> {
+	return request(url, { ...options, method: "GET" });
+}
+
+async function exchange(
 	url: string,
-	{ ca, headers, maxBytes, redactedUrl }: GetBytesOptions,
+	{ method, ca, headers, body, maxBytes, redactedUrl }: RequestOptions,
 	signal: AbortSignal,
 ): Promise<Uint8Array> {
-	const response = await send(url, { ca, headers, signal });
-	if (response.statusCode !== 200) {
+	const sentHeaders =
+		body === undefined
+			? headers
+			: { ...headers, "Content-Length": String(Buffer.byteLength(body)) };
+	const response = await send(url, { method, ca, headers: sentHeaders, signal }, body);
+	const status = response.statusCode ?? 0;
+	if (status < 200 || status > 299) {
 		response.resume();
-		throw new HttpError(`GET ${redactedUrl} failed with status ${response.statusCode}`, {
-			status: response.statusCode,
-		});
+		throw new HttpError(`${method} ${redactedUrl} failed with status ${status}`, { status });
 	}
-	const tooLarge = () => new HttpError(`GET ${redactedUrl} exceeded ${maxBytes} bytes`);
+	const tooLarge = () => new HttpError(`${method} ${redactedUrl} exceeded ${maxBytes} bytes`);
 	if (Number(response.headers["content-length"]) > maxBytes) {
 		response.destroy();
 		throw tooLarge();
 	}
-	const body: AsyncIterable<Buffer> = response;
-	const chunks: Buffer[] = [];
+	const chunks: AsyncIterable<Buffer> = response;
+	const received: Buffer[] = [];
 	let size = 0;
-	for await (const chunk of body) {
+	for await (const chunk of chunks) {
 		size += chunk.length;
 		if (size > maxBytes) {
 			response.destroy();
 			throw tooLarge();
 		}
-		chunks.push(chunk);
+		received.push(chunk);
 	}
-	return Buffer.concat(chunks);
+	return Buffer.concat(received);
 }
 
 /** Node reports a failed connection to every address of a host as an AggregateError with no message. */
@@ -87,9 +101,15 @@ function describeError(error: unknown): string {
 
 function send(
 	url: string,
-	options: Readonly<{ ca: string; headers: Readonly<Record<string, string>>; signal: AbortSignal }>,
+	options: Readonly<{
+		method: HttpMethod;
+		ca: string;
+		headers: Readonly<Record<string, string>>;
+		signal: AbortSignal;
+	}>,
+	body: Uint8Array | string | undefined,
 ): Promise<IncomingMessage> {
 	const { promise, resolve, reject } = Promise.withResolvers<IncomingMessage>();
-	request(url, options).on("response", resolve).on("error", reject).end();
+	httpsRequest(url, options).on("response", resolve).on("error", reject).end(body);
 	return promise;
 }
