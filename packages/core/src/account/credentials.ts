@@ -183,7 +183,10 @@ function validateCredentials(value: unknown, path: string): Credentials {
 	};
 }
 
-/** On Windows, replaces `file`'s inherited ACL with full control for the current user only. */
+/**
+ * On Windows, leaves full control for the current user only: drops inherited entries and the SYSTEM
+ * and Administrators entries a default ACL adds when the folder passes nothing down.
+ */
 async function restrictToOwner(file: string): Promise<void> {
 	if (process.platform !== "win32") {
 		return;
@@ -195,7 +198,15 @@ async function restrictToOwner(file: string): Promise<void> {
 	if (sid === undefined) {
 		throw new Error("Could not find the current Windows user's security identifier");
 	}
-	await run(win32.join(system32, "icacls.exe"), [file, "/inheritance:r", "/grant:r", `*${sid}:F`]);
+	await run(win32.join(system32, "icacls.exe"), [
+		file,
+		"/inheritance:r",
+		"/grant:r",
+		`*${sid}:F`,
+		"/remove:g",
+		"*S-1-5-18",
+		"*S-1-5-32-544",
+	]);
 }
 
 /** Runs `file` without a shell or console window and returns its output. */

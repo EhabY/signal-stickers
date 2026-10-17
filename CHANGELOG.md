@@ -17,4 +17,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Import a sticker pack and edit it in the browser
 - Link your Signal account and publish packs from the browser
 
+### Fixed
+
+- Keep saved credentials private to your Windows user on every setup
+
 

@@ -31,6 +31,12 @@ function accessEntries(path: string): string[] {
 		.filter((line) => line !== "" && !line.startsWith("Successfully processed"));
 }
 
+function currentUserSid(): string {
+	const whoami = join(process.env.SystemRoot ?? "C:\\Windows", "System32", "whoami.exe");
+	const output = execFileSync(whoami, ["/user", "/fo", "csv", "/nh"], { encoding: "utf8" });
+	return /"(S-1-[\d-]+)"/u.exec(output)?.[1] ?? "";
+}
+
 describe("defaultConfigDir", () => {
 	it.each<{ platform: NodeJS.Platform; env: Record<string, string>; home: string; dir: string }>([
 		{
@@ -108,8 +114,16 @@ describe("createCredentialsStore", () => {
 	);
 
 	it.runIf(process.platform === "win32")("grants access to the current user only", async () => {
-		const credentials = await store();
-		await credentials.save(LINKED);
+		const parent = await tempDir();
+		// Like a CI runner's temp folder: nothing is inherited, so new files get explicit entries.
+		execFileSync("icacls", [
+			parent,
+			"/inheritance:r",
+			"/grant:r",
+			`*${currentUserSid()}:F`,
+			"*S-1-5-18:F",
+		]);
+		const credentials = createCredentialsStore(join(parent, "config"));
 
 		await credentials.save(LINKED);
 
