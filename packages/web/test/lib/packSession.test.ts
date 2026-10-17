@@ -87,6 +87,17 @@ describe("PackSession", () => {
 		expect(editing.busy).toBe(false);
 	});
 
+	it("converts a cover image and makes it the separate cover", async () => {
+		const { api, encode, editing } = session();
+		const image = new File(["png"], "cover.png", { type: "image/png" });
+
+		await editing.setCover(image, LIMITS);
+
+		expect(encode).toHaveBeenCalledWith(image, LIMITS);
+		expect(api.setCover).toHaveBeenCalledWith(await encode.mock.results[0]!.value);
+		expect(editing.pack?.cover).toBe("cover.webp");
+	});
+
 	it("adds the images it can and names the ones it cannot", async () => {
 		const { api, encode, editing } = session();
 		encode.mockRejectedValueOnce(new Error("The browser cannot read this image"));

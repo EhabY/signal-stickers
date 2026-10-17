@@ -32,6 +32,7 @@ export type Api = Readonly<{
 	savePack(pack: Pack): Promise<PackResponse>;
 	addSticker(image: Blob): Promise<AddStickerResponse>;
 	removeSticker(file: string): Promise<PackResponse>;
+	setCover(image: Blob): Promise<PackResponse>;
 	push(): Promise<PushResponse>;
 	/** The URL of a working-copy image; a new `version` makes the browser fetch it again. */
 	stickerUrl(file: string, version: number): string;
@@ -69,6 +70,7 @@ export function createApi(fetchFn: typeof fetch = (input, init) => fetch(input, 
 		savePack: (pack) => call("PUT /api/pack", { body: pack }),
 		addSticker: (image) => call("POST /api/pack/sticker", { body: image }),
 		removeSticker: (file) => call("DELETE /api/pack/sticker/:file", { file }),
+		setCover: (image) => call("PUT /api/pack/cover", { body: image }),
 		push: () => call("POST /api/push"),
 		stickerUrl: (file, version) => `${routePath("/api/pack/sticker/:file", file)}?v=${version}`,
 	};
@@ -139,6 +141,7 @@ const RESPONSE_GUARDS: {
 	"PUT /api/pack": isPackResponse,
 	"POST /api/pack/sticker": isAddStickerResponse,
 	"DELETE /api/pack/sticker/:file": isPackResponse,
+	"PUT /api/pack/cover": isPackResponse,
 	"POST /api/push": isPushResponse,
 };
 

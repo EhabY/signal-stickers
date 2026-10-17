@@ -34,6 +34,11 @@ export type ApiRoutes = {
 	"POST /api/pack/sticker": { request: Blob; response: AddStickerResponse };
 	/** Removes the sticker `file` (URI-encoded) and its image. */
 	"DELETE /api/pack/sticker/:file": { request: undefined; response: PackResponse };
+	/**
+	 * Makes the image the separate cover, saved as `cover.png` or `cover.webp` in place of any
+	 * earlier separate cover. The body is the image itself (PNG or WebP), not JSON.
+	 */
+	"PUT /api/pack/cover": { request: Blob; response: PackResponse };
 	/** Uploads the working copy as a new pack. Progress arrives as `push` events. */
 	"POST /api/push": { request: undefined; response: PushResponse };
 };

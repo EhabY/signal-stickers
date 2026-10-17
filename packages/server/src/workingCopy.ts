@@ -10,6 +10,7 @@ import {
 	readPack,
 	sniffImageFormat,
 	writePack,
+	type ImageFormat,
 	type Pack,
 } from "@signal-stickers/core";
 
@@ -28,6 +29,8 @@ export type WorkingCopy = Readonly<{
 	addSticker(image: Uint8Array): Promise<{ pack: Pack; file: string }>;
 	/** Removes a sticker, and its image unless the pack still uses it. */
 	removeSticker(file: string): Promise<Pack>;
+	/** Saves a PNG or WebP image as the separate cover, removing the previous separate cover. */
+	setCover(image: Uint8Array): Promise<Pack>;
 	/** Lets `fill` write a fresh sibling folder and swaps it in only when `fill` succeeds. */
 	replace<T>(fill: (dir: string) => Promise<T>): Promise<T>;
 	/** Runs `task` while nothing else changes the folder, e.g. to upload it. */
@@ -43,6 +46,7 @@ export function createWorkingCopy(dir: string): WorkingCopy {
 		readImage: (file) => readImage(dir, file),
 		addSticker: (image) => serialize(() => addSticker(dir, image)),
 		removeSticker: (file) => serialize(() => removeSticker(dir, file)),
+		setCover: (image) => serialize(() => setCover(dir, image)),
 		replace: (fill) => serialize(() => replaceFolder(dir, fill)),
 		whileLocked: serialize,
 	};
@@ -95,16 +99,21 @@ async function readImage(dir: string, file: string): Promise<Uint8Array> {
 }
 
 async function addSticker(dir: string, image: Uint8Array): Promise<{ pack: Pack; file: string }> {
-	const format = sniffImageFormat(image);
-	if (!format) {
-		throw new ApiError(415, "Stickers must be PNG or WebP images");
-	}
+	const format = imageFormat(image);
 	const pack = await readWorkingPack(dir);
 	const file = `${await nextImageNumber(dir)}.${format}`;
 	await writeFile(join(dir, file), image, { flag: "wx" });
 	const updated = { ...pack, stickers: [...pack.stickers, { file }] };
 	await writePack(dir, updated);
 	return { pack: updated, file };
+}
+
+function imageFormat(image: Uint8Array): ImageFormat {
+	const format = sniffImageFormat(image);
+	if (!format) {
+		throw new ApiError(415, "Images must be PNG or WebP");
+	}
+	return format;
 }
 
 /** One past the highest numbered file, so added images never reuse a name. */
@@ -126,6 +135,22 @@ async function removeSticker(dir: string, file: string): Promise<Pack> {
 	await writePack(dir, updated);
 	if (!packImageFiles(updated).includes(file)) {
 		await rm(join(dir, file), { force: true });
+	}
+	return updated;
+}
+
+async function setCover(dir: string, image: Uint8Array): Promise<Pack> {
+	const format = imageFormat(image);
+	const pack = await readWorkingPack(dir);
+	const file = `cover.${format}`;
+	if (pack.stickers.some((sticker) => sticker.file === file)) {
+		throw new ApiError(409, `A sticker uses ${file}, so the cover cannot replace it`);
+	}
+	await writeFile(join(dir, file), image);
+	const updated = { ...pack, cover: file };
+	await writePack(dir, updated);
+	if (!packImageFiles(updated).includes(pack.cover)) {
+		await rm(join(dir, pack.cover), { force: true });
 	}
 	return updated;
 }

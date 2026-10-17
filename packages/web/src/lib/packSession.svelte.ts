@@ -13,7 +13,8 @@ const SAVE_DELAY_MS = 300;
 
 /**
  * The working copy being edited. Edits show at once and are saved shortly after, in order. Adding
- * and removing stickers first save pending edits and set `busy` until the server answers.
+ * and removing stickers and setting the cover image first save pending edits and set `busy` until
+ * the server answers.
  */
 export class PackSession {
 	pack: Pack | undefined = $state.raw();
@@ -23,7 +24,7 @@ export class PackSession {
 	busy = $state(false);
 	/** Why the last save failed, until one succeeds or a pack loads. */
 	saveError: string | undefined = $state();
-	/** Why the last add or remove failed, until the next one starts or a pack loads. */
+	/** Why the last add, remove, or cover change failed, until the next one starts or a pack loads. */
 	error: string | undefined = $state();
 
 	readonly #api: Api;
@@ -88,6 +89,13 @@ export class PackSession {
 	remove(file: string): Promise<void> {
 		return this.#exclusive(async () => {
 			this.load(await this.#api.removeSticker(file));
+		});
+	}
+
+	/** Converts `image` like an added sticker and makes it the separate cover. */
+	setCover(image: File, limits: StickerLimits): Promise<void> {
+		return this.#exclusive(async () => {
+			this.load(await this.#api.setCover(await this.#encode(image, limits)));
 		});
 	}
 

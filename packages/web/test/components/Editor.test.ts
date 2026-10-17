@@ -15,6 +15,7 @@ function renderEditor({
 	issues = [],
 }: { pack?: Pack; issues?: ValidationIssue[] } = {}) {
 	const onchange = vi.fn<(pack: Pack) => void>();
+	const oncover = vi.fn<(image: File) => void>();
 	render(Editor, {
 		pack,
 		issues,
@@ -23,8 +24,9 @@ function renderEditor({
 		onchange,
 		onadd: vi.fn<(images: File[]) => void>(),
 		onremove: vi.fn<(file: string) => void>(),
+		oncover,
 	});
-	return { onchange, changed: () => onchange.mock.lastCall?.[0] };
+	return { oncover, changed: () => onchange.mock.lastCall?.[0] };
 }
 
 /** The text of what `aria-describedby` points at. */
@@ -96,6 +98,26 @@ describe("Editor", () => {
 		await vi.waitFor(() => {
 			expect(screen.queryByRole("dialog")).toBeNull();
 		});
+	});
+
+	it("uses a chosen image as a separate cover", async () => {
+		const { oncover } = renderEditor();
+		const image = new File(["png"], "cover.png", { type: "image/png" });
+
+		await fireEvent.change(screen.getByLabelText("Use a separate image as the cover"), {
+			target: { files: [image] },
+		});
+
+		expect(oncover).toHaveBeenCalledWith(image);
+	});
+
+	it("switches from a separate cover back to a sticker", async () => {
+		const { changed } = renderEditor({ pack: { ...CATS, cover: "cover.webp" } });
+		expect(screen.getByLabelText("Replace the cover image")).toBeTruthy();
+
+		await fireEvent.click(screen.getByRole("radio", { name: "Use sticker 2 as the cover" }));
+
+		expect(changed()).toEqual({ ...CATS, cover: "002.png" });
 	});
 
 	it("shows issues with the field and the sticker they concern", () => {

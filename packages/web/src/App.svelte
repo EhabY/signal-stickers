@@ -121,6 +121,9 @@
 					onremove={(file) => {
 						void session.remove(file);
 					}}
+					oncover={(image) => {
+						void session.setCover(image, limits);
+					}}
 				/>
 			</div>
 			<div class="view" hidden={view !== "publish"}>

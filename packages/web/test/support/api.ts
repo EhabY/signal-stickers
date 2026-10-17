@@ -72,6 +72,9 @@ export function fakeApi() {
 			Promise.resolve({ ...packResponse(), file: "004.webp" }),
 		),
 		removeSticker: vi.fn<Api["removeSticker"]>(() => Promise.resolve(packResponse())),
+		setCover: vi.fn<Api["setCover"]>(() =>
+			Promise.resolve(packResponse({ ...CATS, cover: "cover.webp" })),
+		),
 		push: vi.fn<Api["push"]>(() =>
 			Promise.resolve({ link: "https://signal.art/addstickers/#pack_id=new" }),
 		),

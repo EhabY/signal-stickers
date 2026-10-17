@@ -12,6 +12,7 @@
 		onchange: (pack: Pack) => void;
 		onadd: (images: File[]) => void;
 		onremove: (file: string) => void;
+		oncover: (image: File) => void;
 	};
 
 	let {
@@ -23,19 +24,34 @@
 		onchange,
 		onadd,
 		onremove,
+		oncover,
 	}: Props = $props();
 	const id = $props.id();
 	const titleIssues = $derived(issues.filter(({ code }) => code === "missingTitle"));
 	const authorIssues = $derived(issues.filter(({ code }) => code === "missingAuthor"));
 	const hasSeparateCover = $derived(!pack.stickers.some(({ file }) => file === pack.cover));
 
-	function addImages(event: Event & { currentTarget: HTMLInputElement }): void {
-		const input = event.currentTarget;
-		const images = [...(input.files ?? [])];
-		input.value = "";
+	type FileInputEvent = Event & { currentTarget: HTMLInputElement };
+
+	function addImages(event: FileInputEvent): void {
+		const images = takeFiles(event);
 		if (images.length > 0) {
 			onadd(images);
 		}
+	}
+
+	function chooseCover(event: FileInputEvent): void {
+		const [image] = takeFiles(event);
+		if (image) {
+			oncover(image);
+		}
+	}
+
+	/** Clears the input, so choosing the same file again still fires `change`. */
+	function takeFiles({ currentTarget: input }: FileInputEvent): File[] {
+		const images = [...(input.files ?? [])];
+		input.value = "";
+		return images;
 	}
 </script>
 
@@ -90,10 +106,26 @@
 		</div>
 		<div class="cover">
 			<img src={imageUrl(pack.cover)} alt="Cover" />
-			<p class="muted">
-				{hasSeparateCover ? "This pack has a separate cover image." : "The cover is a sticker."}
-				Choose another with <strong>Cover</strong> on a sticker.
-			</p>
+			<div>
+				<p class="muted">
+					{#if hasSeparateCover}
+						This pack has a separate cover image. To use a sticker instead, choose
+						<strong>Cover</strong> on it.
+					{:else}
+						The cover is a sticker. Choose another with <strong>Cover</strong> on a sticker.
+					{/if}
+				</p>
+				<label class="file-button" class:disabled>
+					<input
+						class="visually-hidden"
+						type="file"
+						accept="image/*"
+						{disabled}
+						onchange={chooseCover}
+					/>
+					{hasSeparateCover ? "Replace the cover image" : "Use a separate image as the cover"}
+				</label>
+			</div>
 		</div>
 	</div>
 
@@ -101,7 +133,7 @@
 		<p class="muted">
 			{pack.stickers.length} of {limits.maxStickers} stickers. Drag them, or use the arrows, to reorder.
 		</p>
-		<label class="add" class:disabled>
+		<label class="file-button primary" class:disabled>
 			<input
 				class="visually-hidden"
 				type="file"
@@ -176,6 +208,12 @@
 		background: var(--surface-muted);
 	}
 
+	.cover > div {
+		display: grid;
+		gap: 0.4rem;
+		justify-items: start;
+	}
+
 	.cover p {
 		margin: 0;
 		font-size: 0.9rem;
@@ -198,20 +236,26 @@
 		font-size: 0.85rem;
 	}
 
-	.add {
+	.file-button {
 		padding: 0.45rem 0.9rem;
+		border: 1px solid var(--border);
 		border-radius: 8px;
-		background: var(--accent);
-		color: var(--accent-text);
+		background: var(--surface);
 		cursor: pointer;
 	}
 
-	.add:focus-within {
+	.file-button.primary {
+		border-color: var(--accent);
+		background: var(--accent);
+		color: var(--accent-text);
+	}
+
+	.file-button:focus-within {
 		outline: 2px solid var(--focus);
 		outline-offset: 2px;
 	}
 
-	.add.disabled {
+	.file-button.disabled {
 		cursor: not-allowed;
 		opacity: 0.55;
 	}

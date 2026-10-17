@@ -2,7 +2,7 @@ import { readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 
 import { readPack, validatePackFolder, type ValidationIssue } from "@signal-stickers/core";
-import { PACK_LINK, png, tempDir } from "@signal-stickers/core/testing";
+import { PACK_LINK, png, tempDir, writePackFolder } from "@signal-stickers/core/testing";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -227,6 +227,43 @@ describe("pack editing", () => {
 
 		expect(reply).toMatchObject({ body: { pack: { cover: "001.png", stickers: [] } } });
 		expect(await readdir(server.packDir)).toEqual(["001.png", "pack.json"]);
+	});
+
+	it("sets a separate cover, replacing the previous one", async () => {
+		const server = await servePack();
+		await server.send("PUT", "/api/pack/cover", WEBP);
+
+		const reply = await server.send("PUT", "/api/pack/cover", png(3));
+
+		const pack = { ...PACK, cover: "cover.png" };
+		expect(reply).toEqual({ status: 200, body: { pack, issues: [] } });
+		expect(await readPack(server.packDir)).toEqual(pack);
+		expect(await readdir(server.packDir)).toEqual(["001.png", "002.png", "cover.png", "pack.json"]);
+		expect(new Uint8Array(await readFile(join(server.packDir, "cover.png")))).toEqual(png(3));
+	});
+
+	it.each([
+		["a file that is not an image", Uint8Array.of(1, 2, 3), 415],
+		["an image over the size limit", new Uint8Array(300 * 1024 + 1), 413],
+	])("refuses %s as the cover", async (_, body, status) => {
+		const server = await servePack();
+
+		expect(await server.send("PUT", "/api/pack/cover", body)).toMatchObject({ status });
+		expect(await readPack(server.packDir)).toEqual(PACK);
+	});
+
+	it("refuses to overwrite a sticker named like the cover", async () => {
+		const packDir = await writePackFolder(
+			{ ...PACK, stickers: [{ file: "cover.png", emoji: "🐶" }] },
+			{ "001.png": png(1), "cover.png": png(2) },
+		);
+		const server = await serve({ packDir });
+
+		expect(await server.send("PUT", "/api/pack/cover", png(3))).toEqual({
+			status: 409,
+			body: { error: "A sticker uses cover.png, so the cover cannot replace it" },
+		});
+		expect(new Uint8Array(await readFile(join(packDir, "cover.png")))).toEqual(png(2));
 	});
 
 	it("refuses edits while a pull runs", async () => {

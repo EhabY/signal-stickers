@@ -21,6 +21,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Keep the edited pack in the tool's config folder by default
 - Ask before an import replaces the pack you are editing
 - Publish a pack only once until you change it
+- Choose a separate cover image again after picking a sticker
 
 ### Fixed
 

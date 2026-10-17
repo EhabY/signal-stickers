@@ -230,6 +230,7 @@ function packHandlers(
 	| "GET /api/pack/sticker/:file"
 	| "POST /api/pack/sticker"
 	| "DELETE /api/pack/sticker/:file"
+	| "PUT /api/pack/cover"
 > {
 	const { workingCopy } = context;
 	return {
@@ -249,6 +250,11 @@ function packHandlers(
 		"DELETE /api/pack/sticker/:file": async (request) => {
 			assertEditable();
 			return packResponse(await workingCopy.removeSticker(fileParam(request)), context);
+		},
+		"PUT /api/pack/cover": async (request) => {
+			const image = await request.body(STICKER_LIMITS.maxBytes);
+			assertEditable();
+			return packResponse(await workingCopy.setCover(image), context);
 		},
 	};
 }
