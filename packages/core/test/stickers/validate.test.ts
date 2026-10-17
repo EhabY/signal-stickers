@@ -168,6 +168,46 @@ describe("validatePack", () => {
 		]);
 	});
 
+	it("rejects stickers with identical images", () => {
+		const { pack, images } = validPack(3);
+
+		const issues = validate(pack, { ...images, "003.png": images["001.png"]! });
+
+		expect(issues).toEqual([
+			{
+				code: "duplicateImage",
+				file: "003.png",
+				message: "003.png is the same image as 001.png; each sticker needs its own image",
+			},
+		]);
+	});
+
+	it("rejects a file named by more than one sticker once", () => {
+		const { pack, images } = validPack();
+		const [first, second] = pack.stickers;
+
+		const issues = validate({ ...pack, stickers: [first!, second!, first!, first!] }, images);
+
+		expect(issues).toEqual([
+			{
+				code: "duplicateImage",
+				file: "001.png",
+				message: "001.png is used by more than one sticker; each sticker needs its own image",
+			},
+		]);
+	});
+
+	it("lets the cover repeat a sticker's image", () => {
+		const { pack, images } = validPack();
+
+		const issues = validate(
+			{ ...pack, cover: "cover.png" },
+			{ ...images, "cover.png": images["002.png"]! },
+		);
+
+		expect(issues).toEqual([]);
+	});
+
 	it("checks an image used twice once", () => {
 		const { pack } = validPack(1);
 

@@ -247,3 +247,7 @@ byte-identical images. If something breaks after that date, Signal changed it.
   [Pull semantics](#pull-semantics).
 - The creator uploads an APNG unchanged, so it must be square, 10x10 to 512x512, and loop forever
   (`num_plays` 0). Any other image becomes a 512x512 WebP, so we require PNG and WebP to be 512x512.
+- Our own rule, not Signal's: no two stickers may share an image, by bytes or by file name, though
+  the cover may reuse one. The creator's `encrypt` (`sticker-creator/src/util/crypto.ts`) uploads a
+  repeated image once but numbers stickers by position, so its manifest can name images it never
+  uploaded.

@@ -38,7 +38,8 @@ export type ValidationCode =
 	| "unsupportedFormat"
 	| "wrongSize"
 	| "mustLoopForever"
-	| "tooLarge";
+	| "tooLarge"
+	| "duplicateImage";
 
 /** Something that would stop a push. `file` names the image for per-sticker issues. */
 export type ValidationIssue = Readonly<{
@@ -101,8 +102,9 @@ export function validateImage(file: string, bytes: Uint8Array): ValidationIssue[
 }
 
 /**
- * Checks a pack for push: title, author, sticker count, an emoji per sticker, and every image it
- * names, the cover included. `images` maps file names to their bytes; a missing entry is reported.
+ * Checks a pack for push: title, author, sticker count, an emoji per sticker, every image it names
+ * (the cover included), and that no two stickers share an image. `images` maps file names to their
+ * bytes; a missing entry is reported.
  */
 export function validatePack(
 	pack: Pack,
@@ -141,6 +143,7 @@ export function validatePack(
 			issues.push({ code: "missingImage", file, message: `${file} is missing` });
 		}
 	}
+	issues.push(...findDuplicateImages(pack, images));
 	return issues;
 }
 
@@ -251,4 +254,41 @@ function brokenSizeRule({ width, height, plays }: ImageInfo): string | undefined
 
 function kibibytes(bytes: number): number {
 	return Math.ceil(bytes / 1024);
+}
+
+/** Reports stickers whose image repeats an earlier sticker's; the cover may repeat one. */
+function findDuplicateImages(
+	pack: Pack,
+	images: ReadonlyMap<string, Uint8Array>,
+): ValidationIssue[] {
+	const issues: ValidationIssue[] = [];
+	const files = new Set<string>();
+	const repeatedFiles = new Set<string>();
+	const distinct: { file: string; bytes: Uint8Array }[] = [];
+	for (const { file } of pack.stickers) {
+		const bytes = images.get(file);
+		if (files.has(file)) {
+			repeatedFiles.add(file);
+		} else if (bytes) {
+			const original = distinct.find((image) => equalBytes(image.bytes, bytes));
+			if (original) {
+				issues.push(duplicateImage(file, `${file} is the same image as ${original.file}`));
+			} else {
+				distinct.push({ file, bytes });
+			}
+		}
+		files.add(file);
+	}
+	for (const file of repeatedFiles) {
+		issues.push(duplicateImage(file, `${file} is used by more than one sticker`));
+	}
+	return issues;
+}
+
+function equalBytes(a: Uint8Array, b: Uint8Array): boolean {
+	return a.length === b.length && a.every((byte, i) => byte === b[i]);
+}
+
+function duplicateImage(file: string, problem: string): ValidationIssue {
+	return { code: "duplicateImage", file, message: `${problem}; each sticker needs its own image` };
 }
