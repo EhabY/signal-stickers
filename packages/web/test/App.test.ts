@@ -89,11 +89,7 @@ describe("App", () => {
 		await fireEvent.click(await screen.findByRole("button", { name: "Remove sticker 2" }));
 
 		await vi.waitFor(() => {
-			expect(
-				screen
-					.getByRole("button", { name: "Use sticker 1 as the cover" })
-					.getAttribute("aria-pressed"),
-			).toBe("true");
+			expect(screen.getByAltText("Sticker 1 (cover)")).toBeTruthy();
 		});
 		expect(api.removeSticker).toHaveBeenCalledWith(1, "002.png");
 	});
@@ -141,6 +137,21 @@ describe("App", () => {
 		await vi.waitFor(() => {
 			expect(document.activeElement).toBe(screen.getByLabelText("Upload a separate cover"));
 		});
+	});
+
+	it("keeps focus on the sticker after making it the cover", async () => {
+		const api = fakeApi();
+		api.getPack.mockResolvedValue(packResponse());
+		renderApp(api);
+
+		await fireEvent.click(
+			await screen.findByRole("button", { name: "Use sticker 2 as the cover" }),
+		);
+
+		await vi.waitFor(() => {
+			expect(document.activeElement?.getAttribute("aria-label")).toMatch(/ of sticker 2$/u);
+		});
+		expect(screen.getByAltText("Sticker 2 (cover)")).toBeTruthy();
 	});
 
 	it("explains when the browser cannot convert an added image to WebP", async () => {

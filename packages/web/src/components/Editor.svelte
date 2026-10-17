@@ -147,7 +147,9 @@
 							Use a sticker instead
 						</button>
 					{:else}
-						<span class="muted star-hint"><Icon name="star" /> or star a sticker</span>
+						<span class="muted cover-hint"
+							>or choose <strong>Set as cover</strong> on a sticker</span
+						>
 					{/if}
 				</div>
 			</div>
@@ -253,10 +255,7 @@
 		justify-items: start;
 	}
 
-	.star-hint {
-		display: inline-flex;
-		gap: 0.3rem;
-		align-items: center;
+	.cover-hint {
 		font-size: 0.85rem;
 	}
 

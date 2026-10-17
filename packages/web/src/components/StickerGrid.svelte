@@ -41,6 +41,13 @@
 		removedAt = undefined;
 	});
 
+	async function setCover(index: number, file: string): Promise<void> {
+		onchange({ ...pack, cover: file });
+		// The button becomes the "Cover" label, so keep focus on the same card.
+		await tick();
+		focusControl(index, "emoji");
+	}
+
 	async function move(from: number, to: number, focus?: Control): Promise<void> {
 		const stickers = [...pack.stickers];
 		const [moved] = stickers.splice(from, 1);
@@ -155,9 +162,25 @@
 			aria-describedby={stickerIssues.length > 0 ? issuesId(index) : undefined}
 		>
 			<div class="frame">
-				<img src={imageUrl(sticker.file)} alt="Sticker {number}" draggable="false" />
+				<img
+					src={imageUrl(sticker.file)}
+					alt={isCover ? `Sticker ${number} (cover)` : `Sticker ${number}`}
+					draggable="false"
+				/>
 				{#if isCover}
 					<span class="cover-badge">Cover</span>
+				{:else}
+					<button
+						type="button"
+						class="set-cover"
+						aria-label="Use sticker {number} as the cover"
+						{disabled}
+						onclick={() => {
+							void setCover(index, sticker.file);
+						}}
+					>
+						Set as cover
+					</button>
 				{/if}
 				<button
 					type="button"
@@ -173,22 +196,6 @@
 					{sticker.emoji ?? "+"}
 				</button>
 				<div class="tools">
-					<button
-						type="button"
-						class="star"
-						aria-label="Use sticker {number} as the cover"
-						aria-pressed={isCover}
-						aria-disabled={isCover}
-						title={isCover ? "Cover" : "Make cover"}
-						{disabled}
-						onclick={() => {
-							if (!isCover) {
-								onchange({ ...pack, cover: sticker.file });
-							}
-						}}
-					>
-						<Icon name="star" />
-					</button>
 					<button
 						type="button"
 						data-control="earlier"
@@ -308,16 +315,32 @@
 		border-radius: 13px;
 	}
 
-	.cover-badge {
+	.cover-badge,
+	.set-cover {
 		position: absolute;
 		top: 0.5rem;
 		left: 0.5rem;
 		padding: 0.1rem 0.5rem;
 		border-radius: 999px;
-		background: var(--accent);
-		color: var(--accent-text);
 		font-size: 0.75rem;
 		font-weight: 700;
+	}
+
+	.cover-badge {
+		background: var(--accent);
+		color: var(--accent-text);
+	}
+
+	.set-cover {
+		border: 1px solid var(--accent);
+		background: var(--surface);
+		color: var(--accent);
+		box-shadow: var(--shadow);
+	}
+
+	.set-cover:hover:not(:disabled) {
+		background: var(--accent);
+		color: var(--accent-text);
 	}
 
 	.emoji {
@@ -338,6 +361,13 @@
 		color: var(--danger);
 	}
 
+	.tools,
+	.set-cover {
+		opacity: 0;
+		pointer-events: none;
+		transition: opacity 0.15s;
+	}
+
 	.tools {
 		position: absolute;
 		bottom: 0.4rem;
@@ -349,21 +379,19 @@
 		border-radius: 999px;
 		background: var(--surface);
 		box-shadow: var(--shadow);
-		opacity: 0;
-		pointer-events: none;
 		transform: translateX(-50%);
-		transition: opacity 0.15s;
 	}
 
 	/* Hidden buttons must not take clicks; touch screens always show them. */
-	.card:hover .tools,
-	.card:has(:focus-visible) .tools {
+	.card:hover :is(.tools, .set-cover),
+	.card:has(:focus-visible) :is(.tools, .set-cover) {
 		opacity: 1;
 		pointer-events: auto;
 	}
 
 	@media (hover: none), (any-pointer: coarse) {
-		.tools {
+		.tools,
+		.set-cover {
 			opacity: 1;
 			pointer-events: auto;
 		}
@@ -380,17 +408,8 @@
 		background: transparent;
 	}
 
-	.tools button:hover:not(:disabled, [aria-disabled="true"]) {
+	.tools button:hover:not(:disabled) {
 		background: var(--surface-muted);
-	}
-
-	.tools .star[aria-pressed="true"] {
-		color: var(--accent);
-		cursor: default;
-	}
-
-	.tools .star[aria-pressed="true"] :global(svg) {
-		fill: currentColor;
 	}
 
 	.tools .remove:hover:not(:disabled) {

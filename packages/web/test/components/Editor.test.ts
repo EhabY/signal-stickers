@@ -114,12 +114,10 @@ describe("Editor", () => {
 		});
 	});
 
-	it("marks the cover sticker as pressed and makes another sticker the cover", async () => {
+	it("labels the cover sticker and makes another sticker the cover", async () => {
 		const { changed } = renderEditor();
-		expect(coverButton(1).getAttribute("aria-pressed")).toBe("true");
-		expect(coverButton(1).getAttribute("aria-disabled")).toBe("true");
-		expect(coverButton(2).getAttribute("aria-pressed")).toBe("false");
-		expect(coverButton(2).getAttribute("aria-disabled")).toBe("false");
+		expect(screen.getByAltText("Sticker 1 (cover)")).toBeTruthy();
+		expect(screen.queryByRole("button", { name: "Use sticker 1 as the cover" })).toBeNull();
 
 		await fireEvent.click(coverButton(2));
 
@@ -150,7 +148,7 @@ describe("Editor", () => {
 
 	it("switches from a separate cover back to the first sticker", async () => {
 		const { changed } = renderEditor({ pack: { ...CATS, cover: "cover.webp" } });
-		expect(coverButton(1).getAttribute("aria-pressed")).toBe("false");
+		expect(coverButton(1)).toBeTruthy();
 
 		await fireEvent.click(screen.getByRole("button", { name: "Use a sticker instead" }));
 

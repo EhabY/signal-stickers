@@ -23,6 +23,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Publish a pack only once until you change it
 - Choose a separate cover image again after picking a sticker
 - Highlight the cover and tuck sticker actions into a hover toolbar
+- Choose the cover with a "Set as cover" button instead of a star
 
 ### Fixed
 
