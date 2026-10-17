@@ -17,6 +17,7 @@ catalog:
   "@vitest/coverage-v8": ^5.0.5
   concurrently: ^10.0.6
   emoji-picker-element: ^1.29.1
+  emoji-picker-element-data: ^1.8.0
   esbuild: ^0.28.2
   git-cliff: ^2.14.2
   jsdom: ^30.1.3

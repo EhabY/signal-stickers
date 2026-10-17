@@ -2,7 +2,8 @@
 
 Import, edit, and re-upload [Signal](https://signal.org) sticker packs, without Signal Desktop.
 
-> Early development. The command line can pull, link, and push today; the web editor is in progress.
+> Early development. The command line can pull, link, and push; the web editor can import and edit
+> packs, and linking and publishing from it are in progress.
 
 ## Requirements
 
@@ -12,6 +13,22 @@ Import, edit, and re-upload [Signal](https://signal.org) sticker packs, without 
 ```sh
 pnpm install
 ```
+
+## Edit in the browser
+
+```sh
+pnpm start
+```
+
+This builds the editor, serves it on this computer only (127.0.0.1), and opens it in your browser.
+Paste a pack's share link to import it, then edit the title and author, pick an emoji for each
+sticker, drag stickers into order, choose the cover, and add or remove images. Added images are
+converted to 512x512 WebP in the browser, unless they are PNG or WebP images that already fit.
+
+Every change is saved to the pack folder, `./pack` by default and the same one the command line
+uses; `pnpm start --dir ./my-pack` picks another. Importing a pack replaces that folder, which must
+hold a pack, be empty, or not exist yet. Add `--staging` for Signal's staging servers, `--no-open`
+to skip opening the browser, or `--port` to choose the port.
 
 ## Pull a pack
 

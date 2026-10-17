@@ -198,6 +198,9 @@ catalogs:
     emoji-picker-element:
       specifier: ^1.29.1
       version: 1.29.1
+    emoji-picker-element-data:
+      specifier: ^1.8.0
+      version: 1.8.0
     esbuild:
       specifier: ^0.28.2
       version: 0.28.2
@@ -319,6 +322,9 @@ importers:
       emoji-picker-element:
         specifier: 'catalog:'
         version: 1.29.1
+      emoji-picker-element-data:
+        specifier: 'catalog:'
+        version: 1.8.0
       qrcode:
         specifier: 'catalog:'
         version: 1.5.4
@@ -1336,6 +1342,9 @@ packages:
 
   dom-accessibility-api@0.5.16:
     resolution: {integrity: sha512-X7BJ2yElsnOJ30pZF4uIIDfBEVgF4XEBxL9Bxhy6dnrm5hkzqmsWHGTiHqRiITNhMyFLyAiWndIJP7Z1NTteDg==}
+
+  emoji-picker-element-data@1.8.0:
+    resolution: {integrity: sha512-VfRuRJNEDLS1JKlNS4olaqhjX5S1nnZ+ZHG73b/dV8QeZyi0yPruTPEE72EmF6XO3k/9hj3lybMIYMOYXb/57A==}
 
   emoji-picker-element@1.29.1:
     resolution: {integrity: sha512-TOiHzu9Dqib3x4MwcAi3wi3RdyT4SoeB4b15AvH1ks4SBwTl7DeebhZ0d3x6dNi4XfNU7IGRZ7NBQllj0RqwrQ==}
@@ -2684,6 +2693,8 @@ snapshots:
   dijkstrajs@1.0.3: {}
 
   dom-accessibility-api@0.5.16: {}
+
+  emoji-picker-element-data@1.8.0: {}
 
   emoji-picker-element@1.29.1: {}
 

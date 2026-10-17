@@ -14,6 +14,7 @@
 	},
 	"dependencies": {
 		"emoji-picker-element": "catalog:",
+		"emoji-picker-element-data": "catalog:",
 		"qrcode": "catalog:"
 	},
 	"devDependencies": {

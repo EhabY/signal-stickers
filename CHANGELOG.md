@@ -14,5 +14,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Add `push` to upload a pack folder as a new sticker pack
 - Serve a local API to link, pull, edit, and upload packs
 - Start the editor from the command line and open a browser
+- Import a sticker pack and edit it in the browser
 
 
