@@ -11,7 +11,7 @@ import { PrivateKey, PublicKey } from "@signalapp/libsignal-client";
 
 import type { Credentials, CredentialsStore } from "../../src/account/credentials.ts";
 import type { SerializedPreKey } from "../../src/account/keys.ts";
-import type { LinkProgress } from "../../src/account/link.ts";
+import { linkDevice, type LinkProgress } from "../../src/account/link.ts";
 import type {
 	ProvisioningAck,
 	ProvisioningListener,
@@ -112,14 +112,18 @@ export type FakeProvisioningOptions = Readonly<{
 	sendAddress?: boolean | undefined;
 	/** What the phone sends; defaults to {@link PROVISION_MESSAGE}. */
 	message?: ProvisionMessageProto | undefined;
+	/** Each socket's connect waits for its entry and fails if it rejects; later ones connect at once. */
+	connecting?: readonly (() => Promise<void>)[] | undefined;
 }>;
 
 /** A provisioning service whose sockets connect at once; {@link FakeProvisioning.scan} plays the phone. */
 export function fakeProvisioning({
 	sendAddress = true,
 	message = PROVISION_MESSAGE,
+	connecting = [],
 }: FakeProvisioningOptions = {}): FakeProvisioning {
 	const sockets: FakeProvisioningSocket[] = [];
+	const connects = [...connecting];
 	const close = (socket: FakeProvisioningSocket, cause: Error | null) => {
 		if (!socket.disconnected) {
 			socket.disconnected = true;
@@ -144,7 +148,8 @@ export function fakeProvisioning({
 	};
 	return {
 		sockets,
-		transport: (listener) => {
+		transport: async (listener) => {
+			await connects.shift()?.();
 			const socket: FakeProvisioningSocket = {
 				address: `provisioning-address-${sockets.length + 1}`,
 				listener,
@@ -153,16 +158,17 @@ export function fakeProvisioning({
 			};
 			sockets.push(socket);
 			if (sendAddress) {
-				queueMicrotask(() => {
+				// libsignal attaches the listener only once the connect resolves.
+				setTimeout(() => {
 					listener.onReceivedAddress(socket.address, ackFor(socket));
 				});
 			}
-			return Promise.resolve({
+			return {
 				disconnect: () => {
 					close(socket, null);
 					return Promise.resolve();
 				},
-			});
+			};
 		},
 		scan,
 		scanWhenShown: (progress) => {
@@ -174,6 +180,22 @@ export function fakeProvisioning({
 			close(socket, new Error("Connection reset"));
 		},
 	};
+}
+
+/**
+ * The real `linkDevice` with {@link fakeProvisioning} as the provisioning service and a phone that
+ * scans the first QR code, to test linking end to end.
+ */
+export function linkDeviceByScanning(phone = fakeProvisioning()): typeof linkDevice {
+	return (options) =>
+		linkDevice({
+			...options,
+			provisioning: phone.transport,
+			onProgress: (progress) => {
+				options.onProgress?.(progress);
+				phone.scanWhenShown(progress);
+			},
+		});
 }
 
 /** Encrypts `message` to `publicKey` like the phone, the reverse of Signal's `ProvisioningCipher`. */

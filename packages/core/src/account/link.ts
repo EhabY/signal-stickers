@@ -1,8 +1,14 @@
 import type { Environment } from "../env.ts";
-import type { ChatClientFactory } from "../net/chat.ts";
-import { NotImplementedError } from "../util/notImplemented.ts";
-import type { Credentials } from "./credentials.ts";
-import type { ProvisioningTransport } from "./provisioningTransport.ts";
+import { createChatClient, CredentialsRejectedError, type ChatClientFactory } from "../net/chat.ts";
+import { getChatAuth, type Credentials } from "./credentials.ts";
+import {
+	createProvisioningTransport,
+	type ProvisioningTransport,
+} from "./provisioningTransport.ts";
+import { registerDevice } from "./register.ts";
+import { waitForScan } from "./scan.ts";
+
+export { LinkError } from "./linkError.ts";
 
 /**
  * Linking steps in order. `waitingForScan` repeats with a new QR URL if the provisioning socket is
@@ -47,10 +53,26 @@ export type UnlinkOptions = Readonly<{
 
 /**
  * Links this tool as a new device of the account whose phone scans the QR code, named
- * `signal-stickers`, and returns its credentials. The caller saves them.
+ * `signal-stickers`, and returns its credentials. The caller saves them. Failures the user can act
+ * on (an expired code, too many devices, ...) reject with a `LinkError`.
  */
-export function linkDevice(_options: LinkOptions): Promise<Credentials> {
-	return Promise.reject(new NotImplementedError("linkDevice"));
+export async function linkDevice({
+	env,
+	provisioning = createProvisioningTransport(env),
+	createChat = createChatClient,
+	signal,
+	onProgress,
+}: LinkOptions): Promise<Credentials> {
+	onProgress?.({ step: "connecting" });
+	const account = await waitForScan({
+		provisioning,
+		signal,
+		onQrUrl: (qrUrl) => onProgress?.({ step: "waitingForScan", qrUrl }),
+	});
+	onProgress?.({ step: "registering" });
+	const credentials = await registerDevice({ env, account, createChat, signal });
+	onProgress?.({ step: "done" });
+	return credentials;
 }
 
 export function getLinkStatus(credentials?: Credentials): LinkStatus {
@@ -65,6 +87,22 @@ export function getLinkStatus(credentials?: Credentials): LinkStatus {
  * Removes this device from the account (`DELETE /v1/devices/{deviceId}`). A device the phone
  * already removed counts as unlinked. The caller deletes the stored credentials.
  */
-export function unlinkDevice(_options: UnlinkOptions): Promise<void> {
-	return Promise.reject(new NotImplementedError("unlinkDevice"));
+export async function unlinkDevice({
+	credentials,
+	createChat = createChatClient,
+	signal,
+}: UnlinkOptions): Promise<void> {
+	const chat = createChat({ env: credentials.env, auth: getChatAuth(credentials) });
+	try {
+		await chat.requestJson({
+			method: "DELETE",
+			path: `/v1/devices/${credentials.deviceId}`,
+			signal,
+		});
+	} catch (error) {
+		// The chat service rejects the credentials of a device that no longer exists.
+		if (!(error instanceof CredentialsRejectedError)) {
+			throw error;
+		}
+	}
 }

@@ -1,5 +1,6 @@
+import type { Net } from "@signalapp/libsignal-client/dist/net.js";
+
 import type { Environment } from "../env.ts";
-import { NotImplementedError } from "../util/notImplemented.ts";
 
 /** Acknowledges a provisioning message, like libsignal's `ChatServerMessageAck`. */
 export type ProvisioningAck = Readonly<{ send(statusCode: number): void }>;
@@ -23,6 +24,20 @@ export type ProvisioningTransport = (
 ) => Promise<ProvisioningConnection>;
 
 /** The real transport: libsignal's `Net` for `env`, which pins Signal's servers itself. */
-export function createProvisioningTransport(_env: Environment): ProvisioningTransport {
-	throw new NotImplementedError("createProvisioningTransport");
+export function createProvisioningTransport(env: Environment): ProvisioningTransport {
+	let net: Promise<Net> | undefined;
+	return async (listener, signal) => {
+		net ??= createNet(env);
+		return (await net).connectProvisioning(listener, signal ? { abortSignal: signal } : {});
+	};
+}
+
+async function createNet(env: Environment): Promise<Net> {
+	// Loaded on first use, like the rest of libsignal (see loadLibsignal).
+	const libsignalNet = await import("@signalapp/libsignal-client/dist/net.js");
+	const environments = {
+		production: libsignalNet.Environment.Production,
+		staging: libsignalNet.Environment.Staging,
+	} satisfies Record<Environment, unknown>;
+	return new libsignalNet.Net({ env: environments[env], userAgent: "signal-stickers" });
 }

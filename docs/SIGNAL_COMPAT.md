@@ -9,21 +9,29 @@ repo). Last verified against Signal-Desktop `8.34.0-alpha.1` on 2026-10-17.
 
 ## Triage by symptom
 
-| Symptom                                                    | Check first                                   |
-| ---------------------------------------------------------- | --------------------------------------------- |
-| TLS errors (`SELF_SIGNED_CERT_IN_CHAIN`, `UNABLE_TO_…`)    | [Pinned CA](#pinned-ca), then [Hosts](#hosts) |
-| `GET … failed with status 403/404` on a valid pack link    | [CDN paths](#cdn-paths), then [Hosts](#hosts) |
-| `GET … failed with status 4xx` on every request            | [Request headers](#request-headers)           |
-| `Attachment MAC does not match` / `could not be decrypted` | [Pack crypto](#pack-crypto)                   |
-| `ProtobufError`, or missing title/emoji/cover              | [Manifest proto](#manifest-proto)             |
-| `Not a Signal sticker pack link`                           | [Link format](#link-format)                   |
-| Pulled images have a `.bin` extension                      | [Image formats](#image-formats)               |
+| Symptom                                                         | Check first                                      |
+| --------------------------------------------------------------- | ------------------------------------------------ |
+| TLS errors (`SELF_SIGNED_CERT_IN_CHAIN`, `UNABLE_TO_…`)         | [Pinned CA](#pinned-ca), then [Hosts](#hosts)    |
+| `GET … failed with status 403/404` on a valid pack link         | [CDN paths](#cdn-paths), then [Hosts](#hosts)    |
+| `GET … failed with status 4xx` on every request                 | [Request headers](#request-headers)              |
+| `Attachment MAC does not match` / `could not be decrypted`      | [Pack crypto](#pack-crypto)                      |
+| `ProtobufError`, or missing title/emoji/cover                   | [Manifest proto](#manifest-proto)                |
+| `Not a Signal sticker pack link`                                | [Link format](#link-format)                      |
+| Pulled images have a `.bin` extension                           | [Image formats](#image-formats)                  |
+| Linking never shows a QR code, or the socket closes             | [Provisioning socket](#provisioning-socket)      |
+| The phone rejects the QR code                                   | [QR code](#qr-code)                              |
+| `DecryptionError` or "incomplete linking data" after a scan     | [Provisioning](#provisioning-cipher-and-message) |
+| Linking fails with "no longer accepts this version" (409)       | [Device link request](#device-link-request)      |
+| Linking fails with "rejected the link request's contents" (422) | [Device link request](#device-link-request)      |
+| The phone shows a garbled name for the device                   | [Device name](#device-name)                      |
+| `unlink` fails after the phone removed the device               | [Unlink](#unlink)                                |
 
 ## Hosts
 
 - **Ours:** `packages/core/src/env.ts`
 - **Signal:** `config/production.json` and `config/default.json` (`serverUrl`, `cdn.0`)
-- Production `https://cdn.signal.org`, staging `https://cdn-staging.signal.org`.
+- Chat service: production `https://chat.signal.org`, staging `https://chat.staging.signal.org`.
+- CDN: production `https://cdn.signal.org`, staging `https://cdn-staging.signal.org`.
 
 ## Pinned CA
 
@@ -41,10 +49,14 @@ repo). Last verified against Signal-Desktop `8.34.0-alpha.1` on 2026-10-17.
 
 ## Request headers
 
-- **Ours:** `packages/core/src/net/cdn.ts` (`User-Agent: signal-stickers`)
-- **Signal:** `ts/textsecure/WebAPI.preload.ts` (`getFetchOptions`), `ts/util/getUserAgent.node.ts`
-- We identify as `signal-stickers` instead of copying Signal-Desktop's user agent. If the CDN starts
-  rejecting unknown agents, this is the place.
+- **Ours:** `packages/core/src/net/cdn.ts` and `packages/core/src/net/chat.ts`
+  (`User-Agent: signal-stickers`), `packages/core/src/account/credentials.ts` (`getChatAuth`)
+- **Signal:** `ts/textsecure/WebAPI.preload.ts` (`_ajax`, `getFetchOptions`),
+  `ts/util/getUserAgent.node.ts`
+- We identify as `signal-stickers` instead of copying Signal-Desktop's user agent, and send no
+  `X-Signal-Agent`. If the servers start rejecting unknown agents, this is the place.
+- Chat requests use `Authorization: Basic base64(username:password)` with username `aci.deviceId`,
+  or the bare aci for `PUT /v1/devices/link`.
 
 ## Pack crypto
 
@@ -87,8 +99,92 @@ repo). Last verified against Signal-Desktop `8.34.0-alpha.1` on 2026-10-17.
 - Stickers are PNG/APNG or WebP. Anything else is saved as `.bin` so it is visible rather than
   mislabelled.
 
+## Provisioning socket
+
+- **Ours:** `packages/core/src/account/provisioningTransport.ts`
+- **Signal:** `ts/textsecure/Provisioner.preload.ts`, `ts/textsecure/SocketManager.preload.ts`
+  (`connectProvisioning`)
+- libsignal's `Net.connectProvisioning` with user agent `signal-stickers` and
+  `Environment.Production` or `Staging`. `@signalapp/libsignal-client` is pinned to the exact
+  version in Signal-Desktop's `package.json`; update the two together.
+
+## QR code
+
+- **Ours:** `packages/core/src/account/scan.ts`
+- **Signal:** `ts/textsecure/Provisioner.preload.ts`, `ts/util/signalRoutes.std.ts`
+  (`linkDeviceRoute`)
+- `sgnl://linkdevice?uuid=<address>&pub_key=<base64 public key>&capabilities=nopni%2Cnopni2`, built
+  with `URLSearchParams` like Signal-Desktop.
+- A new code every 45 s with the previous one still scannable (two sockets at most), 6 codes in all,
+  and 10 s for each socket to connect and receive its address (`ROTATION_INTERVAL`,
+  `MAX_OPEN_SOCKETS`, `MAX_ROTATIONS`, `QR_CODE_TIMEOUTS`). Unlike Signal-Desktop, a socket that
+  fails to connect fails the link instead of retrying with backoff.
+
+## Provisioning cipher and message
+
+- **Ours:** `packages/core/src/account/provisioningCipher.ts`,
+  `packages/core/src/protocol/provisioning.ts`
+- **Signal:** `ts/textsecure/ProvisioningCipher.node.ts`, `ts/Crypto.node.ts` (`deriveSecrets`,
+  `verifyHmacSha256`), `ts/textsecure/Provisioner.preload.ts` (`prepareLinkData`),
+  `protos/DeviceMessages.proto`
+- Version byte 1. HKDF-SHA256 over the X25519 shared secret, 32 zero bytes of salt, info
+  `"TextSecure Provisioning Message"`, 96 bytes out: cipher key, then MAC key. The body is
+  `version || iv(16) || AES-256-CBC || HMAC-SHA256` over everything before the MAC.
+- `ProvisionEnvelope`: `publicKey = 1`, `body = 2`. `ProvisionMessage` fields we read:
+  `aciIdentityKeyPrivate = 2`, `number = 3`, `provisioningCode = 4`, `aci = 8`, `pni = 10`,
+  `pniIdentityKeyPrivate = 12`, `aciBinary = 17`, `pniBinary = 18`.
+- The aci comes from `aciBinary` or the lowercased `aci`; a pni needs its identity key and the
+  number. Signal-Desktop also requires the profile key, master key or account entropy pool, and auth
+  credential salt; we never read messages or profiles, so we do not.
+- The known-answer tests in `packages/core/test/account/provisioningCipher.test.ts` were computed
+  with `node:crypto` only.
+
+## Device link request
+
+- **Ours:** `packages/core/src/account/register.ts`, `packages/core/src/account/keys.ts`
+- **Signal:** `ts/textsecure/WebAPI.preload.ts` (`linkDevice`, `linkDeviceResultZod`,
+  `serializeSignedPreKey`), `ts/util/getCapabilities.std.ts`, `ts/Crypto.node.ts`
+  (`generateRegistrationId`), `ts/Curve.node.ts` (`generateSignedPreKey`, `generateKyberPreKey`),
+  `ts/textsecure/AccountManager.preload.ts`
+- `PUT /v1/devices/link` with Basic auth `aci:password`, where the password is base64 of 16 random
+  bytes without its last 2 characters. The body, in Signal-Desktop's order: `verificationCode`,
+  `accountAttributes` (`fetchesMessages: true`, `name`, `registrationId`, `pniRegistrationId` when
+  the phone shares its number, `capabilities`), `aciSignedPreKey`, `aciPqLastResortPreKey`, and the
+  PNI prekeys when there is a number. The reply is `{ uuid, pni?, deviceId }`.
+- `fetchesMessages` must be `true`: Signal-Server's
+  `LinkDeviceRequest.isExactlyOneMessageDeliveryChannel` accepts a device only if it fetches
+  messages or has exactly one APNs/FCM push token, and answers 422 otherwise (confirmed against
+  production on 2026-10-17). Any other 422 means the body no longer passes the server's validation:
+  compare it with `LinkDeviceRequest` and `DeviceAttributes`.
+- Capabilities copy `getCapabilities`: `attachmentBackfill`, `spqr`, `usernameChangeSyncMessage`,
+  and `optionalPhoneNumber` when there is no number. A 409 usually means the server now requires a
+  new capability: copy it from there.
+- Registration ids are 1 to 16383. Each identity gets a signed EC prekey (33-byte key) and a signed
+  last-resort Kyber prekey (1569-byte key) with random 24-bit ids, sent as base64
+  `{ keyId, publicKey, signature }`.
+- Errors follow `ts/state/ducks/installer.preload.ts` (`finishInstall`) and
+  `ts/textsecure/Utils.dom.ts` (`translateError`): 403 expired code, 409 outdated client, 411 too
+  many devices, 413 and 429 rate limited.
+
+## Device name
+
+- **Ours:** `packages/core/src/account/deviceName.ts`
+- **Signal:** `ts/Crypto.node.ts` and `ts/textsecure/AccountManager.preload.ts`
+  (`encryptDeviceName`), `protos/DeviceName.proto`
+- X25519 of an ephemeral key and the ACI identity key gives the secret. The synthetic IV is the
+  first 16 bytes of `HMAC(HMAC(secret, "auth"), name)`, the key is
+  `HMAC(HMAC(secret, "cipher"), syntheticIv)`, and the cipher is AES-256-CTR from a zero counter.
+  `DeviceName`: `ephemeralPublic = 1`, `syntheticIv = 2`, `ciphertext = 3`, sent as base64. The name
+  is always `signal-stickers`.
+
+## Unlink
+
+- **Ours:** `packages/core/src/account/link.ts` (`unlinkDevice`)
+- **Signal:** `ts/textsecure/WebAPI.preload.ts` (`unlink`)
+- `DELETE /v1/devices/{deviceId}` as `aci.deviceId`. A 401 or 403 counts as already unlinked,
+  because the phone may have removed the device first.
+
 ## Not implemented yet
 
-Linking a device and uploading packs (milestone 3) will add these; list them here when they land:
-`PUT /v1/devices/link`, the provisioning socket and `ProvisionMessage` fields, device capabilities,
-prekey formats, `GET /v1/sticker/pack/form/{count}`, and the S3 upload form field order.
+Uploading packs will add `GET /v1/sticker/pack/form/{count}` and the S3 upload form field order;
+list them here when they land.

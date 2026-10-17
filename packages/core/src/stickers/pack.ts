@@ -1,6 +1,8 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
+import { isRecord } from "../util/isRecord.ts";
+
 export class PackFormatError extends Error {
 	override name = "PackFormatError";
 }
@@ -62,10 +64,6 @@ export function parsePack(value: unknown): Pack {
 			return { file, emoji: stringField(sticker, "emoji", `stickers[${i}].`) };
 		}),
 	};
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function stringField(record: Record<string, unknown>, key: string, path = ""): string {
