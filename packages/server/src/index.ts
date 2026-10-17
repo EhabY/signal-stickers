@@ -1,2 +1,2 @@
-/** The server only ever listens on loopback; it has no other authentication. */
-export const HOST = "127.0.0.1";
+export type { ServerDeps } from "./routes.ts";
+export * from "./server.ts";
