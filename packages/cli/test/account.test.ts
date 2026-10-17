@@ -1,4 +1,8 @@
-import { credentialsWarning, unlinkDevice as unlinkThroughCore } from "@signal-stickers/core";
+import {
+	CredentialsFormatError,
+	credentialsWarning,
+	unlinkDevice as unlinkThroughCore,
+} from "@signal-stickers/core";
 import {
 	CREDENTIALS,
 	fakeChat,
@@ -192,8 +196,42 @@ describe("unlink", () => {
 		const { code, stderr } = await runCli(["unlink"], { credentialsStore, unlinkDevice });
 
 		expect(code).toBe(1);
-		expect(stderr).toContain("Error: Network down\n");
+		expect(stderr).toContain(
+			'Error: Network down. If Signal can\'t be reached, run "signal-stickers unlink --local"',
+		);
 		expect(credentialsStore.current()).toEqual(CREDENTIALS);
+	});
+
+	it("only deletes the credentials with --local", async () => {
+		const credentialsStore = memoryCredentialsStore(CREDENTIALS);
+
+		const { code, stdout, stderr } = await runCli(["unlink", "--local"], { credentialsStore });
+
+		expect(code).toBe(0);
+		expect(credentialsStore.current()).toBeUndefined();
+		expect(stdout).toBe(`Deleted ${STORE_PATH}\n`);
+		expect(stderr).toBe(
+			'If "signal-stickers" is still in Linked devices in Signal on your phone (Settings > Linked devices), remove it there.\n',
+		);
+	});
+
+	it("deletes credentials that no longer load with --local", async () => {
+		const credentialsStore = {
+			...memoryCredentialsStore(CREDENTIALS),
+			load: () => Promise.reject(new CredentialsFormatError(`${STORE_PATH} is not valid JSON`)),
+		};
+
+		const { code, stdout } = await runCli(["unlink", "--local"], { credentialsStore });
+
+		expect(code).toBe(0);
+		expect(credentialsStore.current()).toBeUndefined();
+		expect(stdout).toBe(`Deleted ${STORE_PATH}\n`);
+	});
+
+	it("does nothing with --local when not linked", async () => {
+		const { code, stdout } = await runCli(["unlink", "--local"]);
+
+		expect({ code, stdout }).toEqual({ code: 0, stdout: "Not linked\n" });
 	});
 
 	it("does nothing when not linked", async () => {

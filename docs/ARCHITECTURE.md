@@ -64,7 +64,8 @@ All requests use Signal's pinned CA (`net/signalCa.ts`); the default root store 
 
 Progress (`connecting`, `waitingForScan` with the QR URL, `registering`, `done`) carries no secrets,
 so front ends forward it as is. `unlinkDevice` sends `DELETE /v1/devices/{id}`; the front end then
-deletes the credentials.
+deletes the credentials. The CLI's `unlink --local` only deletes them, for when Signal cannot be
+reached or the credentials no longer load.
 
 Chat requests go through `net/chat.ts`: JSON over the pinned CA with Basic auth, where the username
 is `aci.deviceId` (`getChatAuth`).

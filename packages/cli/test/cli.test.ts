@@ -14,6 +14,7 @@ describe("cli", () => {
 		["an unknown command", ["frobnicate"]],
 		["an unknown option", ["pull", "--nope"]],
 		["an unexpected argument", ["status", "now"]],
+		["--local with a command other than unlink", ["status", "--local"]],
 	])("fails with usage for %s", async (_, args) => {
 		const { code, stderr } = await runCli(args);
 

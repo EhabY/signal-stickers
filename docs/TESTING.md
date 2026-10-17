@@ -81,4 +81,6 @@ can; staging needs a phone registered on Signal's staging servers.
 3. **Push** a one-sticker pack with `pnpm push`, then pull the printed link back and compare.
 4. **Web**: run `pnpm dev` (or `pnpm start`), and link, import, edit, and publish in a real browser,
    including adding a large or non-square image to check the canvas conversion.
-5. **Unlink** with `pnpm run unlink` and check the device disappears from the phone.
+5. **Unlink** with `pnpm run unlink` and check the device disappears from the phone. After linking
+   again, `pnpm run unlink --local` deletes the credentials and leaves the device on the phone to
+   remove there.

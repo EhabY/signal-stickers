@@ -15,7 +15,8 @@ packages/
   cli/      signal-stickers command
     src/                cli.ts parses arguments and dispatches; pull.ts, push.ts, and account.ts
                         (link, status, unlink) hold the commands; context.ts the injectable
-                        services and shared output; main.ts wires the process
+                        services, the parsed command options, and shared output; main.ts wires
+                        the process
   server/   local HTTP + WebSocket API and the web app's host
     src/                api.ts (the contract with web), server.ts (listening, Host and Origin
                         checks, events), dispatch.ts and router.ts (typed routing), routes.ts

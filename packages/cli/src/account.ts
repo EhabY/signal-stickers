@@ -10,7 +10,13 @@ import {
 	type LinkProgress,
 } from "@signal-stickers/core";
 
-import { assertNoArguments, terminalQr, type CliContext, type Output } from "./context.ts";
+import {
+	assertNoArguments,
+	terminalQr,
+	type CliContext,
+	type CommandOptions,
+	type Output,
+} from "./context.ts";
 
 const STEP_LINES: Record<Exclude<LinkProgress["step"], "waitingForScan">, string> = {
 	connecting: "Connecting\n",
@@ -19,11 +25,13 @@ const STEP_LINES: Record<Exclude<LinkProgress["step"], "waitingForScan">, string
 };
 const SCAN_INSTRUCTIONS =
 	"Scan this code in the Signal app on your phone: Settings > Linked devices > Link new device";
+const REMOVE_ON_PHONE =
+	'If "signal-stickers" is still in Linked devices in Signal on your phone (Settings > Linked devices), remove it there.';
 
 /** Links this tool as a new device and saves its credentials, unless it is already linked. */
 export async function link(
 	args: readonly string[],
-	env: Environment,
+	{ env }: CommandOptions,
 	{
 		stdout,
 		stderr,
@@ -53,7 +61,7 @@ export async function link(
 /** Prints which account and environment this tool is linked to, never the password. */
 export async function status(
 	args: readonly string[],
-	_env: Environment,
+	_options: CommandOptions,
 	{ stdout, credentialsStore }: CliContext,
 ): Promise<void> {
 	assertNoArguments("status", args);
@@ -76,11 +84,12 @@ export async function status(
 
 /**
  * Removes this device from the account, in the environment it was linked in whatever `--staging`
- * says, then deletes its saved credentials.
+ * says, then deletes its saved credentials. With `local`, only deletes the credentials, for a device
+ * Signal cannot be asked to remove or credentials that no longer load.
  */
 export async function unlink(
 	args: readonly string[],
-	_env: Environment,
+	{ local }: CommandOptions,
 	{
 		stdout,
 		stderr,
@@ -90,15 +99,24 @@ export async function unlink(
 		unlinkDevice: removeDevice = unlinkDevice,
 	}: CliContext,
 ): Promise<void> {
-	assertNoArguments("unlink", args);
+	assertNoArguments("unlink [--local]", args);
 	const store = credentialsStore ?? createCredentialsStore();
+	if (local) {
+		if (await store.delete()) {
+			stdout.write(`Deleted ${store.path}\n`);
+			stderr.write(`${REMOVE_ON_PHONE}\n`);
+		} else {
+			stdout.write("Not linked\n");
+		}
+		return;
+	}
 	const credentials = await store.load();
 	if (!credentials) {
 		stdout.write("Not linked\n");
 		return;
 	}
 	stderr.write(`Unlinking device ${credentials.deviceId} from Signal ${credentials.env}\n`);
-	await removeDevice({ credentials, createChat, signal });
+	await removeDevice({ credentials, createChat, signal }).catch(suggestLocalUnlink);
 	await store.delete();
 	stdout.write(`Unlinked and deleted ${store.path}\n`);
 }
@@ -143,6 +161,17 @@ async function saveLinked(store: CredentialsStore, credentials: Credentials): Pr
 			{ cause: error },
 		);
 	}
+}
+
+function suggestLocalUnlink(error: unknown): never {
+	if (error instanceof Error && error.name !== "AbortError") {
+		throw new Error(
+			`${error.message.replace(/\.$/u, "")}. If Signal can't be reached, run ` +
+				'"signal-stickers unlink --local" to delete the saved credentials instead.',
+			{ cause: error },
+		);
+	}
+	throw error;
 }
 
 function assertLinkedTo(env: Environment, credentials: Credentials): void {

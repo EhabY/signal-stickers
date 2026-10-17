@@ -29,6 +29,13 @@ export type CliContext = Readonly<{
 	unlinkDevice?: typeof unlinkDevice;
 }>;
 
+/** The options a command runs with, parsed from anywhere on the command line. */
+export type CommandOptions = Readonly<{
+	env: Environment;
+	/** `unlink --local`: only delete the saved credentials. */
+	local: boolean;
+}>;
+
 export function defaultCdn(env: Environment): CdnClient {
 	return createCdnClient({ env });
 }

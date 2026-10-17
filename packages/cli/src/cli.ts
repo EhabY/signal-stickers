@@ -4,11 +4,10 @@ import {
 	PackValidationError,
 	resolveEnvironment,
 	UnknownEnvironmentError,
-	type Environment,
 } from "@signal-stickers/core";
 
 import { link, status, unlink } from "./account.ts";
-import { UsageError, type CliContext } from "./context.ts";
+import { UsageError, type CliContext, type CommandOptions } from "./context.ts";
 import { pull } from "./pull.ts";
 import { push } from "./push.ts";
 
@@ -19,14 +18,19 @@ Commands:
   pull <link> [dir]   Download and decrypt a sticker pack into dir (default: ./pack)
   push [dir]          Upload the pack in dir (default: ./pack) as a new sticker pack
   status              Show which account this tool is linked to
-  unlink              Remove this device from your account and delete its credentials
+  unlink [--local]    Remove this device from your account and delete its credentials;
+                      with --local, only delete the credentials, without contacting Signal
 
 Options:
   --staging           Use Signal's staging servers (or SIGNAL_STICKERS_ENV=staging)
   -h, --help          Show this help
 `;
 
-type Command = (args: readonly string[], env: Environment, context: CliContext) => Promise<void>;
+type Command = (
+	args: readonly string[],
+	options: CommandOptions,
+	context: CliContext,
+) => Promise<void>;
 
 const COMMANDS = new Map<string, Command>([
 	["link", link],
@@ -42,7 +46,11 @@ export async function run(args: readonly string[], context: CliContext): Promise
 		const { values, positionals } = parseArgs({
 			args: [...args],
 			allowPositionals: true,
-			options: { staging: { type: "boolean" }, help: { type: "boolean", short: "h" } },
+			options: {
+				staging: { type: "boolean" },
+				local: { type: "boolean", default: false },
+				help: { type: "boolean", short: "h" },
+			},
 		});
 		const [command, ...rest] = positionals;
 		if (values.help === true) {
@@ -57,7 +65,10 @@ export async function run(args: readonly string[], context: CliContext): Promise
 		if (!runCommand) {
 			throw new UsageError(`Unknown command: ${command}`);
 		}
-		await runCommand(rest, env, context);
+		if (values.local && command !== "unlink") {
+			throw new UsageError("--local only works with unlink");
+		}
+		await runCommand(rest, { env, local: values.local }, context);
 		return 0;
 	} catch (error) {
 		context.stderr.write(`Error: ${describeError(error)}\n`);

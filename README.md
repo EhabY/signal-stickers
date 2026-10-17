@@ -71,6 +71,10 @@ pnpm status       # which account and environment this tool is linked to
 pnpm run unlink   # remove the device from your account and delete the credentials
 ```
 
+If Signal cannot be reached, or the saved credentials no longer load, `pnpm run unlink --local` only
+deletes the credentials. Remove `signal-stickers` from Linked devices on your phone too, if it is
+still there.
+
 ## Push a pack
 
 Upload a pack folder as a new sticker pack on your linked account:

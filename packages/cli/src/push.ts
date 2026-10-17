@@ -5,16 +5,22 @@ import {
 	createCredentialsStore,
 	getChatAuth,
 	pushPack,
-	type Environment,
 } from "@signal-stickers/core";
 
 import { loadCredentials } from "./account.ts";
-import { defaultCdn, progressLine, terminalQr, UsageError, type CliContext } from "./context.ts";
+import {
+	defaultCdn,
+	progressLine,
+	terminalQr,
+	UsageError,
+	type CliContext,
+	type CommandOptions,
+} from "./context.ts";
 
 /** Uploads the pack in `dir` as a new pack and prints its link, with a QR code on a terminal. */
 export async function push(
 	[dir = "pack", ...extra]: readonly string[],
-	env: Environment,
+	{ env }: CommandOptions,
 	{
 		stdout,
 		stderr,

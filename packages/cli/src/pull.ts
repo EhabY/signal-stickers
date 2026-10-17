@@ -1,12 +1,18 @@
 import { resolve } from "node:path";
 
-import { parsePackLink, pullPack, type Environment, type Pack } from "@signal-stickers/core";
+import { parsePackLink, pullPack, type Pack } from "@signal-stickers/core";
 
-import { defaultCdn, progressLine, UsageError, type CliContext } from "./context.ts";
+import {
+	defaultCdn,
+	progressLine,
+	UsageError,
+	type CliContext,
+	type CommandOptions,
+} from "./context.ts";
 
 export async function pull(
 	[link, dir = "pack", ...extra]: readonly string[],
-	env: Environment,
+	{ env }: CommandOptions,
 	{ stdout, stderr, cwd, signal, createCdn = defaultCdn }: CliContext,
 ): Promise<void> {
 	if (link === undefined || extra.length > 0) {
