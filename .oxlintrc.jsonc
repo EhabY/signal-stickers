@@ -85,6 +85,11 @@
 								"message": "core is Node-only; web talks to the server over HTTP/WS.",
 							},
 							{
+								"group": ["@signal-stickers/server/**"],
+								"allowTypeImports": true,
+								"message": "server is Node-only; web shares only its API types.",
+							},
+							{
 								"group": ["@signal-stickers/*/testing", "**/test/**"],
 								"message": "Test support is for tests only.",
 							},
@@ -94,6 +99,11 @@
 								"name": "@signal-stickers/core",
 								"allowTypeImports": true,
 								"message": "core is Node-only; web talks to the server over HTTP/WS.",
+							},
+							{
+								"name": "@signal-stickers/server",
+								"allowTypeImports": true,
+								"message": "server is Node-only; web shares only its API types.",
 							},
 						],
 					},
