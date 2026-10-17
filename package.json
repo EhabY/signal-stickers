@@ -9,7 +9,7 @@
 		"build": "pnpm -r --parallel build",
 		"changelog": "git-cliff --output CHANGELOG.md",
 		"clean": "node scripts/clean.ts",
-		"dev": "pnpm --filter web dev",
+		"dev": "concurrently -k -n server,web \"pnpm --filter server dev\" \"pnpm --filter web dev\"",
 		"format": "node scripts/run-tool.ts oxfmt --write .",
 		"format:check": "node scripts/run-tool.ts oxfmt --check .",
 		"link": "node packages/cli/src/main.ts link",
