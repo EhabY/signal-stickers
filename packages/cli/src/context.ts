@@ -5,6 +5,7 @@ import {
 	type CredentialsStore,
 	type Environment,
 	type linkDevice,
+	type pushPack,
 	type unlinkDevice,
 } from "@signal-stickers/core";
 import { toString as renderQr } from "qrcode";
@@ -24,6 +25,7 @@ export type CliContext = Readonly<{
 	/** Defaults to the tool's own config directory. */
 	credentialsStore?: CredentialsStore;
 	linkDevice?: typeof linkDevice;
+	pushPack?: typeof pushPack;
 	unlinkDevice?: typeof unlinkDevice;
 }>;
 

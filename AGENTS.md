@@ -45,9 +45,9 @@ Read only what the task needs:
 ## Commands
 
 - Build: `pnpm build`, `pnpm watch`
-- Run: `pnpm dev` (web), and the CLI with `pnpm pull`, `pnpm run link`, `pnpm status`,
+- Run: `pnpm dev` (web), and the CLI with `pnpm pull`, `pnpm push`, `pnpm run link`, `pnpm status`,
   `pnpm run unlink` (`pnpm link` and `pnpm unlink` are pnpm built-ins). Planned: the server in
-  `pnpm dev`, and `pnpm push`
+  `pnpm dev`
 - Release: the Release workflow on GitHub (see CONTRIBUTING.md); `pnpm changelog` to regenerate
 - Check: `pnpm typecheck`, `pnpm lint` (`lint:fix`), `pnpm format:check` (`format`)
 - Tests: `pnpm test`, or a package filter (e.g. `pnpm --filter core test`) with an optional file

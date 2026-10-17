@@ -2,8 +2,7 @@
 
 Import, edit, and re-upload [Signal](https://signal.org) sticker packs, without Signal Desktop.
 
-> Early development. Pulling packs and linking a device work today; uploading and the web editor are
-> in progress.
+> Early development. The command line can pull, link, and push today; the web editor is in progress.
 
 ## Requirements
 
@@ -51,6 +50,23 @@ Keep this file secret: anyone who has it can act as this device until you unlink
 pnpm status       # which account and environment this tool is linked to
 pnpm run unlink   # remove the device from your account and delete the credentials
 ```
+
+## Push a pack
+
+Upload a pack folder as a new sticker pack on your linked account:
+
+```sh
+pnpm push ./my-pack
+```
+
+The folder needs a `pack.json` with a title, an author, a cover, and an emoji for every sticker, and
+1 to 200 stickers of at most 300 KiB each: 512x512 PNG or WebP images, or square APNGs from 10x10 to
+512x512 that loop forever. `push` checks all of this first and lists every problem before uploading
+anything; it does not resize images. It prints the new pack's share link, and its QR code in a
+terminal.
+
+Each push creates a new pack with a new link; Signal packs cannot be changed once uploaded. Use the
+same environment you linked with: a device linked with `--staging` only pushes with `--staging`.
 
 ## How it works
 

@@ -13,7 +13,7 @@ pnpm install
 | --------------------------------------------------- | ----------------------------------------- |
 | `pnpm build` / `pnpm watch`                         | Build the CLI bundle and the web app      |
 | `pnpm dev`                                          | Run the web app's dev server              |
-| `pnpm pull <link> [dir]`                            | Run the CLI from source                   |
+| `pnpm pull <link> [dir]` / `pnpm push [dir]`        | Run the CLI from source                   |
 | `pnpm run link` / `pnpm status` / `pnpm run unlink` | Link, inspect, or unlink the CLI's device |
 | `pnpm test` / `pnpm test:coverage`                  | Run all tests, optionally with coverage   |
 | `pnpm typecheck`                                    | TypeScript 7 and svelte-check             |

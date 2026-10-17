@@ -103,6 +103,19 @@ export async function unlink(
 	stdout.write(`Unlinked and deleted ${store.path}\n`);
 }
 
+/** Loads the saved credentials, failing unless they exist and belong to `env`. */
+export async function loadCredentials(
+	store: CredentialsStore,
+	env: Environment,
+): Promise<Credentials> {
+	const credentials = await store.load();
+	if (!credentials) {
+		throw new Error(`Not linked. Run "signal-stickers link" first.`);
+	}
+	assertLinkedTo(env, credentials);
+	return credentials;
+}
+
 /** Runs `start`, printing its steps in order even though QR codes render asynchronously. */
 async function withLinkProgress<T>(
 	output: Output,
@@ -129,6 +142,14 @@ async function saveLinked(store: CredentialsStore, credentials: Credentials): Pr
 			`Linked, but could not save the credentials to ${store.path} (${reason}). Remove "signal-stickers" from Linked devices on your phone, then link again.`,
 			{ cause: error },
 		);
+	}
+}
+
+function assertLinkedTo(env: Environment, credentials: Credentials): void {
+	if (credentials.env !== env) {
+		const fix =
+			credentials.env === "staging" ? "Add --staging" : "Remove --staging and SIGNAL_STICKERS_ENV";
+		throw new Error(`Linked to Signal ${credentials.env}, not ${env}. ${fix} to use it.`);
 	}
 }
 

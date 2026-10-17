@@ -1,7 +1,9 @@
 import type {
+	CdnClient,
 	CredentialsStore,
 	Environment,
 	linkDevice,
+	pushPack,
 	unlinkDevice,
 } from "@signal-stickers/core";
 import {
@@ -9,8 +11,9 @@ import {
 	fakeCdn,
 	fakeChat,
 	memoryCredentialsStore,
+	PACK_LINK,
+	PACK_LOCATOR,
 	tempDir,
-	type FakeCdn,
 	type FakeChat,
 	type StickerPackProto,
 } from "@signal-stickers/core/testing";
@@ -27,11 +30,11 @@ export const CATS: StickerPackProto = {
 
 export const QR_URL = "sgnl://linkdevice?uuid=address&pub_key=key&capabilities=nopni,nopni2";
 
-export type CliOptions = Pick<CliContext, "linkDevice" | "unlinkDevice"> & {
+export type CliOptions = Pick<CliContext, "linkDevice" | "pushPack" | "unlinkDevice"> & {
 	env?: Record<string, string>;
 	/** Makes both stdout and stderr terminals. */
 	isTTY?: boolean;
-	cdn?: FakeCdn;
+	cdn?: CdnClient;
 	chat?: FakeChat;
 	credentialsStore?: CredentialsStore;
 };
@@ -49,6 +52,7 @@ export async function runCli(
 		chat = unusedChat(),
 		credentialsStore = memoryCredentialsStore(),
 		linkDevice = unexpected("linkDevice"),
+		pushPack = unexpected("pushPack"),
 		unlinkDevice = unexpected("unlinkDevice"),
 	}: CliOptions = {},
 ) {
@@ -70,6 +74,7 @@ export async function runCli(
 		createChat: chat.factory,
 		credentialsStore,
 		linkDevice,
+		pushPack,
 		unlinkDevice,
 	});
 	return { code, cwd, signal, stdout: stdout.text, stderr: stderr.text, cdnEnvs };
@@ -89,6 +94,18 @@ export function fakeLinkDevice(failure?: Error) {
 		onProgress?.({ step: "registering" });
 		onProgress?.({ step: "done" });
 		return Promise.resolve({ ...CREDENTIALS, env });
+	});
+}
+
+/** A `pushPack` that reports two uploads and returns {@link PACK_LINK}, or fails with `failure`. */
+export function fakePushPack(failure?: Error) {
+	return vi.fn<typeof pushPack>(({ onProgress }) => {
+		if (failure) {
+			return Promise.reject(failure);
+		}
+		onProgress?.({ done: 1, total: 2 });
+		onProgress?.({ done: 2, total: 2 });
+		return Promise.resolve({ locator: PACK_LOCATOR, link: PACK_LINK });
 	});
 }
 

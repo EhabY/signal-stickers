@@ -1,16 +1,23 @@
 import { parseArgs } from "node:util";
 
-import { ENVIRONMENTS, isEnvironment, type Environment } from "@signal-stickers/core";
+import {
+	ENVIRONMENTS,
+	isEnvironment,
+	PackValidationError,
+	type Environment,
+} from "@signal-stickers/core";
 
 import { link, status, unlink } from "./account.ts";
 import { UsageError, type CliContext } from "./context.ts";
 import { pull } from "./pull.ts";
+import { push } from "./push.ts";
 
 export const USAGE = `Usage: signal-stickers <command> [options]
 
 Commands:
   link                Link this tool as a device of your Signal account
   pull <link> [dir]   Download and decrypt a sticker pack into dir (default: ./pack)
+  push [dir]          Upload the pack in dir (default: ./pack) as a new sticker pack
   status              Show which account this tool is linked to
   unlink              Remove this device from your account and delete its credentials
 
@@ -24,6 +31,7 @@ type Command = (args: readonly string[], env: Environment, context: CliContext) 
 const COMMANDS = new Map<string, Command>([
 	["link", link],
 	["pull", pull],
+	["push", push],
 	["status", status],
 	["unlink", unlink],
 ]);
@@ -52,8 +60,7 @@ export async function run(args: readonly string[], context: CliContext): Promise
 		await runCommand(rest, env, context);
 		return 0;
 	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
-		context.stderr.write(`Error: ${message}\n`);
+		context.stderr.write(`Error: ${describeError(error)}\n`);
 		if (error instanceof UsageError || isParseArgsError(error)) {
 			context.stderr.write(`\n${USAGE}`);
 		}
@@ -73,6 +80,14 @@ function resolveEnvironment(staging: boolean | undefined, env: CliContext["env"]
 		throw new UsageError(`SIGNAL_STICKERS_ENV must be one of: ${ENVIRONMENTS.join(", ")}`);
 	}
 	return value;
+}
+
+function describeError(error: unknown): string {
+	if (error instanceof PackValidationError) {
+		const issues = error.issues.map(({ message }) => `\n  - ${message}`);
+		return `The pack is not ready to push:${issues.join("")}`;
+	}
+	return error instanceof Error ? error.message : String(error);
 }
 
 function isParseArgsError(error: unknown): boolean {
