@@ -11,7 +11,7 @@ export type StickerPackProto = {
 	stickers: StickerProto[];
 };
 
-type Field = { number: number } & (
+export type Field = { number: number } & (
 	| { type: "varint"; value: bigint }
 	| { type: "bytes"; value: Uint8Array }
 );
@@ -114,7 +114,7 @@ function encodeSticker({ id, emoji }: StickerProto): Uint8Array {
 }
 
 /** Yields varint and length-delimited fields, skipping fixed32/fixed64. */
-function* readFields(bytes: Uint8Array): Generator<Field> {
+export function* readFields(bytes: Uint8Array): Generator<Field> {
 	let pos = 0;
 
 	const take = (length: number): Uint8Array => {
@@ -165,11 +165,11 @@ function* readFields(bytes: Uint8Array): Generator<Field> {
 	}
 }
 
-function asString(field: Field): string {
+export function asString(field: Field): string {
 	return decoder.decode(asBytes(field));
 }
 
-function asBytes(field: Field): Uint8Array {
+export function asBytes(field: Field): Uint8Array {
 	if (field.type !== "bytes") {
 		throw new ProtobufError(`Field ${field.number} is not length-delimited`);
 	}
