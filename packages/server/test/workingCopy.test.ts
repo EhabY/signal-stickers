@@ -207,6 +207,18 @@ describe("pack editing", () => {
 		expect(await readdir(server.packDir)).toEqual(["002.png", "pack.json"]);
 	});
 
+	it("makes the first remaining sticker the cover when removing the cover sticker", async () => {
+		const server = await servePack();
+		await server.send("PUT", "/api/pack", { ...PACK, cover: "002.png" });
+
+		const reply = await server.send("DELETE", "/api/pack/sticker/002.png");
+
+		const remaining = { ...PACK, cover: "001.png", stickers: PACK.stickers.slice(0, 1) };
+		expect(reply).toEqual({ status: 200, body: { pack: remaining, issues: [] } });
+		expect(await readPack(server.packDir)).toEqual(remaining);
+		expect(await readdir(server.packDir)).toEqual(["001.png", "pack.json"]);
+	});
+
 	it("keeps the image of a removed sticker that is still the cover", async () => {
 		const server = await servePack();
 		await server.send("DELETE", "/api/pack/sticker/002.png");

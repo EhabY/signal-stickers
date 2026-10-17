@@ -113,6 +113,7 @@ The server edits one working copy (`server/src/workingCopy.ts`), by default a `p
 tool's config directory, so it does not depend on where the server starts. Edits are queued one at a
 time. A pull writes into a sibling folder and swaps it in, so a failed pull keeps the old copy.
 Image routes only serve files that `pack.json` names, and added images get server-chosen names.
+Removing the cover's sticker makes the first remaining sticker the cover.
 
 ## Web
 
