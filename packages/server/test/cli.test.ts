@@ -29,6 +29,7 @@ async function startCli(args: string[], { env = {}, opens = true }: CliOptions =
 		env,
 		cwd,
 		signal: controller.signal,
+		configDir: join(cwd, "config"),
 		webDir: cwd,
 		openBrowser: (url) => {
 			opened.push(url);
@@ -94,7 +95,7 @@ describe("server cli", () => {
 			code: 0,
 			stdout: `${url}\n`,
 			stderr:
-				`Serving Signal production with the pack in ${join(cli.cwd, "pack")}\n` +
+				`Serving Signal production with the pack in ${join(cli.cwd, "config", "pack")}\n` +
 				"The web UI is not built, so only the API is available: run pnpm build\n",
 		});
 	});

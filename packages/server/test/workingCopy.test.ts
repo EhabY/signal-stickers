@@ -1,4 +1,4 @@
-import { readdir, readFile, writeFile } from "node:fs/promises";
+import { readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 
 import { readPack, validatePackFolder, type ValidationIssue } from "@signal-stickers/core";
@@ -53,6 +53,18 @@ describe("POST /api/pull", () => {
 
 		expect(await readPack(server.packDir)).toMatchObject({ title: "Cats" });
 	});
+
+	it.runIf(process.platform !== "win32")(
+		"creates the folders above the working copy for the user only",
+		async () => {
+			const packDir = join(await tempDir(), "config", "pack");
+			const server = await serve({ packDir });
+
+			await pull(server);
+
+			expect((await stat(dirname(packDir))).mode & 0o777).toBe(0o700);
+		},
+	);
 
 	it("refuses to replace a folder that holds no pack", async () => {
 		const packDir = await tempDir();

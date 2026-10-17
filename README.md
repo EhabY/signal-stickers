@@ -28,10 +28,17 @@ To upload, link your account from the Account tab by scanning its QR code with y
 [Link your account](#link-your-account)), then publish from the Publish tab. It lists anything
 Signal would reject, and once uploaded shows the new pack's link and QR code.
 
-Every change is saved to the pack folder, `./pack` by default and the same one the command line
-uses; `pnpm start --dir ./my-pack` picks another. Importing a pack replaces that folder, which must
-hold a pack, be empty, or not exist yet. Add `--staging` for Signal's staging servers, `--no-open`
-to skip opening the browser, or `--port` to choose the port.
+Every change is saved to a `pack` folder next to the credentials (see
+[Link your account](#link-your-account)), which the server prints when it starts:
+
+- Windows: `%APPDATA%\signal-stickers\pack`
+- macOS: `~/Library/Application Support/signal-stickers/pack`
+- Linux: `${XDG_CONFIG_HOME:-~/.config}/signal-stickers/pack`
+
+`pnpm start --dir ./my-pack` picks another folder, such as one the command line pulled into (it uses
+`./pack` by default). Importing a pack replaces that folder, which must hold a pack, be empty, or
+not exist yet. Add `--staging` for Signal's staging servers, `--no-open` to skip opening the
+browser, or `--port` to choose the port.
 
 ## Pull a pack
 

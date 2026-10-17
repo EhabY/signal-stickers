@@ -37,8 +37,9 @@ No test talks to Signal.
   store, and each core operation default to fakes, and an operation a test does not pass fails if
   called, so tests never reach the real config directory or Signal.
 - server tests start a real loopback server with `serve()` or `servePack()`
-  (`packages/server/test/support.ts`), injecting core operations through `deps`. `rawRequest` sets
-  headers that `fetch` cannot, such as `Host`, and `listenForEvents` collects WebSocket events.
+  (`packages/server/test/support.ts`), injecting core operations through `deps`; the server CLI
+  tests pass a temporary `configDir`. `rawRequest` sets headers that `fetch` cannot, such as `Host`,
+  and `listenForEvents` collects WebSocket events.
 - cli and server each have a few tests that run the real core operations over these fakes (link,
   unlink, push, validation), so the front ends and core cannot drift apart.
 - web tests render components with `@testing-library/svelte` against `fakeApi()`
@@ -64,7 +65,8 @@ Production code has no CA or URL override.
 ## Platform-specific tests
 
 The credentials store test checks the Windows ACL with `icacls` on Windows and the `0600` mode on
-POSIX; each skips on the other platform, so CI covers both.
+POSIX; each skips on the other platform, so CI covers both. The working copy test of the `0700`
+folders it creates runs on POSIX only.
 
 ## Manual checks
 

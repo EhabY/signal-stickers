@@ -132,7 +132,8 @@ async function removeSticker(dir: string, file: string): Promise<Pack> {
 
 async function replaceFolder<T>(dir: string, fill: (staging: string) => Promise<T>): Promise<T> {
 	await assertReplaceable(dir);
-	await mkdir(dirname(dir), { recursive: true });
+	// Owner-only like the credentials, since by default this creates the tool's config directory.
+	await mkdir(dirname(dir), { recursive: true, mode: 0o700 });
 	const staging = await mkdtemp(`${dir}.pull-`);
 	try {
 		const result = await fill(staging);

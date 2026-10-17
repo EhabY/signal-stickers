@@ -4,6 +4,7 @@ import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 
 import {
+	defaultConfigDir,
 	resolveEnvironment,
 	UnknownEnvironmentError,
 	type Environment,
@@ -23,6 +24,8 @@ export type ServerCliContext = Readonly<{
 	cwd: string;
 	/** Stops the server. */
 	signal: AbortSignal;
+	/** Holds the default working copy; defaults to the tool's own config directory. */
+	configDir?: string;
 	/** Defaults to the built web UI in `packages/web/dist`. */
 	webDir?: string;
 	openBrowser?: (url: string) => Promise<boolean>;
@@ -34,7 +37,8 @@ export const USAGE = `Usage: signal-stickers-server [options]
 Starts the sticker pack editor on this computer and opens it in your browser.
 
 Options:
-  --dir <path>          Working copy of the pack (default: ./pack)
+  --dir <path>          Working copy of the pack (default: a "pack" folder in this
+                        tool's config directory, printed at startup)
   --port <number>       Port to listen on (default: any free port)
   --allow-origin <url>  Also accept requests from this origin, e.g. the web dev server
   --no-open             Do not open a browser
@@ -53,7 +57,7 @@ export async function run(args: readonly string[], context: ServerCliContext): P
 			args: [...args],
 			allowNegative: true,
 			options: {
-				dir: { type: "string", default: "pack" },
+				dir: { type: "string" },
 				port: { type: "string" },
 				"allow-origin": { type: "string", multiple: true, default: [] },
 				open: { type: "boolean", default: true },
@@ -68,7 +72,7 @@ export async function run(args: readonly string[], context: ServerCliContext): P
 		await serve(
 			{
 				env: resolveEnvironment(values.staging, context.env),
-				packDir: resolve(context.cwd, values.dir),
+				packDir: resolvePackDir(values.dir, context),
 				port: parsePort(values.port),
 				allowedOrigins: values["allow-origin"].map(parseOrigin),
 				open: values.open,
@@ -88,6 +92,13 @@ export async function run(args: readonly string[], context: ServerCliContext): P
 		}
 		return 1;
 	}
+}
+
+function resolvePackDir(
+	dir: string | undefined,
+	{ cwd, env, configDir = defaultConfigDir({ env }) }: ServerCliContext,
+): string {
+	return dir === undefined ? join(configDir, "pack") : resolve(cwd, dir);
 }
 
 function parsePort(value = "0"): number {

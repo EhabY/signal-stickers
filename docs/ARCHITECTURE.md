@@ -109,10 +109,10 @@ Routes (`server/src/routes.ts`) are typed against `ApiRoutes` in `server/src/api
 with web. Link, unlink, pull, and push run one at a time (409 otherwise), and abort when the client
 disconnects. Their progress goes out as WebSocket events while the request stays open.
 
-The server edits one working copy, `./pack` by default (`server/src/workingCopy.ts`). Edits are
-queued one at a time. A pull writes into a sibling folder and swaps it in, so a failed pull keeps
-the old copy. Image routes only serve files that `pack.json` names, and added images get
-server-chosen names.
+The server edits one working copy (`server/src/workingCopy.ts`), by default a `pack` folder in the
+tool's config directory, so it does not depend on where the server starts. Edits are queued one at a
+time. A pull writes into a sibling folder and swaps it in, so a failed pull keeps the old copy.
+Image routes only serve files that `pack.json` names, and added images get server-chosen names.
 
 ## Web
 
