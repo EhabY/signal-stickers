@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import App from "../src/App.svelte";
 import { ApiError } from "../src/lib/api.ts";
 import type { StickerEncoder } from "../src/lib/stickerImage.ts";
-import { fakeApi, LINKED, linkUntilAborted, packResponse, QR_URL } from "./support/api.ts";
+import { CATS, fakeApi, LINKED, linkUntilAborted, packResponse, QR_URL } from "./support/api.ts";
 
 const LINK = "https://signal.art/addstickers/#pack_id=abc&pack_key=def";
 
@@ -65,6 +65,25 @@ describe("App", () => {
 
 		expect(await screen.findByRole("heading", { name: "Edit pack" })).toBeTruthy();
 		expect(screen.queryByText(/Could not open the pack folder/u)).toBeNull();
+	});
+
+	it("shows the cover the server picks when the cover sticker is removed", async () => {
+		const api = fakeApi();
+		api.getPack.mockResolvedValue(packResponse({ ...CATS, cover: "002.png" }));
+		api.removeSticker.mockResolvedValue(
+			packResponse({ ...CATS, stickers: CATS.stickers.toSpliced(1, 1) }),
+		);
+		renderApp(api);
+
+		await fireEvent.click(await screen.findByRole("button", { name: "Remove sticker 2" }));
+
+		await vi.waitFor(() => {
+			expect(screen.getByRole("radio", { name: "Use sticker 1 as the cover" })).toHaveProperty(
+				"checked",
+				true,
+			);
+		});
+		expect(api.removeSticker).toHaveBeenCalledWith("002.png");
 	});
 
 	it("keeps a running publish and its link when switching views", async () => {
