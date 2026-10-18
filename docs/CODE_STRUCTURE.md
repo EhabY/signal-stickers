@@ -20,7 +20,8 @@ packages/
   server/   local HTTP + WebSocket API and the web app's host
     src/                api.ts (the contract with web), server.ts (listening, Host and Origin
                         checks, events), dispatch.ts and router.ts (typed routing), routes.ts
-                        (handlers over core), workingCopy.ts (the pack folder), static.ts,
+                        (handlers over core), operations.ts (one link, unlink, pull, or push at a
+                        time), workingCopy.ts (the pack folder), static.ts,
                         errors.ts, browser.ts, and cli.ts/main.ts like the CLI package
   web/      Vite + Svelte UI
     src/                App.svelte; components/ has one component per screen (ImportView, Editor,
