@@ -104,6 +104,8 @@
 	}
 </script>
 
+<a class="skip-link" href="#main">Skip to content</a>
+
 <header>
 	<div class="brand">
 		<h1>Signal Stickers</h1>
@@ -118,6 +120,7 @@
 					type="button"
 					aria-current={view === item.view ? "page" : undefined}
 					disabled={item.needsPack && !session.pack}
+					title={item.needsPack && !session.pack ? "Import a pack first" : undefined}
 					onclick={() => (view = item.view)}
 				>
 					{item.label}
@@ -127,14 +130,14 @@
 	{/if}
 </header>
 
-<main>
+<main id="main" tabindex="-1">
 	{#if loadError !== undefined}
 		<div class="alert" role="alert">
 			<p>{loadError}</p>
 			<button type="button" onclick={load}>Try again</button>
 		</div>
 	{:else if !status}
-		<p class="muted">Loading…</p>
+		<p class="muted" role="status">Loading…</p>
 	{:else}
 		<!-- Views stay mounted while hidden, so a running link, pull, or push and its outcome survive. -->
 		<div class="view" hidden={view !== "import"}>
@@ -223,6 +226,7 @@
 
 	.brand {
 		display: flex;
+		flex-wrap: wrap;
 		gap: 0.75rem;
 		align-items: center;
 	}
@@ -249,7 +253,11 @@
 	nav {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.35rem;
+		gap: 0.25rem;
+		padding: 0.25rem;
+		border: 1px solid var(--border);
+		border-radius: 12px;
+		background: var(--bg);
 	}
 
 	nav button {
@@ -261,6 +269,7 @@
 		background: var(--accent-soft);
 		color: var(--accent);
 		font-weight: 600;
+		box-shadow: inset 0 -2px var(--accent);
 	}
 
 	main {
@@ -268,7 +277,7 @@
 		gap: 1rem;
 		max-width: 1100px;
 		margin: 0 auto;
-		padding: 1.25rem 1rem 3rem;
+		padding: 2rem 1rem 3rem;
 	}
 
 	main .alert p {
@@ -294,5 +303,20 @@
 
 	.view[hidden] {
 		display: none;
+	}
+
+	@media (max-width: 560px) {
+		nav {
+			width: 100%;
+		}
+
+		nav button {
+			flex: 1;
+			padding-inline: 0.5rem;
+		}
+
+		main {
+			padding-top: 1rem;
+		}
 	}
 </style>

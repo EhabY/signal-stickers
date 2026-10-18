@@ -51,6 +51,9 @@
 
 <section class="panel" aria-labelledby="account-heading">
 	<h2 id="account-heading">Account</h2>
+	<p class="intro">
+		Link your Signal account to publish packs. Importing and editing work without linking.
+	</p>
 
 	{#if link.linked}
 		<dl>
@@ -124,6 +127,7 @@
 
 <style>
 	section {
+		max-width: 48rem;
 		display: grid;
 		gap: 0.75rem;
 		justify-items: start;
@@ -142,6 +146,7 @@
 
 	dd {
 		margin: 0;
+		min-width: 0;
 	}
 
 	.linking {
@@ -154,5 +159,15 @@
 	.linking ol {
 		margin: 0;
 		padding-left: 1.2rem;
+	}
+
+	@media (max-width: 420px) {
+		dl {
+			grid-template-columns: 1fr;
+		}
+
+		dd {
+			margin-bottom: 0.75rem;
+		}
 	}
 </style>

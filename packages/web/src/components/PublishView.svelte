@@ -67,7 +67,7 @@
 
 <section class="panel" aria-labelledby="publish-heading">
 	<h2 id="publish-heading">Publish</h2>
-	<p>
+	<p class="intro">
 		Uploads <strong>{session.pack?.title || "this pack"}</strong> to Signal {status.env} as a new pack
 		with its own link. Anyone with the link can install it; the original pack is unchanged.
 	</p>
@@ -128,6 +128,7 @@
 
 <style>
 	section {
+		max-width: 48rem;
 		display: grid;
 		gap: 0.75rem;
 		justify-items: start;
@@ -144,6 +145,10 @@
 	.published {
 		display: grid;
 		gap: 0.6rem;
+		width: 100%;
+		margin-top: 0.5rem;
+		padding-top: 1.25rem;
+		border-top: 1px solid var(--border);
 	}
 
 	.published h3 {

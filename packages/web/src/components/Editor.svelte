@@ -219,11 +219,10 @@
 
 	<div class="toolbar">
 		<div>
+			<h3>Stickers</h3>
 			<p class="count">{pack.stickers.length} / {limits.maxStickers} stickers</p>
 			<p class="muted hint">
-				Drag to reorder. Images are fitted to {limits.size}&times;{limits.size} under {Math.floor(
-					limits.maxBytes / 1024,
-				)} KiB; PNG and WebP that already fit are kept. Animations become animated PNG.
+				Drag or use the arrows to reorder. Choose an emoji to suggest a sticker while typing.
 			</p>
 		</div>
 		<label class="file-button primary" class:disabled>
@@ -240,6 +239,13 @@
 			Add images
 		</label>
 	</div>
+
+	<p class="muted image-hint">
+		Images are fitted to {limits.size}&times;{limits.size} under {Math.floor(
+			limits.maxBytes / 1024,
+		)}
+		KiB; PNG and WebP that already fit are kept. Animations become animated PNG.
+	</p>
 
 	<StickerGrid
 		{pack}
@@ -292,7 +298,7 @@
 
 	.details {
 		display: grid;
-		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 		gap: 1rem 1.25rem;
 		align-items: start;
 	}
@@ -304,6 +310,12 @@
 
 	.label {
 		font-weight: 600;
+	}
+
+	.field[role="group"] {
+		grid-column: 1 / -1;
+		padding-top: 1rem;
+		border-top: 1px solid var(--border);
 	}
 
 	.cover {
@@ -362,12 +374,23 @@
 		font-weight: 600;
 	}
 
-	.hint {
+	.toolbar h3 {
+		margin: 0 0 0.25rem;
+		font-size: 1.1rem;
+	}
+
+	.hint,
+	.image-hint {
 		font-size: 0.85rem;
+	}
+
+	.image-hint {
+		margin: -0.5rem 0 0;
 	}
 
 	.file-button {
 		display: inline-flex;
+		min-height: 44px;
 		gap: 0.4rem;
 		align-items: center;
 		padding: 0.45rem 0.9rem;

@@ -169,7 +169,7 @@ describe("App", () => {
 		pushed.resolve({ link: LINK });
 		await fireEvent.click(screen.getByRole("button", { name: "Publish" }));
 
-		expect((await screen.findByRole("link")).getAttribute("href")).toBe(LINK);
+		expect((await screen.findByRole("link", { name: LINK })).getAttribute("href")).toBe(LINK);
 		expect(api.push).toHaveBeenCalledOnce();
 	});
 

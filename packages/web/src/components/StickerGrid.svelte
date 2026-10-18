@@ -209,74 +209,76 @@
 					still={unsupportedAnimation}
 					draggable="false"
 				/>
-				{#if isCover}
-					<span class="cover-badge">Cover</span>
-				{:else}
+				<div class="controls">
+					{#if isCover}
+						<span class="cover-badge">Cover</span>
+					{:else}
+						<button
+							type="button"
+							class="set-cover"
+							aria-label="Use sticker {number} as the cover"
+							{disabled}
+							onclick={() => {
+								void setCover(index, sticker.file);
+							}}
+						>
+							Set as cover
+						</button>
+					{/if}
 					<button
 						type="button"
-						class="set-cover"
-						aria-label="Use sticker {number} as the cover"
+						class="emoji"
+						class:empty={!sticker.emoji}
+						data-control="emoji"
+						aria-label={emojiLabel(sticker, number)}
+						aria-haspopup="dialog"
+						title={sticker.emoji
+							? "Change the emoji"
+							: "No emoji, so Signal won't suggest this sticker while typing. Choose one."}
 						{disabled}
-						onclick={() => {
-							void setCover(index, sticker.file);
-						}}
+						onclick={() => (picking = { index, file: sticker.file })}
 					>
-						Set as cover
+						{sticker.emoji || "+"}
 					</button>
-				{/if}
-				<button
-					type="button"
-					class="emoji"
-					class:empty={!sticker.emoji}
-					data-control="emoji"
-					aria-label={emojiLabel(sticker, number)}
-					aria-haspopup="dialog"
-					title={sticker.emoji
-						? "Change the emoji"
-						: "No emoji, so Signal won't suggest this sticker while typing. Choose one."}
-					{disabled}
-					onclick={() => (picking = { index, file: sticker.file })}
-				>
-					{sticker.emoji || "+"}
-				</button>
-				<div class="tools">
-					<button
-						type="button"
-						data-control="earlier"
-						aria-label="Move sticker {number} earlier"
-						title="Move earlier"
-						disabled={disabled || index === 0}
-						onclick={() => {
-							void move(index, index - 1, "earlier");
-						}}
-					>
-						<Icon name="earlier" />
-					</button>
-					<button
-						type="button"
-						data-control="later"
-						aria-label="Move sticker {number} later"
-						title="Move later"
-						disabled={disabled || index === pack.stickers.length - 1}
-						onclick={() => {
-							void move(index, index + 1, "later");
-						}}
-					>
-						<Icon name="later" />
-					</button>
-					<button
-						type="button"
-						class="remove"
-						data-control="remove"
-						aria-label="Remove sticker {number}"
-						title="Remove"
-						{disabled}
-						onclick={() => {
-							remove(index, sticker.file);
-						}}
-					>
-						<Icon name="remove" />
-					</button>
+					<div class="tools">
+						<button
+							type="button"
+							data-control="earlier"
+							aria-label="Move sticker {number} earlier"
+							title="Move earlier"
+							disabled={disabled || index === 0}
+							onclick={() => {
+								void move(index, index - 1, "earlier");
+							}}
+						>
+							<Icon name="earlier" />
+						</button>
+						<button
+							type="button"
+							data-control="later"
+							aria-label="Move sticker {number} later"
+							title="Move later"
+							disabled={disabled || index === pack.stickers.length - 1}
+							onclick={() => {
+								void move(index, index + 1, "later");
+							}}
+						>
+							<Icon name="later" />
+						</button>
+						<button
+							type="button"
+							class="remove"
+							data-control="remove"
+							aria-label="Remove sticker {number}"
+							title="Remove"
+							{disabled}
+							onclick={() => {
+								remove(index, sticker.file);
+							}}
+						>
+							<Icon name="remove" />
+						</button>
+					</div>
 				</div>
 			</div>
 			{#if stickerIssues.length > 0}
@@ -318,7 +320,7 @@
 <style>
 	.grid {
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(136px, 1fr));
+		grid-template-columns: repeat(auto-fill, minmax(min(100%, 156px), 1fr));
 		gap: 0.75rem;
 		margin: 0;
 		padding: 0;
@@ -340,8 +342,8 @@
 		position: relative;
 		border: 1px solid var(--border);
 		border-radius: 14px;
-		background: repeating-conic-gradient(var(--surface-muted) 0 25%, var(--surface) 0 50%) 0 0 /
-			16px 16px;
+		background: var(--surface);
+		overflow: hidden;
 		transition:
 			box-shadow 0.15s,
 			border-color 0.15s;
@@ -371,18 +373,30 @@
 		width: 100%;
 		aspect-ratio: 1;
 		object-fit: contain;
-		border-radius: 13px;
+		padding: 1rem;
+		background: var(--surface-muted);
+		border-radius: 13px 13px 0 0;
+	}
+
+	.controls {
+		display: grid;
+		grid-template-columns: 36px 1fr;
+		gap: 0.5rem 0.25rem;
+		padding: 0.5rem;
+		border-top: 1px solid var(--border);
+		cursor: default;
 	}
 
 	.cover-badge,
 	.set-cover {
-		position: absolute;
-		top: 0.5rem;
-		left: 0.5rem;
-		padding: 0.1rem 0.5rem;
-		border-radius: 999px;
-		font-size: 0.75rem;
-		font-weight: 700;
+		grid-column: 1 / -1;
+		display: grid;
+		place-items: center;
+		min-height: 32px;
+		padding: 0.25rem 0.5rem;
+		border-radius: 6px;
+		font-size: 0.8rem;
+		font-weight: 600;
 	}
 
 	.cover-badge {
@@ -394,7 +408,6 @@
 		border: 1px solid var(--accent);
 		background: var(--surface);
 		color: var(--accent);
-		box-shadow: var(--shadow);
 	}
 
 	.set-cover:hover:not(:disabled) {
@@ -403,16 +416,12 @@
 	}
 
 	.emoji {
-		position: absolute;
-		top: 0.4rem;
-		right: 0.4rem;
-		min-width: 2.25rem;
-		height: 2.25rem;
-		padding: 0 0.3rem;
-		border-radius: 999px;
+		width: 36px;
+		min-height: 36px;
+		padding: 0;
+		border-radius: 8px;
 		font-size: 1.2rem;
 		line-height: 1;
-		box-shadow: var(--shadow);
 	}
 
 	.emoji.empty {
@@ -426,50 +435,20 @@
 		color: var(--surface);
 	}
 
-	.tools,
-	.set-cover {
-		opacity: 0;
-		pointer-events: none;
-		transition: opacity 0.15s;
-	}
-
 	.tools {
-		position: absolute;
-		bottom: 0.4rem;
-		left: 50%;
 		display: flex;
-		gap: 1px;
-		padding: 2px;
-		border: 1px solid var(--border);
-		border-radius: 999px;
-		background: var(--surface);
-		box-shadow: var(--shadow);
-		transform: translateX(-50%);
-	}
-
-	/* Hidden buttons must not take clicks; touch screens always show them. */
-	.card:hover :is(.tools, .set-cover),
-	.card:has(:focus-visible) :is(.tools, .set-cover) {
-		opacity: 1;
-		pointer-events: auto;
-	}
-
-	@media (hover: none), (any-pointer: coarse) {
-		.tools,
-		.set-cover {
-			opacity: 1;
-			pointer-events: auto;
-		}
+		justify-content: flex-end;
+		align-items: center;
 	}
 
 	.tools button {
 		display: grid;
 		place-items: center;
-		width: 30px;
-		height: 30px;
+		width: 32px;
+		min-height: 36px;
 		padding: 0;
 		border: 0;
-		border-radius: 999px;
+		border-radius: 6px;
 		background: transparent;
 	}
 
@@ -500,8 +479,7 @@
 	}
 
 	@media (prefers-reduced-motion: reduce) {
-		.frame,
-		.tools {
+		.frame {
 			transition: none;
 		}
 	}
