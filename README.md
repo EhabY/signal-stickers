@@ -29,11 +29,12 @@ be published, but Signal never suggests it while typing.
 Signal animates only APNG (animated PNG) stickers. The editor turns an added GIF, animated WebP, or
 APNG that breaks Signal's rules into a square APNG that loops forever and fits in 300 KiB. To keep
 the motion smooth, it makes the image smaller (down to 160 pixels) and uses fewer colors before it
-drops frames. This needs a browser with WebCodecs' `ImageDecoder`, such as Chrome, Edge, or Firefox.
-Elsewhere a GIF or animated WebP becomes a still image, as in Signal's own sticker creator, and an
-APNG must already fit. An animated WebP already in the pack, such as one from an imported pack,
-shows a **Convert to animated PNG** button that converts it in place, keeping its position, emoji,
-and cover; **Convert all to animated PNG**, shown when there are several, does every one.
+drops frames, and then says what it made, such as `320×320, 30 fps, 284 KiB`. This needs a browser
+with WebCodecs' `ImageDecoder`, such as Chrome, Edge, or Firefox. Elsewhere a GIF or animated WebP
+becomes a still image, as in Signal's own sticker creator, and an APNG must already fit. An animated
+WebP already in the pack, such as one from an imported pack, shows a **Convert to animated PNG**
+button that converts it in place, keeping its position, emoji, and cover; **Convert all to animated
+PNG**, shown when there are several, does every one.
 
 Conversions run in the background, and the pack stays fully editable meanwhile: change emoji, the
 title, or the order, remove stickers, add more images, or start other conversions. Each conversion

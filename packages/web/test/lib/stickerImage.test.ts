@@ -5,7 +5,7 @@ import type {
 	ConversionProgress,
 	ConversionRequest,
 } from "../../src/lib/animationConversion.ts";
-import { encodeApng } from "../../src/lib/apng.ts";
+import { encodeApng, type FitAttempt } from "../../src/lib/apng.ts";
 import {
 	CANNOT_CONVERT,
 	convertInWorker,
@@ -21,6 +21,7 @@ type Encode = (quality: number) => Promise<Blob>;
 
 const APNG = encodeApng([solidFrame(1, 64), solidFrame(2, 64)], 64, 256, [100, 100]);
 const PROGRESS: ConversionProgress = { step: "decode", done: 1, total: 2 };
+const ENCODING: FitAttempt = { size: 64, colors: 256, frames: 2, fps: 10 };
 const ANIMATED_WEBP = new Blob([extendedWebp(["ANIM", "ANMF", "ANMF"])], { type: "image/webp" });
 
 const drawing = stubImageDrawing();
@@ -60,20 +61,30 @@ describe("stickerEncoder", () => {
 	it.each([
 		["a GIF", gif(2), "image/gif"],
 		["an APNG Signal would reject", pngChunks({ width: 600, height: 400, plays: 0 }), "image/png"],
-	])("converts %s to APNG in a worker, reporting progress", async (_, bytes, type) => {
-		const { worker, requests } = fakeWorker(() => [
-			{ type: "progress", progress: PROGRESS },
-			{ type: "done", apng: APNG.slice().buffer },
-		]);
-		const onProgress = vi.fn<(progress: ConversionProgress) => void>();
+	])(
+		"converts %s to APNG in a worker, reporting progress and the encoding",
+		async (_, bytes, type) => {
+			const { worker, requests } = fakeWorker(() => [
+				{ type: "progress", progress: PROGRESS },
+				{ type: "done", apng: APNG.slice().buffer, encoding: ENCODING },
+			]);
+			const onProgress = vi.fn<(progress: ConversionProgress) => void>();
+			const onAnimated = vi.fn<(encoding: FitAttempt) => void>();
 
-		const sticker = await stickerEncoder(() => worker)(new Blob([bytes]), LIMITS, { onProgress });
+			const sticker = await stickerEncoder(() => worker)(new Blob([bytes]), LIMITS, {
+				onProgress,
+				onAnimated,
+			});
 
-		expect(sticker.type).toBe("image/png");
-		expect(await bytesOf(sticker)).toEqual(APNG);
-		expect(requests.map(({ request }) => [request.type, request.limits])).toEqual([[type, LIMITS]]);
-		expect(onProgress).toHaveBeenCalledWith(PROGRESS);
-	});
+			expect(sticker.type).toBe("image/png");
+			expect(await bytesOf(sticker)).toEqual(APNG);
+			expect(requests.map(({ request }) => [request.type, request.limits])).toEqual([
+				[type, LIMITS],
+			]);
+			expect(onProgress).toHaveBeenCalledWith(PROGRESS);
+			expect(onAnimated).toHaveBeenCalledWith(ENCODING);
+		},
+	);
 
 	it.each([
 		["keeps a still WebP", extendedWebp(["ALPH", "VP8 "]), true],
@@ -124,7 +135,9 @@ describe("stickerEncoder", () => {
 
 describe("convertInWorker", () => {
 	it("transfers the image to the worker and stops the worker once answered", async () => {
-		const { worker, requests } = fakeWorker(() => [{ type: "done", apng: APNG.slice().buffer }]);
+		const { worker, requests } = fakeWorker(() => [
+			{ type: "done", apng: APNG.slice().buffer, encoding: ENCODING },
+		]);
 		const sent = gifRequest();
 
 		await convertInWorker(worker, sent);

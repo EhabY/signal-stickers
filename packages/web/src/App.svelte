@@ -8,7 +8,11 @@
 	import PublishView from "./components/PublishView.svelte";
 	import { createApi, errorMessage, type Api } from "./lib/api.ts";
 	import { connectEvents, LiveProgress, type ConnectEvents } from "./lib/events.svelte.ts";
-	import { PackSession, type Conversion } from "./lib/packSession.svelte.ts";
+	import {
+		PackSession,
+		type Conversion,
+		type ConvertedAnimation,
+	} from "./lib/packSession.svelte.ts";
 	import { encodeSticker, type StickerEncoder } from "./lib/stickerImage.ts";
 
 	type Props = { api?: Api; connect?: ConnectEvents; encode?: StickerEncoder };
@@ -87,6 +91,10 @@
 		return `Converting ${file} to an animated PNG: ${step}`;
 	}
 
+	function describeConverted({ file, size, fps, bytes }: ConvertedAnimation): string {
+		return `Converted ${file}: ${size}×${size}, ${describeFps(fps)}, ${Math.ceil(bytes / 1024)} KiB`;
+	}
+
 	function describeFps(fps: number): string {
 		return `${Number(fps.toPrecision(2))} fps`;
 	}
@@ -144,7 +152,7 @@
 				{#if session.error !== undefined}
 					<p class="alert" role="alert">{session.error}</p>
 				{/if}
-				{#if session.conversions.list.length > 0}
+				{#if session.conversions.list.length > 0 || session.conversions.converted.length > 0}
 					<div class="conversions" bind:this={conversionList}>
 						{#each session.conversions.list as conversion, index (conversion.id)}
 							<p class="conversion muted" role="status">
@@ -157,6 +165,9 @@
 									Cancel
 								</button>
 							</p>
+						{/each}
+						{#each session.conversions.converted as converted (converted.id)}
+							<p class="muted" role="status">{describeConverted(converted)}</p>
 						{/each}
 					</div>
 				{/if}

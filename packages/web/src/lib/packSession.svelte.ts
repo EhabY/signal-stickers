@@ -18,7 +18,7 @@ import {
 import { RequestQueue } from "./requestQueue.svelte.ts";
 import type { EncodeOptions, StickerEncoder } from "./stickerImage.ts";
 
-export type { Conversion } from "./conversions.svelte.ts";
+export type { Conversion, ConvertedAnimation } from "./conversions.svelte.ts";
 
 /** A pack image: the sticker at `index`, or the separate cover when `index` is undefined. */
 export type PackImageTarget = Readonly<{ file: string; index?: number | undefined }>;
@@ -80,7 +80,7 @@ export class PackSession {
 	load(response: PackResponse): void {
 		this.#generation += 1;
 		this.#renamed.clear();
-		this.conversions.cancelAll();
+		this.conversions.reset();
 		clearTimeout(this.#saveTimer);
 		this.#unsaved = false;
 		this.saveError = undefined;

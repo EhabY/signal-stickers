@@ -23,12 +23,12 @@ export type ConversionProgress =
 	| Readonly<{ step: "encode" } & FitAttempt>;
 
 /**
- * What the worker answers: progress, then an APNG, `still` for a single frame, `unsupported` when
- * the browser cannot decode the type, or an error.
+ * What the worker answers: progress, then an APNG and its encoding, `still` for a single frame,
+ * `unsupported` when the browser cannot decode the type, or an error.
  */
 export type ConversionMessage =
 	| Readonly<{ type: "progress"; progress: ConversionProgress }>
-	| Readonly<{ type: "done"; apng: ArrayBuffer }>
+	| Readonly<{ type: "done"; apng: ArrayBuffer; encoding: FitAttempt }>
 	| Readonly<{ type: "still" }>
 	| Readonly<{ type: "unsupported" }>
 	| Readonly<{ type: "error"; message: string }>;
@@ -125,7 +125,7 @@ async function encodeFrames<T>(
 		const message = `The animation does not fit in ${kib} KiB, even smaller and with fewer colors and frames. Shorten or simplify it and try again.`;
 		return { type: "error", message };
 	}
-	return { type: "done", apng: fitted.apng.slice().buffer };
+	return { type: "done", apng: fitted.apng.slice().buffer, encoding: fitted.encoding };
 }
 
 /**

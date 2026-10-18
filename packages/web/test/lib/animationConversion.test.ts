@@ -73,6 +73,7 @@ describe("serveConversions", () => {
 			{ type: "progress", progress: { step: "decode", done: 2, total: 2 } },
 			{ type: "progress", progress: { step: "encode", ...ENCODING } },
 		]);
+		expect(answer).toMatchObject({ type: "done", encoding: ENCODING });
 		expect(decodeApng(apngOf(answer))).toEqual({
 			width: 200,
 			height: 200,

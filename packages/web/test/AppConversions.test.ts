@@ -25,28 +25,32 @@ describe("App while images convert", () => {
 		expect(api.addSticker).not.toHaveBeenCalled();
 	});
 
-	it("shows how far converting an added animation has got", async () => {
+	it("shows how far converting an added animation has got, then what it made", async () => {
 		const api = fakeApi();
 		api.getPack.mockResolvedValue(packResponse());
 		const converted = Promise.withResolvers<Blob>();
-		renderApp(api, (_, __, options) => {
-			options?.onProgress?.({ step: "encode", size: 320, colors: 256, frames: 90, fps: 29.97 });
-			return converted.promise;
+		const encoding = { size: 320, colors: 256, frames: 90, fps: 29.97 };
+		renderApp(api, async (_, __, options) => {
+			options?.onProgress?.({ step: "encode", ...encoding });
+			const apng = await converted.promise;
+			options?.onAnimated?.(encoding);
+			return apng;
 		});
 		const animation = new File(["gif"], "cat.gif", { type: "image/gif" });
 
 		await fireEvent.change(await screen.findByLabelText("Add images"), {
 			target: { files: [animation] },
 		});
-		const status = (await screen.findByRole("status")).textContent;
-		converted.resolve(new Blob(["apng"], { type: "image/png" }));
+		const progress = (await screen.findByRole("status")).textContent;
+		converted.resolve(new Blob([new Uint8Array(284 * 1024)], { type: "image/png" }));
 
-		expect(status).toContain(
+		expect(progress).toContain(
 			"Converting cat.gif to an animated PNG: trying 320×320, 256 colors, 30 fps",
 		);
-		await vi.waitFor(() => {
-			expect(screen.queryByRole("status")).toBeNull();
-		});
+		expect((await screen.findByText(/^Converted/u)).textContent).toBe(
+			"Converted cat.gif: 320×320, 30 fps, 284 KiB",
+		);
+		expect(screen.getByRole("status")).toBe(screen.getByText(/^Converted/u));
 		expect(api.addSticker).toHaveBeenCalledOnce();
 	});
 

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { CATS, files, LIMITS, packResponse } from "../support/api.ts";
 import { ADDED, images, session } from "../support/session.ts";
@@ -63,6 +63,25 @@ describe("PackSession", () => {
 		expect(api.savePack).toHaveBeenCalledOnce();
 		expect(api.removeSticker).toHaveBeenCalledWith(2, "003.webp");
 		expect([editing.saveError, editing.error]).toEqual([undefined, undefined]);
+	});
+
+	it("stops saying what a conversion made when another pack loads", async () => {
+		vi.useFakeTimers();
+		onTestFinished(() => {
+			vi.useRealTimers();
+		});
+		const { encode, editing } = session();
+		encode.mockImplementationOnce((_, __, options) => {
+			options?.onAnimated?.({ size: 320, colors: 256, frames: 60, fps: 20 });
+			return Promise.resolve(new Blob(["apng"], { type: "image/png" }));
+		});
+
+		await editing.add(images("cat.gif"), LIMITS);
+		const shown = editing.conversions.converted.map(({ file }) => file);
+		editing.load(packResponse());
+
+		expect(shown).toEqual(["cat.gif"]);
+		expect(editing.conversions.converted).toEqual([]);
 	});
 
 	it("saves pending edits before converting and adding images", async () => {

@@ -1,5 +1,6 @@
 import type { ConversionProgress } from "./animationConversion.ts";
 import { errorMessage, type Pack } from "./api.ts";
+import type { FitAttempt } from "./apng.ts";
 import type { EncodeOptions } from "./stickerImage.ts";
 
 /** An image being converted for the pack, until its result is on its way to the server. */
@@ -12,6 +13,15 @@ export type Conversion = Readonly<{
 	/** Whether it waits for the images chosen before it. */
 	waiting: boolean;
 	progress: ConversionProgress | undefined;
+}>;
+
+/** An animation converted to an animated PNG of `bytes`, listed for a few seconds. */
+export type ConvertedAnimation = Readonly<{
+	id: number;
+	file: string;
+	size: number;
+	fps: number;
+	bytes: number;
 }>;
 
 /** What a conversion converts, and when its result no longer has a place in the pack. */
@@ -30,10 +40,14 @@ export type ConversionStep = ConversionTarget &
 		use: (image: Blob) => Promise<void>;
 	}>;
 
+const CONVERTED_SHOWN_MS = 6000;
+
 /** The images being converted, each of which can be canceled. */
 export class Conversions {
 	/** In the order they were chosen. */
 	list: readonly Conversion[] = $state.raw([]);
+	/** The animations converted in the last few seconds, in the order they finished. */
+	converted: readonly ConvertedAnimation[] = $state.raw([]);
 
 	readonly #running = new Map<number, Running>();
 	#nextId = 0;
@@ -77,8 +91,10 @@ export class Conversions {
 		this.#finish(id);
 	}
 
-	cancelAll(): void {
+	/** Cancels every conversion and forgets what finished ones made, for another pack. */
+	reset(): void {
 		this.#cancelWhere(() => true);
+		this.converted = [];
 	}
 
 	/** Cancels the conversions whose result no longer has a place in `pack`. */
@@ -107,10 +123,14 @@ export class Conversions {
 	): Promise<void> {
 		signal.throwIfAborted();
 		this.#update(id, { waiting: false });
+		let encoding: FitAttempt | undefined;
 		const image = await step.convert({
 			signal,
 			onProgress: (progress) => {
 				this.#update(id, { progress });
+			},
+			onAnimated: (fitted) => {
+				encoding = fitted;
 			},
 			onFlattened: () => {
 				onFlattened(step.file);
@@ -119,9 +139,16 @@ export class Conversions {
 		// Drawing a still image does not watch the signal.
 		signal.throwIfAborted();
 		this.#finish(id);
+		await this.#use(step, image);
+		if (encoding) {
+			const { size, fps } = encoding;
+			this.#showConverted({ id, file: step.file, size, fps, bytes: image.size });
+		}
+	}
+
+	async #use(step: ConversionStep, image: Blob): Promise<void> {
 		if (step.inPlace !== true) {
-			await step.use(image);
-			return;
+			return step.use(image);
 		}
 		this.#sending = [...this.#sending, step.file];
 		try {
@@ -129,6 +156,13 @@ export class Conversions {
 		} finally {
 			this.#sending = this.#sending.toSpliced(this.#sending.indexOf(step.file), 1);
 		}
+	}
+
+	#showConverted(converted: ConvertedAnimation): void {
+		this.converted = [...this.converted, converted];
+		setTimeout(() => {
+			this.converted = this.converted.filter((shown) => shown !== converted);
+		}, CONVERTED_SHOWN_MS);
 	}
 
 	#update(id: number, change: Partial<Conversion>): void {

@@ -154,10 +154,11 @@ it), then 128 pixels, and as a last resort every other frame dropped again until
 smaller size never encodes larger, so after trying the image as it is, each pass tries its smallest
 size first, which is all a pass where nothing fits costs, and then bisects the sizes above it. Over
 150 frames, 150 frames spread evenly are drawn. The worker posts progress, which the editor shows
-with the frame rate, then the APNG, `still` for a single frame, `unsupported` when the browser
-cannot decode the type, or an error. Like Signal's creator, the page draws a single frame, and a GIF
-or WebP the browser cannot decode, as a still WebP; such an APNG is refused. The protocol and the
-decoder interface live in `lib/animationConversion.ts`, so tests run it with a fake decoder.
+with the frame rate, then the APNG and its encoding, which the editor reports for a few seconds,
+`still` for a single frame, `unsupported` when the browser cannot decode the type, or an error. Like
+Signal's creator, the page draws a single frame, and a GIF or WebP the browser cannot decode, as a
+still WebP; such an APNG is refused. The protocol and the decoder interface live in
+`lib/animationConversion.ts`, so tests run it with a fake decoder.
 
 Conversions (`lib/conversions.svelte.ts`) run while the pack stays editable, each listed with its
 progress and a Cancel that terminates its worker. Images chosen together convert one after another;

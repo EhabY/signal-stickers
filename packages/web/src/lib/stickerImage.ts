@@ -5,6 +5,7 @@ import type {
 	ConversionRequest,
 } from "./animationConversion.ts";
 import type { StickerLimits } from "./api.ts";
+import type { FitAttempt } from "./apng.ts";
 import { fitInSquare } from "./square.ts";
 
 /** Turns any image the browser can decode into one that meets Signal's sticker limits. */
@@ -18,6 +19,8 @@ export type EncodeOptions = Readonly<{
 	/** Stops converting an animation, rejecting with the signal's reason. */
 	signal?: AbortSignal;
 	onProgress?: (progress: ConversionProgress) => void;
+	/** Called with the encoding of the animated PNG an animation became. */
+	onAnimated?: (encoding: FitAttempt) => void;
 	/** Called when the browser cannot convert an animated GIF or WebP, so it keeps its first frame. */
 	onFlattened?: () => void;
 	/** Rejects with {@link CANNOT_CONVERT} instead of keeping only the first frame. */
@@ -63,6 +66,7 @@ export function stickerEncoder(
 		const request = { bytes: bytes.buffer, type, limits };
 		const answer = await convertInWorker(startWorker(), request, options);
 		if (answer.type === "done") {
+			options.onAnimated?.(answer.encoding);
 			return new Blob([answer.apng], { type: "image/png" });
 		}
 		if (answer.type === "unsupported") {
