@@ -6,6 +6,8 @@ export type ImageInfo = Readonly<{
 	height: number;
 	/** How many times an APNG plays, 0 meaning forever; undefined for an image that does not animate. */
 	plays?: number | undefined;
+	/** Set for an animated WebP; Signal animates only APNG stickers. */
+	animated?: true | undefined;
 }>;
 
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
@@ -85,6 +87,7 @@ function readApngPlays(bytes: Uint8Array, view: DataView): number | undefined {
 const WEBP_CHUNK = 20;
 const VP8_START_CODE = [0x9d, 0x01, 0x2a];
 const VP8L_SIGNATURE = 0x2f;
+const VP8X_ANIMATION_FLAG = 0x02;
 
 /** Reads the first chunk after the RIFF header: lossy `VP8 `, lossless `VP8L`, or extended `VP8X`. */
 function readWebpInfo(bytes: Uint8Array): ImageInfo | undefined {
@@ -117,7 +120,10 @@ function readWebpInfo(bytes: Uint8Array): ImageInfo | undefined {
 			}
 			const uint24 = (offset: number) =>
 				view.getUint16(offset, true) + (view.getUint8(offset + 2) << 16);
-			return webpInfo(uint24(WEBP_CHUNK + 4) + 1, uint24(WEBP_CHUNK + 7) + 1);
+			const info = webpInfo(uint24(WEBP_CHUNK + 4) + 1, uint24(WEBP_CHUNK + 7) + 1);
+			return (view.getUint8(WEBP_CHUNK) & VP8X_ANIMATION_FLAG) === 0
+				? info
+				: { ...info, animated: true };
 		}
 		default:
 			return undefined;

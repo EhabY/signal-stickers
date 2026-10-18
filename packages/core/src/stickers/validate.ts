@@ -30,6 +30,7 @@ export type ValidationCode =
 	| "unsupportedFormat"
 	| "wrongSize"
 	| "mustLoopForever"
+	| "unsupportedAnimation"
 	| "tooLarge"
 	| "duplicateImage";
 
@@ -60,6 +61,12 @@ export function validateImage(file: string, bytes: Uint8Array): ValidationIssue[
 	const sizeRule = info && brokenSizeRule(info);
 	if (!info) {
 		issues.push({ code: "unsupportedFormat", file, message: `${file} is not a PNG or WebP image` });
+	} else if (info.animated) {
+		issues.push({
+			code: "unsupportedAnimation",
+			file,
+			message: `${file} is an animated WebP, but Signal only animates PNG stickers; remove it and add the original file in the web editor, which converts it to an animated PNG`,
+		});
 	} else if (sizeRule !== undefined) {
 		issues.push({
 			code: "wrongSize",

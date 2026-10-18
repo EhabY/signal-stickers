@@ -21,7 +21,7 @@ describe("readImageInfo", () => {
 		["animated.png", { format: "png", width: 301, height: 201, plays: 0 }],
 		["lossy.webp", { format: "webp", width: 302, height: 202 }],
 		["lossless.webp", { format: "webp", width: 303, height: 203 }],
-		["animated.webp", { format: "webp", width: 304, height: 204 }],
+		["animated.webp", { format: "webp", width: 304, height: 204, animated: true }],
 		["alpha.webp", { format: "webp", width: 305, height: 205 }],
 	])("reads %s", (name, info) => {
 		expect(readImageInfo(imageFixture(name))).toEqual(info);

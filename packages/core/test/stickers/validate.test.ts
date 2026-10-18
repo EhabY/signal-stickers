@@ -54,6 +54,17 @@ describe("validateImage", () => {
 		]);
 	});
 
+	it("rejects an animated WebP, since Signal animates only APNG", () => {
+		expect(validateImage("001.webp", imageFixture("animated.webp"))).toEqual([
+			{
+				code: "unsupportedAnimation",
+				file: "001.webp",
+				message:
+					"001.webp is an animated WebP, but Signal only animates PNG stickers; remove it and add the original file in the web editor, which converts it to an animated PNG",
+			},
+		]);
+	});
+
 	it("rejects an image in another format", () => {
 		expect(validateImage("001.gif", Buffer.from("GIF89a"))).toEqual([
 			{ code: "unsupportedFormat", file: "001.gif", message: "001.gif is not a PNG or WebP image" },

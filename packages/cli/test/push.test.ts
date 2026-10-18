@@ -9,6 +9,7 @@ import {
 import {
 	CREDENTIALS,
 	fakeUploadChat,
+	imageFixture,
 	memoryCdn,
 	memoryCredentialsStore,
 	NEW_PACK_ID,
@@ -79,6 +80,26 @@ describe("push", () => {
 		expect(code).toBe(1);
 		expect(stderr).toMatch(/\nError: The pack is not ready to push:\n {2}- .*title/u);
 		expect(cdn.uploads).toEqual([]);
+	});
+
+	it("tells how to convert an animated WebP, which Signal cannot animate", async () => {
+		const { pack } = validPack(1);
+		const dir = await writePackFolder(
+			{ ...pack, stickers: [{ file: "001.webp", emoji: "😀" }], cover: "001.webp" },
+			{ "001.webp": imageFixture("animated.webp") },
+		);
+
+		const { code, stderr } = await runCli(["push", dir], {
+			chat: fakeUploadChat(),
+			cdn: memoryCdn(),
+			credentialsStore: memoryCredentialsStore(CREDENTIALS),
+			pushPack: pushThroughCore,
+		});
+
+		expect(code).toBe(1);
+		expect(stderr).toContain(
+			"\n  - 001.webp is an animated WebP, but Signal only animates PNG stickers; remove it and add the original file in the web editor, which converts it to an animated PNG\n",
+		);
 	});
 
 	it("pushes ./pack by default", async () => {
