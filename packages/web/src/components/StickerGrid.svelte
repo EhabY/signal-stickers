@@ -2,9 +2,11 @@
 	import { tick } from "svelte";
 
 	import type { Pack, PackSticker, ValidationIssue } from "../lib/api.ts";
+	import { showsStill } from "../lib/stillImage.ts";
 	import EmojiPicker from "./EmojiPicker.svelte";
 	import Icon from "./Icon.svelte";
 	import IssueList from "./IssueList.svelte";
+	import PackImage from "./PackImage.svelte";
 
 	type Props = {
 		pack: Pack;
@@ -162,9 +164,10 @@
 			aria-describedby={stickerIssues.length > 0 ? issuesId(index) : undefined}
 		>
 			<div class="frame">
-				<img
+				<PackImage
 					src={imageUrl(sticker.file)}
 					alt={isCover ? `Sticker ${number} (cover)` : `Sticker ${number}`}
+					still={showsStill(issues, sticker.file)}
 					draggable="false"
 				/>
 				{#if isCover}
@@ -307,7 +310,7 @@
 		outline-offset: 4px;
 	}
 
-	img {
+	.frame :global(img) {
 		display: block;
 		width: 100%;
 		aspect-ratio: 1;

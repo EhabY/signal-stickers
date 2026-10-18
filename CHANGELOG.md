@@ -25,6 +25,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Highlight the cover and tuck sticker actions into a hover toolbar
 - Choose the cover with a "Set as cover" button instead of a star
 - Flag animated WebP stickers, since Signal animates only APNG
+- Turn animated GIFs and WebPs into animated PNG stickers
 
 ### Fixed
 

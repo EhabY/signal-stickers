@@ -5,10 +5,16 @@ import Editor from "../../src/components/Editor.svelte";
 import type { Pack, ValidationIssue } from "../../src/lib/api.ts";
 import { CATS, files, LIMITS } from "../support/api.ts";
 import { stubModalDialogs } from "../support/dialog.ts";
+import { DRAWN_URL, stubImageDrawing } from "../support/drawing.ts";
 
 // The real picker fetches its emoji data from a CDN; tests drive the element's events instead.
 vi.mock("emoji-picker-element", () => ({}));
 stubModalDialogs();
+const drawing = stubImageDrawing();
+
+function animatedWebp(file: string): ValidationIssue {
+	return { code: "unsupportedAnimation", message: `${file} is an animated WebP`, file };
+}
 
 function renderEditor({
 	pack = CATS,
@@ -17,7 +23,7 @@ function renderEditor({
 	const onchange = vi.fn<(pack: Pack) => void>();
 	const onremove = vi.fn<(index: number, file: string) => void>();
 	const oncover = vi.fn<(image: File) => void>();
-	render(Editor, {
+	const { rerender } = render(Editor, {
 		pack,
 		issues,
 		limits: LIMITS,
@@ -27,7 +33,7 @@ function renderEditor({
 		onremove,
 		oncover,
 	});
-	return { onremove, oncover, changed: () => onchange.mock.lastCall?.[0] };
+	return { onremove, oncover, rerender, changed: () => onchange.mock.lastCall?.[0] };
 }
 
 /** The text of what `aria-describedby` points at. */
@@ -38,6 +44,10 @@ function description(element: HTMLElement): string | undefined {
 
 function coverButton(number: number): HTMLElement {
 	return screen.getByRole("button", { name: `Use sticker ${number} as the cover` });
+}
+
+function imageSource(alt: string): string | null {
+	return screen.getByAltText(alt).getAttribute("src");
 }
 
 function stickerCards(): HTMLElement[] {
@@ -177,6 +187,41 @@ describe("Editor", () => {
 		expect(description(title)).toBe("Give the pack a title");
 		expect(description(third!)).toBe("003.webp needs an emoji");
 		expect(description(first!)).toBeUndefined();
+	});
+
+	it("shows only the first frame of an animation Signal does not animate", async () => {
+		renderEditor({ issues: [animatedWebp("001.png")] });
+
+		await vi.waitFor(() => {
+			expect(imageSource("Sticker 1 (cover)")).toBe(DRAWN_URL);
+			expect(imageSource("Current cover")).toBe(DRAWN_URL);
+		});
+		expect(drawing.fetchImage).toHaveBeenCalledWith("/stickers/001.png", expect.anything());
+		expect(imageSource("Sticker 2")).toBe("/stickers/002.png");
+	});
+
+	it("revokes the first frame once it is no longer shown", async () => {
+		const { rerender } = renderEditor({ issues: [animatedWebp("001.png")] });
+		await vi.waitFor(() => {
+			expect(imageSource("Current cover")).toBe(DRAWN_URL);
+		});
+
+		await rerender({ issues: [] });
+
+		expect(imageSource("Current cover")).toBe("/stickers/001.png");
+		await vi.waitFor(() => {
+			expect(drawing.revokeObjectURL.mock.calls).toEqual([[DRAWN_URL], [DRAWN_URL]]);
+		});
+	});
+
+	it("shows the image as it is when its first frame cannot be drawn", async () => {
+		drawing.decodeImage.mockRejectedValueOnce(new Error("Cannot decode"));
+
+		renderEditor({ pack: { ...CATS, cover: "cover.webp" }, issues: [animatedWebp("cover.webp")] });
+
+		await vi.waitFor(() => {
+			expect(imageSource("Current cover")).toBe("/stickers/cover.webp");
+		});
 	});
 
 	it("says the pack is ready when nothing needs fixing", () => {

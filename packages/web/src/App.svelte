@@ -8,7 +8,7 @@
 	import PublishView from "./components/PublishView.svelte";
 	import { createApi, errorMessage, type Api } from "./lib/api.ts";
 	import { connectEvents, LiveProgress, type ConnectEvents } from "./lib/events.svelte.ts";
-	import { PackSession } from "./lib/packSession.svelte.ts";
+	import { PackSession, type Conversion } from "./lib/packSession.svelte.ts";
 	import { encodeSticker, type StickerEncoder } from "./lib/stickerImage.ts";
 
 	type Props = { api?: Api; connect?: ConnectEvents; encode?: StickerEncoder };
@@ -55,6 +55,18 @@
 		session.load(response);
 		packError = undefined;
 		view = "edit";
+	}
+
+	function describeConversion({ file, progress: stage }: Conversion): string {
+		const step =
+			stage.step === "decode"
+				? `reading frame ${stage.done} of ${stage.total}`
+				: `trying ${stage.size}×${stage.size} pixels, ${stage.colors} colors, ${stage.frames} frames`;
+		return `Converting ${file} to an animated PNG: ${step}`;
+	}
+
+	function describeFlattened(files: readonly string[]): string {
+		return `This browser cannot convert animations, so these became still images: ${files.join(", ")}. To keep them animated, add them in Chrome, Edge, or Firefox.`;
 	}
 </script>
 
@@ -105,6 +117,15 @@
 				{/if}
 				{#if session.error !== undefined}
 					<p class="alert" role="alert">{session.error}</p>
+				{/if}
+				{#if session.conversion}
+					<p class="conversion muted" role="status">
+						{describeConversion(session.conversion)}
+						<button type="button" onclick={() => session.cancel()}>Cancel</button>
+					</p>
+				{/if}
+				{#if session.flattened.length > 0}
+					<p class="warning" role="status">{describeFlattened(session.flattened)}</p>
 				{/if}
 				<Editor
 					pack={session.pack}
@@ -200,6 +221,13 @@
 
 	main .alert p {
 		margin: 0 0 0.5rem;
+	}
+
+	.conversion {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem 0.75rem;
+		align-items: center;
 	}
 
 	.view {

@@ -44,7 +44,12 @@ No test talks to Signal.
   unlink, push, validation), so the front ends and core cannot drift apart.
 - web tests render components with `@testing-library/svelte` against `fakeApi()`
   (`packages/web/test/support/api.ts`). They mock `emoji-picker-element` and fire its `emoji-click`
-  event, and inject the image encoder, since jsdom has no canvas.
+  event, and inject the image encoder, since jsdom has no canvas. Components that draw a still frame
+  use `stubImageDrawing()` (`test/support/drawing.ts`), which stubs `fetch`, `createImageBitmap`,
+  the canvas, and object URLs.
+- The animation conversion runs in jsdom without a browser: `test/support/animation.ts` builds GIF,
+  WebP, and PNG headers and RGBA frames in code, fakes the worker and the frame decoder, and decodes
+  results with upng-js to check them. The fitting tests use the real encoder.
 
 ## Crypto and protocol
 

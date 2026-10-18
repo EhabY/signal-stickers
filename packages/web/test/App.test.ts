@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import App from "../src/App.svelte";
 import { ApiError } from "../src/lib/api.ts";
 import { encodeWithinLimit, type StickerEncoder } from "../src/lib/stickerImage.ts";
+import { encodeUntilAborted } from "./support/animation.ts";
 import {
 	CATS,
 	fakeApi,
@@ -170,6 +171,70 @@ describe("App", () => {
 			"photo.jpg: This browser cannot convert images to WebP",
 		);
 		expect(api.addSticker).not.toHaveBeenCalled();
+	});
+
+	it("shows how far converting an added animation has got", async () => {
+		const api = fakeApi();
+		api.getPack.mockResolvedValue(packResponse());
+		const converted = Promise.withResolvers<Blob>();
+		renderApp(api, (_, __, options) => {
+			options?.onProgress?.({ step: "encode", size: 384, colors: 256, frames: 40 });
+			return converted.promise;
+		});
+		const animation = new File(["gif"], "cat.gif", { type: "image/gif" });
+
+		await fireEvent.change(await screen.findByLabelText("Add images"), {
+			target: { files: [animation] },
+		});
+		const status = (await screen.findByRole("status")).textContent;
+		converted.resolve(new Blob(["apng"], { type: "image/png" }));
+
+		expect(status).toContain(
+			"Converting cat.gif to an animated PNG: trying 384×384 pixels, 256 colors, 40 frames",
+		);
+		await vi.waitFor(() => {
+			expect(screen.queryByRole("status")).toBeNull();
+		});
+		expect(api.addSticker).toHaveBeenCalledOnce();
+	});
+
+	it("cancels converting an added animation", async () => {
+		const api = fakeApi();
+		api.getPack.mockResolvedValue(packResponse());
+		renderApp(api, (image, limits, options) => {
+			options?.onProgress?.({ step: "decode", done: 1, total: 40 });
+			return encodeUntilAborted(image, limits, options);
+		});
+		const animation = new File(["gif"], "cat.gif", { type: "image/gif" });
+
+		await fireEvent.change(await screen.findByLabelText("Add images"), {
+			target: { files: [animation] },
+		});
+		await fireEvent.click(await screen.findByRole("button", { name: "Cancel" }));
+
+		await vi.waitFor(() => {
+			expect(screen.queryByRole("status")).toBeNull();
+		});
+		expect(screen.queryByRole("alert")).toBeNull();
+		expect(api.addSticker).not.toHaveBeenCalled();
+	});
+
+	it("says which added animations became still images", async () => {
+		const api = fakeApi();
+		api.getPack.mockResolvedValue(packResponse());
+		renderApp(api, (image, _, options) => {
+			options?.onFlattened?.();
+			return Promise.resolve(image);
+		});
+		const animation = new File(["gif"], "cat.gif", { type: "image/gif" });
+
+		await fireEvent.change(await screen.findByLabelText("Add images"), {
+			target: { files: [animation] },
+		});
+
+		expect((await screen.findByRole("status")).textContent).toBe(
+			"This browser cannot convert animations, so these became still images: cat.gif. To keep them animated, add them in Chrome, Edge, or Firefox.",
+		);
 	});
 
 	it("keeps a running publish and its link when switching views", async () => {

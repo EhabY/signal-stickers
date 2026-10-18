@@ -2,8 +2,10 @@
 	import { tick } from "svelte";
 
 	import type { Pack, StickerLimits, ValidationIssue } from "../lib/api.ts";
+	import { showsStill } from "../lib/stillImage.ts";
 	import Icon from "./Icon.svelte";
 	import IssueList from "./IssueList.svelte";
+	import PackImage from "./PackImage.svelte";
 	import StickerGrid from "./StickerGrid.svelte";
 
 	type Props = {
@@ -122,7 +124,11 @@
 		<div class="field" role="group" aria-labelledby="{id}-cover">
 			<span id="{id}-cover" class="label">Cover</span>
 			<div class="cover">
-				<img src={imageUrl(pack.cover)} alt="Current cover" />
+				<PackImage
+					src={imageUrl(pack.cover)}
+					alt="Current cover"
+					still={showsStill(issues, pack.cover)}
+				/>
 				<div class="cover-actions">
 					<!-- One input for both states, so it keeps focus when the cover changes. -->
 					<label class="file-button small" class:disabled>
@@ -162,7 +168,7 @@
 			<p class="muted hint">
 				Drag to reorder. Images are fitted to {limits.size}&times;{limits.size} under {Math.floor(
 					limits.maxBytes / 1024,
-				)} KiB; PNG and WebP that already fit are kept.
+				)} KiB; PNG and WebP that already fit are kept. Animations become animated PNG.
 			</p>
 		</div>
 		<label class="file-button primary" class:disabled>
@@ -240,7 +246,7 @@
 		align-items: center;
 	}
 
-	.cover img {
+	.cover :global(img) {
 		width: 64px;
 		height: 64px;
 		object-fit: contain;

@@ -15,13 +15,15 @@
 	"dependencies": {
 		"emoji-picker-element": "catalog:",
 		"emoji-picker-element-data": "catalog:",
-		"qrcode": "catalog:"
+		"qrcode": "catalog:",
+		"upng-js": "catalog:"
 	},
 	"devDependencies": {
 		"@signal-stickers/server": "workspace:*",
 		"@sveltejs/vite-plugin-svelte": "catalog:",
 		"@testing-library/svelte": "catalog:",
 		"@types/qrcode": "catalog:",
+		"@types/upng-js": "catalog:",
 		"jsdom": "catalog:",
 		"svelte": "catalog:",
 		"svelte-check": "catalog:",

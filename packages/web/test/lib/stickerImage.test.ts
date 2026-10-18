@@ -1,21 +1,149 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { encodeWithinLimit, fitInSquare } from "../../src/lib/stickerImage.ts";
+import type {
+	ConversionMessage,
+	ConversionProgress,
+	ConversionRequest,
+} from "../../src/lib/animationConversion.ts";
+import { encodeApng } from "../../src/lib/apng.ts";
+import {
+	CANNOT_CONVERT,
+	convertInWorker,
+	encodeWithinLimit,
+	stickerEncoder,
+	type ConversionWorker,
+} from "../../src/lib/stickerImage.ts";
+import { fakeWorker, gif, pngChunks, solidFrame, webpVp8x } from "../support/animation.ts";
 import { LIMITS } from "../support/api.ts";
+import { stubImageDrawing } from "../support/drawing.ts";
 
 type Encode = (quality: number) => Promise<Blob>;
+
+const APNG = encodeApng([solidFrame(1, 64), solidFrame(2, 64)], 64, 256, [100, 100]);
+const PROGRESS: ConversionProgress = { step: "decode", done: 1, total: 2 };
+const ANIMATED_WEBP = new Blob([webpVp8x(0x02)], { type: "image/webp" });
+
+const drawing = stubImageDrawing();
 
 function blobOf(size: number, type = "image/webp"): Blob {
 	return new Blob([new Uint8Array(size)], { type });
 }
 
-describe("fitInSquare", () => {
+function gifRequest(): ConversionRequest {
+	return { bytes: gif(2).buffer, type: "image/gif", limits: LIMITS };
+}
+
+async function bytesOf(blob: Blob): Promise<Uint8Array> {
+	return new Uint8Array(await blob.arrayBuffer());
+}
+
+/** Encodes `image` with a worker that answers `answer`, drawing still images 512 pixels square. */
+function encodeAnswering(image: Blob, answer: ConversionMessage) {
+	drawing.decodeImage.mockResolvedValue({ width: 512, height: 512, close: vi.fn<() => void>() });
+	const onFlattened = vi.fn<() => void>();
+	const { worker } = fakeWorker(() => [answer]);
+	const sticker = stickerEncoder(() => worker)(image, LIMITS, { onFlattened });
+	return { sticker, onFlattened };
+}
+
+describe("stickerEncoder", () => {
+	it("keeps an APNG that Signal takes as it is", async () => {
+		const startWorker = vi.fn<() => ConversionWorker>();
+		const image = new Blob([APNG], { type: "image/png" });
+
+		const sticker = await stickerEncoder(startWorker)(image, LIMITS);
+
+		expect(sticker).toBe(image);
+		expect(startWorker).not.toHaveBeenCalled();
+	});
+
 	it.each([
-		["a wide image", { width: 1024, height: 512 }, { x: 0, y: 128, width: 512, height: 256 }],
-		["a tall image", { width: 100, height: 400 }, { x: 192, y: 0, width: 128, height: 512 }],
-		["a small square", { width: 64, height: 64 }, { x: 0, y: 0, width: 512, height: 512 }],
-	])("centers %s", (_, image, rect) => {
-		expect(fitInSquare(image, 512)).toEqual(rect);
+		["a GIF", gif(2), "image/gif"],
+		["an APNG Signal would reject", pngChunks({ width: 600, height: 400, plays: 0 }), "image/png"],
+	])("converts %s to APNG in a worker, reporting progress", async (_, bytes, type) => {
+		const { worker, requests } = fakeWorker(() => [
+			{ type: "progress", progress: PROGRESS },
+			{ type: "done", apng: APNG.slice().buffer },
+		]);
+		const onProgress = vi.fn<(progress: ConversionProgress) => void>();
+
+		const sticker = await stickerEncoder(() => worker)(new Blob([bytes]), LIMITS, { onProgress });
+
+		expect(sticker.type).toBe("image/png");
+		expect(await bytesOf(sticker)).toEqual(APNG);
+		expect(requests.map(({ request }) => [request.type, request.limits])).toEqual([[type, LIMITS]]);
+		expect(onProgress).toHaveBeenCalledWith(PROGRESS);
+	});
+
+	it("draws a single frame animation as a still WebP, even when it fits", async () => {
+		const { sticker, onFlattened } = encodeAnswering(ANIMATED_WEBP, { type: "still" });
+
+		expect(await sticker).not.toBe(ANIMATED_WEBP);
+		expect((await sticker).type).toBe("image/webp");
+		expect(onFlattened).not.toHaveBeenCalled();
+	});
+
+	it("draws a GIF the browser cannot convert as a still WebP, and says so", async () => {
+		const image = new Blob([gif(2)], { type: "image/gif" });
+		const { sticker, onFlattened } = encodeAnswering(image, { type: "unsupported" });
+
+		expect((await sticker).type).toBe("image/webp");
+		expect(onFlattened).toHaveBeenCalledOnce();
+	});
+
+	it("refuses an APNG the browser cannot convert, since Signal would reject it", async () => {
+		const image = new Blob([pngChunks({ width: 600, height: 400, plays: 0 })]);
+		const { sticker, onFlattened } = encodeAnswering(image, { type: "unsupported" });
+
+		await expect(sticker).rejects.toThrow(CANNOT_CONVERT);
+		expect(onFlattened).not.toHaveBeenCalled();
+	});
+});
+
+describe("convertInWorker", () => {
+	it("transfers the image to the worker and stops the worker once answered", async () => {
+		const { worker, requests } = fakeWorker(() => [{ type: "done", apng: APNG.slice().buffer }]);
+		const sent = gifRequest();
+
+		await convertInWorker(worker, sent);
+
+		expect(requests).toEqual([{ request: sent, transfer: [sent.bytes] }]);
+		expect(worker.terminate).toHaveBeenCalledOnce();
+	});
+
+	it("resolves the worker's answer when there is no APNG", async () => {
+		const { worker } = fakeWorker(() => [{ type: "still" }]);
+
+		await expect(convertInWorker(worker, gifRequest())).resolves.toEqual({ type: "still" });
+	});
+
+	it("rejects with the worker's explanation", async () => {
+		const message = "Could not convert the animation: Corrupt frame";
+		const { worker } = fakeWorker(() => [{ type: "error", message }]);
+
+		await expect(convertInWorker(worker, gifRequest())).rejects.toThrow(message);
+		expect(worker.terminate).toHaveBeenCalledOnce();
+	});
+
+	it("rejects and stops the worker when it fails to start", async () => {
+		const { worker, fail } = fakeWorker(() => []);
+
+		const converted = convertInWorker(worker, gifRequest());
+		fail();
+
+		await expect(converted).rejects.toThrow("The browser could not start converting the animation");
+		expect(worker.terminate).toHaveBeenCalledOnce();
+	});
+
+	it("rejects and stops the worker when the signal aborts", async () => {
+		const { worker } = fakeWorker(() => []);
+		const controller = new AbortController();
+
+		const converted = convertInWorker(worker, gifRequest(), { signal: controller.signal });
+		controller.abort(new Error("Canceled"));
+
+		await expect(converted).rejects.toThrow("Canceled");
+		expect(worker.terminate).toHaveBeenCalledOnce();
 	});
 });
 

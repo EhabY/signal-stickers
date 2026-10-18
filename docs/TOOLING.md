@@ -72,6 +72,11 @@ dependencies. `release.yaml` cuts releases from `main`; see CONTRIBUTING.md.
   runs on port 5173 and proxies `/api`, WebSocket included, to the server's `dev` script on port
   5174, which accepts Vite's origin; `pnpm dev` starts both. `svelte.config.js` turns on runes mode.
   The global stylesheet is linked from `index.html` because lint forbids side-effect imports.
+- upng-js picks its bundled pako with `typeof require`, which Rolldown leaves for the browser, where
+  it fails. A small plugin in `vite.config.ts` makes that check true, for worker bundles
+  (`worker.plugins`) and for dependency pre-bundling in dev (`optimizeDeps`). Only the worker
+  imports upng-js, which Vite's dependency scan does not follow, so `optimizeDeps.include`
+  pre-bundles it up front; otherwise the dev server reloads the page on the first conversion.
 - `packages/server` has no build step: Node runs its source directly.
 - `scripts/run-tool.ts` runs oxlint and oxfmt with a capped thread count, without the Windows `.bin`
   shims, and prints how long they took.
