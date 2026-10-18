@@ -1,13 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import type { Pack } from "../../src/stickers/pack.ts";
-import {
-	readImageInfo,
-	STICKER_LIMITS,
-	validateImage,
-	validatePack,
-} from "../../src/stickers/validate.ts";
-import { imageFixture, png, stickerPng, validPack } from "../support/index.ts";
+import { STICKER_LIMITS, validateImage, validatePack } from "../../src/stickers/validate.ts";
+import { imageFixture, stickerPng, validPack } from "../support/index.ts";
 
 function validate(pack: Pack, images: Readonly<Record<string, Uint8Array>>) {
 	return validatePack(pack, new Map(Object.entries(images)));
@@ -17,29 +12,6 @@ function pngOfLength(length: number) {
 	const image = stickerPng(0);
 	return Buffer.concat([image, new Uint8Array(length - image.length)]);
 }
-
-describe("readImageInfo", () => {
-	it.each([
-		["still.png", { format: "png", width: 300, height: 200 }],
-		["animated.png", { format: "png", width: 301, height: 201, plays: 0 }],
-		["lossy.webp", { format: "webp", width: 302, height: 202 }],
-		["lossless.webp", { format: "webp", width: 303, height: 203 }],
-		["animated.webp", { format: "webp", width: 304, height: 204 }],
-		["alpha.webp", { format: "webp", width: 305, height: 205 }],
-	])("reads %s", (name, info) => {
-		expect(readImageInfo(imageFixture(name))).toEqual(info);
-	});
-
-	it.each([
-		["a PNG without IHDR", png(0)],
-		["a WebP with an unknown chunk", Buffer.from("RIFFsizeWEBPALPH0000000000000000")],
-		["a truncated WebP", imageFixture("lossy.webp").subarray(0, 24)],
-		["a GIF", Buffer.from("GIF89a")],
-		["nothing", new Uint8Array()],
-	])("rejects %s", (_, bytes) => {
-		expect(readImageInfo(bytes)).toBeUndefined();
-	});
-});
 
 describe("validateImage", () => {
 	it("accepts a 512x512 PNG within the byte limit", () => {

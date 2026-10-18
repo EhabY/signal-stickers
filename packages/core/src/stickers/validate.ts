@@ -1,4 +1,4 @@
-import { sniffImageFormat, type ImageFormat } from "./image.ts";
+import { readImageInfo, type ImageInfo } from "./image.ts";
 import type { Pack } from "./pack.ts";
 
 /** Signal's limits for creating a pack; readers accept more (see `MAX_STICKERS_PER_PACK`). */
@@ -19,14 +19,6 @@ export const STICKER_LIMITS: StickerLimits = {
 	minAnimatedSize: 10,
 	maxBytes: 300 * 1024,
 };
-
-export type ImageInfo = Readonly<{
-	format: ImageFormat;
-	width: number;
-	height: number;
-	/** How many times an APNG plays, 0 meaning forever; undefined for an image that does not animate. */
-	plays?: number | undefined;
-}>;
 
 export type ValidationCode =
 	| "missingTitle"
@@ -56,18 +48,6 @@ export class PackValidationError extends Error {
 		super(issues.map(({ message }) => message).join("\n"));
 		this.issues = issues;
 	}
-}
-
-/** Reads the format, dimensions, and APNG play count from PNG/APNG/WebP headers. */
-export function readImageInfo(bytes: Uint8Array): ImageInfo | undefined {
-	const format = sniffImageFormat(bytes);
-	if (format === "png") {
-		return readPngInfo(bytes);
-	}
-	if (format === "webp") {
-		return readWebpInfo(bytes);
-	}
-	return undefined;
 }
 
 /**
@@ -149,95 +129,6 @@ export function validatePack(
 /** The distinct image files `pack` names: its stickers' and the cover. */
 export function packImageFiles(pack: Pack): string[] {
 	return [...new Set([...pack.stickers.map(({ file }) => file), pack.cover])];
-}
-
-const PNG_SIGNATURE_SIZE = 8;
-const PNG_CHUNK_HEADER_SIZE = 8;
-const PNG_CHUNK_CRC_SIZE = 4;
-
-/** Reads IHDR, and the play count of an APNG. */
-function readPngInfo(bytes: Uint8Array): ImageInfo | undefined {
-	const view = dataView(bytes);
-	const ihdr = PNG_SIGNATURE_SIZE + PNG_CHUNK_HEADER_SIZE;
-	if (bytes.length < ihdr + 8 || fourCc(bytes, PNG_SIGNATURE_SIZE + 4) !== "IHDR") {
-		return undefined;
-	}
-	const plays = readApngPlays(bytes, view);
-	return { format: "png", width: view.getUint32(ihdr), height: view.getUint32(ihdr + 4), plays };
-}
-
-function dataView(bytes: Uint8Array): DataView {
-	return new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-}
-
-function fourCc(bytes: Uint8Array, offset: number): string {
-	return String.fromCodePoint(...bytes.subarray(offset, offset + 4));
-}
-
-/**
- * Like Signal's `getAnimatedPngDataIfExists`: an `acTL` chunk before the first `IDAT` marks an APNG,
- * and its `num_plays` follows `num_frames`.
- */
-function readApngPlays(bytes: Uint8Array, view: DataView): number | undefined {
-	let offset = PNG_SIGNATURE_SIZE;
-	while (offset + PNG_CHUNK_HEADER_SIZE <= bytes.length) {
-		const type = fourCc(bytes, offset + 4);
-		if (type === "acTL") {
-			const plays = offset + PNG_CHUNK_HEADER_SIZE + 4;
-			return plays + 4 <= bytes.length ? view.getUint32(plays) : undefined;
-		}
-		if (type === "IDAT") {
-			return undefined;
-		}
-		offset += PNG_CHUNK_HEADER_SIZE + view.getUint32(offset) + PNG_CHUNK_CRC_SIZE;
-	}
-	return undefined;
-}
-
-const WEBP_CHUNK = 20;
-const VP8_START_CODE = [0x9d, 0x01, 0x2a];
-const VP8L_SIGNATURE = 0x2f;
-
-/** Reads the first chunk after the RIFF header: lossy `VP8 `, lossless `VP8L`, or extended `VP8X`. */
-function readWebpInfo(bytes: Uint8Array): ImageInfo | undefined {
-	const view = dataView(bytes);
-	switch (fourCc(bytes, 12)) {
-		case "VP8 ":
-			// A 3-byte frame tag and the start code precede two 14-bit dimensions.
-			if (
-				bytes.length < WEBP_CHUNK + 10 ||
-				!VP8_START_CODE.every((byte, i) => bytes[WEBP_CHUNK + 3 + i] === byte)
-			) {
-				return undefined;
-			}
-			return webpInfo(
-				view.getUint16(WEBP_CHUNK + 6, true) & 0x3fff,
-				view.getUint16(WEBP_CHUNK + 8, true) & 0x3fff,
-			);
-		case "VP8L": {
-			// The signature precedes 14-bit width and height, each stored minus one.
-			if (bytes.length < WEBP_CHUNK + 5 || bytes[WEBP_CHUNK] !== VP8L_SIGNATURE) {
-				return undefined;
-			}
-			const bits = view.getUint32(WEBP_CHUNK + 1, true);
-			return webpInfo((bits & 0x3fff) + 1, ((bits >>> 14) & 0x3fff) + 1);
-		}
-		case "VP8X": {
-			// Flags and 3 reserved bytes precede 24-bit canvas width and height, each minus one.
-			if (bytes.length < WEBP_CHUNK + 10) {
-				return undefined;
-			}
-			const uint24 = (offset: number) =>
-				view.getUint16(offset, true) + (view.getUint8(offset + 2) << 16);
-			return webpInfo(uint24(WEBP_CHUNK + 4) + 1, uint24(WEBP_CHUNK + 7) + 1);
-		}
-		default:
-			return undefined;
-	}
-}
-
-function webpInfo(width: number, height: number): ImageInfo {
-	return { format: "webp", width, height };
 }
 
 /** Signal's creator uploads APNGs unchanged and turns other images into 512x512 WebP. */
