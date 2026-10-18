@@ -127,7 +127,10 @@ function imageFormat(image: Uint8Array): ImageFormat {
 	return format;
 }
 
-/** One past the highest numbered file, so added images never reuse a name. */
+/**
+ * One past the highest numbered file left, so a new image never overwrites another. Removing the
+ * highest numbered image frees its number for the next one.
+ */
 async function nextImageNumber(dir: string): Promise<string> {
 	const numbers = (await readdir(dir)).map((name) => Number(/^\d+/u.exec(name)?.[0] ?? 0));
 	return String(Math.max(0, ...numbers) + 1).padStart(3, "0");

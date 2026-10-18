@@ -106,6 +106,16 @@ describe("pack editing", () => {
 		expect(new Uint8Array(await readFile(join(server.packDir, "003.webp")))).toEqual(WEBP);
 	});
 
+	it("numbers an added image after the files left, reusing a removed image's number", async () => {
+		const server = await servePack();
+		await server.send("DELETE", "/api/pack/sticker/1/002.png");
+
+		const reply = await server.send("POST", "/api/pack/sticker", WEBP);
+
+		expect(reply).toMatchObject({ body: { file: "002.webp" } });
+		expect(await readdir(server.packDir)).toEqual(["001.png", "002.webp", "pack.json"]);
+	});
+
 	it.each([
 		["a file that is not an image", Uint8Array.of(1, 2, 3), 415],
 		["an image over the size limit", new Uint8Array(300 * 1024 + 1), 413],
