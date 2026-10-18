@@ -12,6 +12,16 @@ const WEBP_ANIMATIONS = [
 		stickerWebp(["ANIM", "ANMF", "ANMF"]).subarray(0, -6),
 		undefined,
 	],
+	[
+		"an animation whose frames start by the 64th chunk",
+		stickerWebp(["ANIM", ...Array.from({ length: 60 }, () => "EXIF"), "ANMF", "ANMF"]),
+		true,
+	],
+	[
+		"an animation whose frames start past the 64th chunk",
+		stickerWebp(["ANIM", ...Array.from({ length: 62 }, () => "EXIF"), "ANMF", "ANMF"]),
+		undefined,
+	],
 ] as const;
 
 describe("sniffImageFormat", () => {

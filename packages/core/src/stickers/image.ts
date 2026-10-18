@@ -90,6 +90,8 @@ const WEBP_CHUNK = RIFF_HEADER_SIZE + RIFF_CHUNK_HEADER_SIZE;
 const VP8_START_CODE = [0x9d, 0x01, 0x2a];
 const VP8L_SIGNATURE = 0x2f;
 const VP8X_ANIMATION_FLAG = 0x02;
+/** Frames follow a few header chunks; stopping there bounds the work a crafted WebP can cause. */
+const MAX_WEBP_CHUNKS = 64;
 
 /** Reads the first chunk after the RIFF header: lossy `VP8 `, lossless `VP8L`, or extended `VP8X`. */
 function readWebpInfo(bytes: Uint8Array): ImageInfo | undefined {
@@ -136,7 +138,7 @@ export type ReadImageBytes = (offset: number, length: number) => Promise<Uint8Ar
 
 /**
  * Like `readImageInfo`'s `animated`, for an image too large to read whole: reads only the `VP8X`
- * flags and the chunk headers up to the second `ANMF`.
+ * flags and the chunk headers up to the second `ANMF`, within the first {@link MAX_WEBP_CHUNKS}.
  */
 export async function isAnimatedWebp(read: ReadImageBytes): Promise<boolean> {
 	const head = await read(0, WEBP_CHUNK + 1);
@@ -150,7 +152,11 @@ export async function isAnimatedWebp(read: ReadImageBytes): Promise<boolean> {
 	const end = RIFF_CHUNK_HEADER_SIZE + dataView(head).getUint32(4, true);
 	let offset = RIFF_HEADER_SIZE;
 	let frames = 0;
-	while (frames < 2 && offset + RIFF_CHUNK_HEADER_SIZE <= end) {
+	for (
+		let chunks = 0;
+		frames < 2 && chunks < MAX_WEBP_CHUNKS && offset + RIFF_CHUNK_HEADER_SIZE <= end;
+		chunks += 1
+	) {
 		// oxlint-disable-next-line no-await-in-loop -- each chunk header says where the next one is.
 		const header = await read(offset, RIFF_CHUNK_HEADER_SIZE);
 		if (header.length < RIFF_CHUNK_HEADER_SIZE) {
@@ -173,13 +179,17 @@ function hasWebpAnimationFlag(bytes: Uint8Array): boolean {
 }
 
 /**
- * Counts `ANMF` chunks, up to `limit`. Encoders also set the animation flag on a single frame, which
- * shows as a still image.
+ * Counts `ANMF` chunks, up to `limit`, in the first {@link MAX_WEBP_CHUNKS}. Encoders also set the
+ * animation flag on a single frame, which shows as a still image.
  */
 function countWebpFrames(bytes: Uint8Array, limit: number): number {
 	let offset = RIFF_HEADER_SIZE;
 	let frames = 0;
-	while (frames < limit && offset + RIFF_CHUNK_HEADER_SIZE <= bytes.length) {
+	for (
+		let chunks = 0;
+		frames < limit && chunks < MAX_WEBP_CHUNKS && offset + RIFF_CHUNK_HEADER_SIZE <= bytes.length;
+		chunks += 1
+	) {
 		const header = bytes.subarray(offset, offset + RIFF_CHUNK_HEADER_SIZE);
 		if (fourCc(header, 0) === "ANMF") {
 			frames += 1;
