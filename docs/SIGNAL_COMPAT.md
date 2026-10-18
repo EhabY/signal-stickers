@@ -233,19 +233,23 @@ something breaks after that date, Signal changed it.
 - **Ours:** `packages/core/src/stickers/encryptPack.ts`
 - **Signal:** `sticker-creator/src/util/crypto.ts` (`encrypt`),
   `sticker-creator/src/selectors/art.ts` (`selectUrl`)
-- A fresh random 32-byte pack key. Sticker ids are 0 to n-1 in pack order, with their emoji. The
-  cover reuses the first sticker with identical bytes, or else is an extra image with id
-  `stickers.length` and no emoji. Unlike the sticker creator, identical sticker images are uploaded
-  once per sticker, so ids always match the uploads.
+- A fresh random 32-byte pack key. Sticker ids are 0 to n-1 in pack order, with their emoji; a
+  sticker without one gets no `emoji` field. The cover reuses the first sticker with identical
+  bytes, or else is an extra image with id `stickers.length` and no emoji. Unlike the sticker
+  creator, identical sticker images are uploaded once per sticker, so ids always match the uploads.
 
 ## Sticker limits
 
 - **Ours:** `packages/core/src/stickers/validate.ts` (`STICKER_LIMITS`, `validatePack`)
 - **Signal:** `sticker-creator/src/constants.ts`, `sticker-creator/src/selectors/art.ts`,
   `sticker-creator/src/util/processImage.ts`, `sticker-creator/src/util/apng.ts`
-- 1 to 200 stickers of at most 300 KiB (300 × 1024 bytes) each. A title, an author, a cover, and an
-  emoji per sticker are required. Readers accept more stickers; see
-  [Pull semantics](#pull-semantics).
+- 1 to 200 stickers of at most 300 KiB (300 × 1024 bytes) each. A title, an author, and a cover are
+  required. Readers accept more stickers; see [Pull semantics](#pull-semantics).
+- Each sticker's `emoji` is optional in `protos/Stickers.proto`, and Signal's readers accept a
+  sticker without one, but the creator requires one per sticker (`useEmojisReady` gates
+  `useAllDataValid` in `selectors/art.ts`). Signal suggests stickers by their emoji while typing, so
+  a sticker without one is never suggested. We push it anyway with a `missingEmoji` warning;
+  warnings never stop a push, errors do.
 - The creator uploads an APNG unchanged, so it must be square, 10x10 to 512x512, and loop forever
   (`num_plays` 0). Any other image becomes a 512x512 WebP, so we require PNG and WebP to be 512x512.
 - APNG is the only animated format: `processImage` keeps an image animated only when

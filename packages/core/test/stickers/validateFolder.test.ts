@@ -22,7 +22,7 @@ describe("validatePackFolder", () => {
 		const dir = await writePackFolder(pack, { "001.png": stickerPng(0) });
 
 		expect(await validatePackFolder(dir)).toEqual([
-			{ code: "missingImage", file: "002.png", message: "002.png is missing" },
+			{ code: "missingImage", severity: "error", file: "002.png", message: "002.png is missing" },
 		]);
 	});
 
@@ -41,6 +41,7 @@ describe("validatePackFolder", () => {
 		expect(issues).toEqual([
 			{
 				code: "tooLarge",
+				severity: "error",
 				file: "002.png",
 				message: "002.png is 1024 KiB; stickers must be at most 300 KiB",
 			},

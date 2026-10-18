@@ -59,7 +59,10 @@ describe("PublishView", () => {
 
 	it.each<[string, PublishOptions]>([
 		["the account is not linked", { status: UNLINKED }],
-		["the pack has issues", { issues: [{ code: "missingTitle", message: "Add a title" }] }],
+		[
+			"the pack has issues",
+			{ issues: [{ code: "missingTitle", severity: "error", message: "Add a title" }] },
+		],
 	])("cannot publish while %s", (_, options) => {
 		const { publish } = renderPublish(options);
 
@@ -86,6 +89,7 @@ describe("PublishView", () => {
 		const { api, publish } = renderPublish();
 		const issue = {
 			code: "tooLarge",
+			severity: "error",
 			message: "001.png is over 300 KiB",
 			file: "001.png",
 		} as const;

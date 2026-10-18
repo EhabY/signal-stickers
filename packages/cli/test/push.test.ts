@@ -127,8 +127,13 @@ describe("push", () => {
 
 	it("lists every validation issue", async () => {
 		const issues: ValidationIssue[] = [
-			{ code: "missingTitle", message: "The pack needs a title" },
-			{ code: "wrongSize", message: "001.png is 100x100 pixels, not 512x512", file: "001.png" },
+			{ code: "missingTitle", severity: "error", message: "The pack needs a title" },
+			{
+				code: "wrongSize",
+				severity: "error",
+				message: "001.png is 100x100 pixels, not 512x512",
+				file: "001.png",
+			},
 		];
 
 		const { code, stderr } = await runCli(["push"], {

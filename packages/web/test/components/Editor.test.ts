@@ -176,8 +176,8 @@ describe("Editor", () => {
 		renderEditor({
 			pack: { ...CATS, title: "" },
 			issues: [
-				{ code: "missingTitle", message: "Give the pack a title" },
-				{ code: "missingEmoji", message: "003.webp needs an emoji", file: "003.webp" },
+				{ code: "missingTitle", severity: "error", message: "Give the pack a title" },
+				{ code: "tooLarge", severity: "error", message: "003.webp is too large", file: "003.webp" },
 			],
 		});
 
@@ -186,7 +186,7 @@ describe("Editor", () => {
 		expect(screen.getByRole("heading", { name: "2 things to fix before publishing" })).toBeTruthy();
 		expect(title.getAttribute("aria-invalid")).toBe("true");
 		expect(description(title)).toBe("Give the pack a title");
-		expect(description(third!)).toBe("003.webp needs an emoji");
+		expect(description(third!)).toBe("003.webp is too large");
 		expect(description(first!)).toBeUndefined();
 	});
 

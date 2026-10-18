@@ -8,7 +8,7 @@ import { HttpError } from "../../src/net/http.ts";
 import { parsePackLink } from "../../src/stickers/link.ts";
 import { pullPack } from "../../src/stickers/pull.ts";
 import { pushPack, type PushOptions, type PushProgress } from "../../src/stickers/push.ts";
-import { PackValidationError } from "../../src/stickers/validate.ts";
+import { PackValidationError, type ValidationIssue } from "../../src/stickers/validate.ts";
 import {
 	fakeChat,
 	fakeUploadChat,
@@ -19,6 +19,7 @@ import {
 	tempDir,
 	validPack,
 	writePackFolder,
+	type FakeChat,
 	type PackFixture,
 } from "../support/index.ts";
 
@@ -40,6 +41,16 @@ function recordProgress() {
 		events.push(event);
 	};
 	return { events, onProgress };
+}
+
+/** Records each warning's code and file, with how many requests `chat` had sent by then. */
+function recordWarnings(chat: FakeChat) {
+	const warnings: { code: string; file: string | undefined; requestsSent: number }[] = [];
+	const onWarnings = (issues: readonly ValidationIssue[]) => {
+		const requestsSent = chat.requests.length;
+		warnings.push(...issues.map(({ code, file }) => ({ code, file, requestsSent })));
+	};
+	return { warnings, onWarnings };
 }
 
 describe("pushPack", () => {
@@ -68,13 +79,34 @@ describe("pushPack", () => {
 
 	it("uploads a pack that pulls back unchanged", async () => {
 		const { pack, images } = validPack();
-		const { cdn, result } = await push({ pack, images });
+		const chat = fakeUploadChat();
+		const { warnings, onWarnings } = recordWarnings(chat);
+		const { cdn, result } = await push({ pack, images }, { chat, onWarnings });
 		const dir = await tempDir();
 
 		const pulled = await pullPack({ locator: result.locator, dir, cdn });
 
 		expect(pulled).toEqual(pack);
+		expect(warnings).toEqual([]);
 		expect(await readFile(join(dir, "002.png"))).toEqual(Buffer.from(images["002.png"]!));
+	});
+
+	it("warns about stickers without an emoji before any request, then uploads them", async () => {
+		const { pack, images } = validPack();
+		const stickers = [{ file: "001.png" }, { file: "002.png", emoji: "" }];
+		const chat = fakeUploadChat();
+		const { warnings, onWarnings } = recordWarnings(chat);
+		const fixture = { pack: { ...pack, stickers }, images };
+		const { cdn, result } = await push(fixture, { chat, onWarnings });
+		const dir = await tempDir();
+
+		const pulled = await pullPack({ locator: result.locator, dir, cdn });
+
+		expect(warnings).toEqual([
+			{ code: "missingEmoji", file: "001.png", requestsSent: 0 },
+			{ code: "missingEmoji", file: "002.png", requestsSent: 0 },
+		]);
+		expect(pulled.stickers).toEqual([{ file: "001.png" }, { file: "002.png" }]);
 	});
 
 	it("uploads a separate cover that pulls back as its own image", async () => {
@@ -133,6 +165,19 @@ describe("pushPack", () => {
 		await expect(pushing).rejects.toMatchObject({ issues: [{ code: "missingTitle" }] });
 		expect(chat.requests).toEqual([]);
 		expect(cdn.uploads).toEqual([]);
+	});
+
+	it("refuses a pack with errors, still reporting its warnings apart from them", async () => {
+		const { pack, images } = validPack();
+		const stickers = [{ file: "001.png" }, { file: "002.png", emoji: "😀" }];
+		const dir = await writePackFolder({ ...pack, title: "", stickers }, images);
+		const chat = fakeUploadChat();
+		const { warnings, onWarnings } = recordWarnings(chat);
+
+		const pushing = pushPack({ dir, chat, cdn: memoryCdn(), onWarnings });
+
+		await expect(pushing).rejects.toMatchObject({ issues: [{ code: "missingTitle" }] });
+		expect(warnings).toEqual([{ code: "missingEmoji", file: "001.png", requestsSent: 0 }]);
 	});
 
 	it.each([

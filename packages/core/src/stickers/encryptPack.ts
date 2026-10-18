@@ -51,5 +51,5 @@ export function encryptPack(
 }
 
 function toStickerProto({ emoji }: PackSticker, id: number): StickerProto {
-	return emoji === undefined ? { id } : { id, emoji };
+	return emoji === undefined || emoji === "" ? { id } : { id, emoji };
 }

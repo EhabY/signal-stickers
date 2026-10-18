@@ -9,7 +9,9 @@ import { listenForEvents, PACK, pull, serve, servePack, untilReceived } from "./
 
 describe("POST /api/pull", () => {
 	it("pulls into the working copy, forwards progress, and reports issues", async () => {
-		const issues: ValidationIssue[] = [{ code: "tooLarge", message: "001.png is too large" }];
+		const issues: ValidationIssue[] = [
+			{ code: "tooLarge", severity: "error", message: "001.png is too large" },
+		];
 		const server = await serve({ deps: { validatePackFolder: () => Promise.resolve(issues) } });
 		const events = await listenForEvents(server);
 

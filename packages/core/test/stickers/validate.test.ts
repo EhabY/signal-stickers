@@ -22,6 +22,7 @@ describe("validateImage", () => {
 		expect(validateImage("001.webp", imageFixture("lossy.webp"))).toEqual([
 			{
 				code: "wrongSize",
+				severity: "error",
 				file: "001.webp",
 				message: "001.webp is 302x202 pixels; stickers must be 512x512",
 			},
@@ -42,6 +43,7 @@ describe("validateImage", () => {
 		expect(validateImage("001.png", stickerPng(0, { width, height, plays: 0 }))).toEqual([
 			{
 				code: "wrongSize",
+				severity: "error",
 				file: "001.png",
 				message: `001.png is ${width}x${height} pixels; animated stickers must be square, from 10x10 to 512x512`,
 			},
@@ -50,7 +52,12 @@ describe("validateImage", () => {
 
 	it("rejects an APNG that stops playing", () => {
 		expect(validateImage("001.png", stickerPng(0, { plays: 1 }))).toEqual([
-			{ code: "mustLoopForever", file: "001.png", message: "001.png must loop forever" },
+			{
+				code: "mustLoopForever",
+				severity: "error",
+				file: "001.png",
+				message: "001.png must loop forever",
+			},
 		]);
 	});
 
@@ -58,6 +65,7 @@ describe("validateImage", () => {
 		expect(validateImage("001.webp", imageFixture("animated.webp"))).toEqual([
 			{
 				code: "unsupportedAnimation",
+				severity: "error",
 				file: "001.webp",
 				message:
 					"001.webp is an animated WebP, but Signal only animates PNG stickers. Convert it to an animated PNG in the web editor.",
@@ -71,6 +79,7 @@ describe("validateImage", () => {
 		expect(validateImage("001.webp", webp)).toEqual([
 			{
 				code: "wrongSize",
+				severity: "error",
 				file: "001.webp",
 				message: "001.webp is 300x300 pixels; stickers must be 512x512",
 			},
@@ -79,7 +88,12 @@ describe("validateImage", () => {
 
 	it("rejects an image in another format", () => {
 		expect(validateImage("001.gif", Buffer.from("GIF89a"))).toEqual([
-			{ code: "unsupportedFormat", file: "001.gif", message: "001.gif is not a PNG or WebP image" },
+			{
+				code: "unsupportedFormat",
+				severity: "error",
+				file: "001.gif",
+				message: "001.gif is not a PNG or WebP image",
+			},
 		]);
 	});
 
@@ -87,6 +101,7 @@ describe("validateImage", () => {
 		expect(validateImage("001.png", pngOfLength(STICKER_LIMITS.maxBytes + 1))).toEqual([
 			{
 				code: "tooLarge",
+				severity: "error",
 				file: "001.png",
 				message: "001.png is 301 KiB; stickers must be at most 300 KiB",
 			},
@@ -124,7 +139,7 @@ describe("validatePack", () => {
 		const { pack, images } = validPack(1);
 
 		expect(validate({ ...pack, stickers: [] }, images)).toEqual([
-			{ code: "tooFewStickers", message: "The pack needs at least 1 sticker" },
+			{ code: "tooFewStickers", severity: "error", message: "The pack needs at least 1 sticker" },
 		]);
 	});
 
@@ -134,11 +149,15 @@ describe("validatePack", () => {
 
 		expect(validate(atLimit.pack, atLimit.images)).toEqual([]);
 		expect(validate(overLimit.pack, overLimit.images)).toEqual([
-			{ code: "tooManyStickers", message: "The pack has 201 stickers; the limit is 200" },
+			{
+				code: "tooManyStickers",
+				severity: "error",
+				message: "The pack has 201 stickers; the limit is 200",
+			},
 		]);
 	});
 
-	it("requires an emoji for each sticker", () => {
+	it("warns about stickers without an emoji, which Signal never suggests", () => {
 		const { pack, images } = validPack();
 
 		const issues = validate(
@@ -146,10 +165,14 @@ describe("validatePack", () => {
 			images,
 		);
 
-		expect(issues).toEqual([
-			{ code: "missingEmoji", file: "001.png", message: "001.png needs an emoji" },
-			{ code: "missingEmoji", file: "002.png", message: "002.png needs an emoji" },
-		]);
+		expect(issues).toEqual(
+			["001.png", "002.png"].map((file) => ({
+				code: "missingEmoji",
+				severity: "warning",
+				file,
+				message: `${file} has no emoji, so Signal won't suggest it while typing`,
+			})),
+		);
 	});
 
 	it("reports missing images, the cover included", () => {
@@ -158,8 +181,13 @@ describe("validatePack", () => {
 		const issues = validate({ ...pack, cover: "cover.png" }, { "001.png": stickerPng(0) });
 
 		expect(issues).toEqual([
-			{ code: "missingImage", file: "002.png", message: "002.png is missing" },
-			{ code: "missingImage", file: "cover.png", message: "cover.png is missing" },
+			{ code: "missingImage", severity: "error", file: "002.png", message: "002.png is missing" },
+			{
+				code: "missingImage",
+				severity: "error",
+				file: "cover.png",
+				message: "cover.png is missing",
+			},
 		]);
 	});
 
@@ -171,6 +199,7 @@ describe("validatePack", () => {
 		expect(issues).toEqual([
 			{
 				code: "duplicateImage",
+				severity: "error",
 				file: "003.png",
 				message: "003.png is the same image as 001.png; each sticker needs its own image",
 			},
@@ -186,6 +215,7 @@ describe("validatePack", () => {
 		expect(issues).toEqual([
 			{
 				code: "duplicateImage",
+				severity: "error",
 				file: "001.png",
 				message: "001.png is used by more than one sticker; each sticker needs its own image",
 			},

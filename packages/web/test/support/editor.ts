@@ -7,7 +7,12 @@ import type { PackImageTarget } from "../../src/lib/packSession.svelte.ts";
 import { CATS, LIMITS } from "./api.ts";
 
 export function animatedWebp(file: string): ValidationIssue {
-	return { code: "unsupportedAnimation", message: `${file} is an animated WebP`, file };
+	return {
+		code: "unsupportedAnimation",
+		severity: "error",
+		message: `${file} is an animated WebP`,
+		file,
+	};
 }
 
 export function renderEditor({

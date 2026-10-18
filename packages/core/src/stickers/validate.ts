@@ -37,13 +37,18 @@ export type ValidationCode =
 /** An image too large to read whole: its byte length, and whether it is an animated WebP. */
 export type OversizedImage = Readonly<{ length: number; animated: boolean }>;
 
-/** Something that would stop a push. `file` names the image for per-sticker issues. */
+/** An error stops a push; a warning tells what Signal will do differently. */
+export type IssueSeverity = "error" | "warning";
+
+/** A problem with a pack. `file` names the image for per-sticker issues. */
 export type ValidationIssue = Readonly<{
 	code: ValidationCode;
+	severity: IssueSeverity;
 	message: string;
 	file?: string | undefined;
 }>;
 
+/** Refuses a push; `issues` holds only the errors. */
 export class PackValidationError extends Error {
 	override name = "PackValidationError";
 	readonly issues: readonly ValidationIssue[];
@@ -63,18 +68,29 @@ export function validateImage(file: string, bytes: Uint8Array): ValidationIssue[
 	const info = readImageInfo(bytes);
 	const sizeRule = info && brokenSizeRule(info);
 	if (!info) {
-		issues.push({ code: "unsupportedFormat", file, message: `${file} is not a PNG or WebP image` });
+		issues.push({
+			code: "unsupportedFormat",
+			severity: "error",
+			file,
+			message: `${file} is not a PNG or WebP image`,
+		});
 	} else if (info.animated) {
 		issues.push(unsupportedAnimation(file));
 	} else if (sizeRule !== undefined) {
 		issues.push({
 			code: "wrongSize",
+			severity: "error",
 			file,
 			message: `${file} is ${info.width}x${info.height} pixels; ${sizeRule}`,
 		});
 	}
 	if (info?.plays !== undefined && info.plays !== 0) {
-		issues.push({ code: "mustLoopForever", file, message: `${file} must loop forever` });
+		issues.push({
+			code: "mustLoopForever",
+			severity: "error",
+			file,
+			message: `${file} must loop forever`,
+		});
 	}
 	if (bytes.length > STICKER_LIMITS.maxBytes) {
 		issues.push(tooLarge(file, bytes.length));
@@ -83,9 +99,9 @@ export function validateImage(file: string, bytes: Uint8Array): ValidationIssue[
 }
 
 /**
- * Checks a pack for push: title, author, sticker count, an emoji per sticker, every image it names
- * (the cover included), and that no two stickers share an image. `images` maps file names to their
- * bytes, and `oversizedImages` those too large to read; others are missing.
+ * Checks a pack for push: title, author, sticker count, every image it names (the cover included),
+ * and that no two stickers share an image. A sticker without an emoji is only a warning. `images`
+ * maps file names to their bytes, and `oversizedImages` those too large to read; others are missing.
  */
 export function validatePack(
 	pack: Pack,
@@ -95,35 +111,33 @@ export function validatePack(
 	const { minStickers, maxStickers } = STICKER_LIMITS;
 	const issues: ValidationIssue[] = [];
 	if (pack.title.trim() === "") {
-		issues.push({ code: "missingTitle", message: "The pack needs a title" });
+		issues.push({ code: "missingTitle", severity: "error", message: "The pack needs a title" });
 	}
 	if (pack.author.trim() === "") {
-		issues.push({ code: "missingAuthor", message: "The pack needs an author" });
+		issues.push({ code: "missingAuthor", severity: "error", message: "The pack needs an author" });
 	}
 	if (pack.stickers.length < minStickers) {
 		issues.push({
 			code: "tooFewStickers",
+			severity: "error",
 			message: `The pack needs at least ${minStickers} sticker`,
 		});
 	}
 	if (pack.stickers.length > maxStickers) {
 		issues.push({
 			code: "tooManyStickers",
+			severity: "error",
 			message: `The pack has ${pack.stickers.length} stickers; the limit is ${maxStickers}`,
 		});
 	}
-	for (const { file, emoji } of pack.stickers) {
-		if (emoji === undefined || emoji === "") {
-			issues.push({ code: "missingEmoji", file, message: `${file} needs an emoji` });
-		}
-	}
+	issues.push(...findMissingEmoji(pack));
 	for (const file of packImageFiles(pack)) {
 		const bytes = images.get(file);
 		const oversized = oversizedImages.get(file);
 		if (bytes) {
 			issues.push(...validateImage(file, bytes));
 		} else if (oversized === undefined) {
-			issues.push({ code: "missingImage", file, message: `${file} is missing` });
+			issues.push({ code: "missingImage", severity: "error", file, message: `${file} is missing` });
 		} else {
 			if (oversized.animated) {
 				issues.push(unsupportedAnimation(file));
@@ -153,17 +167,29 @@ function brokenSizeRule({ width, height, plays }: ImageInfo): string | undefined
 
 function unsupportedAnimation(file: string): ValidationIssue {
 	const message = `${file} is an animated WebP, but Signal only animates PNG stickers. Convert it to an animated PNG in the web editor.`;
-	return { code: "unsupportedAnimation", file, message };
+	return { code: "unsupportedAnimation", severity: "error", file, message };
 }
 
 function tooLarge(file: string, length: number): ValidationIssue {
 	const limit = kibibytes(STICKER_LIMITS.maxBytes);
 	const message = `${file} is ${kibibytes(length)} KiB; stickers must be at most ${limit} KiB`;
-	return { code: "tooLarge", file, message };
+	return { code: "tooLarge", severity: "error", file, message };
 }
 
 function kibibytes(bytes: number): number {
 	return Math.ceil(bytes / 1024);
+}
+
+/** Signal suggests stickers by emoji while typing, so a sticker without one is never suggested. */
+function findMissingEmoji(pack: Pack): ValidationIssue[] {
+	return pack.stickers
+		.filter(({ emoji }) => emoji === undefined || emoji === "")
+		.map(({ file }) => ({
+			code: "missingEmoji",
+			severity: "warning",
+			file,
+			message: `${file} has no emoji, so Signal won't suggest it while typing`,
+		}));
 }
 
 /** Reports stickers whose image repeats an earlier sticker's; the cover may repeat one. */
@@ -200,5 +226,6 @@ function equalBytes(a: Uint8Array, b: Uint8Array): boolean {
 }
 
 function duplicateImage(file: string, problem: string): ValidationIssue {
-	return { code: "duplicateImage", file, message: `${problem}; each sticker needs its own image` };
+	const message = `${problem}; each sticker needs its own image`;
+	return { code: "duplicateImage", severity: "error", file, message };
 }

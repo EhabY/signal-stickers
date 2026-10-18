@@ -6,7 +6,11 @@ import { ADDED, images, session } from "../support/session.ts";
 describe("PackSession", () => {
 	it("saves quick edits once, with the latest pack and its issues", async () => {
 		const { api, editing } = session();
-		const issue = { code: "missingTitle", message: "Give the pack a title" } as const;
+		const issue = {
+			code: "missingTitle",
+			severity: "error",
+			message: "Give the pack a title",
+		} as const;
 		api.savePack.mockResolvedValue(packResponse({ ...CATS, title: "" }, [issue]));
 
 		editing.edit({ ...CATS, title: "C" });

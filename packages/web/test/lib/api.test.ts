@@ -85,7 +85,12 @@ describe("createApi", () => {
 	});
 
 	it("rejects with the server's message and the issues that refused a push", async () => {
-		const issue = { code: "missingEmoji", message: "003.webp needs an emoji", file: "003.webp" };
+		const issue = {
+			code: "tooLarge",
+			severity: "error",
+			message: "003.webp is too large",
+			file: "003.webp",
+		};
 		const { api } = serve({ error: "The pack is not ready", issues: [issue] }, 422);
 
 		const error = await api.push().catch((caught: unknown) => caught);

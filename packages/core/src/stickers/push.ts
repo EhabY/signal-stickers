@@ -6,7 +6,7 @@ import { isRecord } from "../util/isRecord.ts";
 import { mapConcurrent } from "../util/mapConcurrent.ts";
 import { encryptPack } from "./encryptPack.ts";
 import { buildPackLink, isPackIdValid, type PackLocator } from "./link.ts";
-import { PackValidationError, validatePack } from "./validate.ts";
+import { PackValidationError, validatePack, type ValidationIssue } from "./validate.ts";
 import { readPackFolder } from "./validateFolder.ts";
 
 /** Finished uploads out of all of them, the manifest included. */
@@ -20,6 +20,11 @@ export type PushOptions = Readonly<{
 	cdn: CdnClient;
 	signal?: AbortSignal | undefined;
 	onProgress?: ((progress: PushProgress) => void) | undefined;
+	/**
+	 * Gets what Signal accepts but treats differently, such as stickers without an emoji, before
+	 * any request and even when errors refuse the push. Not called when there are none.
+	 */
+	onWarnings?: ((warnings: readonly ValidationIssue[]) => void) | undefined;
 }>;
 
 export type PushResult = Readonly<{ locator: PackLocator; link: string }>;
@@ -28,7 +33,7 @@ const UPLOAD_CONCURRENCY = 3;
 
 /**
  * Uploads the pack in `dir` as a new pack under a fresh random key and returns its link. Throws
- * `PackValidationError` before any request when the pack is invalid.
+ * `PackValidationError` before any request when the pack has errors; warnings do not stop it.
  */
 export async function pushPack({
 	dir,
@@ -36,11 +41,17 @@ export async function pushPack({
 	cdn,
 	signal,
 	onProgress,
+	onWarnings,
 }: PushOptions): Promise<PushResult> {
 	const { pack, images, oversizedImages } = await readPackFolder(dir);
 	const issues = validatePack(pack, images, oversizedImages);
-	if (issues.length > 0) {
-		throw new PackValidationError(issues);
+	const warnings = issues.filter(({ severity }) => severity === "warning");
+	if (warnings.length > 0) {
+		onWarnings?.(warnings);
+	}
+	const errors = issues.filter(({ severity }) => severity === "error");
+	if (errors.length > 0) {
+		throw new PackValidationError(errors);
 	}
 	const encrypted = encryptPack(pack, images);
 
