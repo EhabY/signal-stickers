@@ -11,7 +11,8 @@
 
 	type Props = {
 		pack: Pack;
-		issues: readonly ValidationIssue[];
+		/** The issues that stop a publish; warnings show in the summary instead. */
+		errors: readonly ValidationIssue[];
 		imageUrl: (file: string) => string;
 		/** The pack images being converted in place. */
 		converting?: readonly string[];
@@ -26,7 +27,7 @@
 
 	let {
 		pack,
-		issues,
+		errors,
 		imageUrl,
 		converting = [],
 		disabled = false,
@@ -169,9 +170,9 @@
 	}
 
 	function emojiLabel({ emoji }: PackSticker, number: number): string {
-		return emoji === undefined
-			? `Choose an emoji for sticker ${number}`
-			: `Change the emoji ${emoji} of sticker ${number}`;
+		return emoji
+			? `Change the emoji ${emoji} of sticker ${number}`
+			: `Choose an emoji for sticker ${number}`;
 	}
 </script>
 
@@ -180,8 +181,8 @@
 	{#each pack.stickers as sticker, index (index)}
 		{@const number = index + 1}
 		{@const isCover = pack.cover === sticker.file}
-		{@const stickerIssues = issues.filter(({ file }) => file === sticker.file)}
-		{@const unsupportedAnimation = showsStill(issues, sticker.file)}
+		{@const stickerIssues = errors.filter(({ file }) => file === sticker.file)}
+		{@const unsupportedAnimation = showsStill(errors, sticker.file)}
 		<li
 			class="card"
 			class:cover={isCover}
@@ -226,15 +227,17 @@
 				<button
 					type="button"
 					class="emoji"
-					class:empty={sticker.emoji === undefined}
+					class:empty={!sticker.emoji}
 					data-control="emoji"
 					aria-label={emojiLabel(sticker, number)}
 					aria-haspopup="dialog"
-					title={sticker.emoji === undefined ? "Choose an emoji" : "Change the emoji"}
+					title={sticker.emoji
+						? "Change the emoji"
+						: "No emoji, so Signal won't suggest this sticker while typing. Choose one."}
 					{disabled}
 					onclick={() => (picking = { index, file: sticker.file })}
 				>
-					{sticker.emoji ?? "+"}
+					{sticker.emoji || "+"}
 				</button>
 				<div class="tools">
 					<button
@@ -413,8 +416,14 @@
 	}
 
 	.emoji.empty {
-		border: 2px dashed var(--danger);
-		color: var(--danger);
+		border: 2px dashed var(--warning);
+		background: var(--warning-soft);
+		color: var(--warning);
+	}
+
+	.emoji.empty:hover:not(:disabled) {
+		background: var(--warning);
+		color: var(--surface);
 	}
 
 	.tools,

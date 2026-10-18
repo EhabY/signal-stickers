@@ -1,7 +1,7 @@
 import { fireEvent, screen, within } from "@testing-library/svelte";
 import { describe, expect, it, vi } from "vitest";
 
-import { CATS, files } from "../support/api.ts";
+import { CATS, files, missingEmoji } from "../support/api.ts";
 import { stubModalDialogs } from "../support/dialog.ts";
 import { renderEditor } from "../support/editor.ts";
 
@@ -188,6 +188,38 @@ describe("Editor", () => {
 		expect(description(title)).toBe("Give the pack a title");
 		expect(description(third!)).toBe("003.webp is too large");
 		expect(description(first!)).toBeUndefined();
+	});
+
+	it("shows a sticker without an emoji as a warning, not an error", () => {
+		renderEditor({ issues: [missingEmoji("003.webp")] });
+
+		const emoji = screen.getByRole("button", { name: "Choose an emoji for sticker 3" });
+		const [, , third] = stickerCards();
+		expect(screen.getByRole("heading", { name: "Ready to publish." })).toBeTruthy();
+		expect(
+			screen.getByText("1 sticker has no emoji, so Signal won't suggest it while typing."),
+		).toBeTruthy();
+		expect(emoji.textContent.trim()).toBe("+");
+		expect(emoji.classList.contains("empty")).toBe(true);
+		expect(emoji.getAttribute("title")).toMatch(/^No emoji, so Signal won't suggest/u);
+		expect(description(third!)).toBeUndefined();
+	});
+
+	it("counts only errors as things to fix, and stickers without an emoji apart", () => {
+		const stickers = CATS.stickers.map(({ file }) => ({ file }));
+		renderEditor({
+			pack: { ...CATS, title: "", stickers },
+			issues: [
+				{ code: "missingTitle", severity: "error", message: "Give the pack a title" },
+				...files(CATS).map((file) => missingEmoji(file)),
+			],
+		});
+
+		const summary = screen.getByRole("heading", { name: "1 thing to fix before publishing" });
+		expect(summary.nextElementSibling?.textContent.trim()).toBe("Give the pack a title");
+		expect(
+			screen.getByText("3 stickers have no emoji, so Signal won't suggest them while typing."),
+		).toBeTruthy();
 	});
 
 	it("says the pack is ready when nothing needs fixing", () => {

@@ -23,7 +23,8 @@ This builds the editor, serves it on this computer only (127.0.0.1), and opens i
 Paste a pack's share link to import it, then edit the title and author, pick an emoji for each
 sticker, drag stickers into order, choose a sticker or a separate image as the cover, and add or
 remove images. Added images are converted to 512x512 WebP in the browser, unless they are still PNG
-or WebP images that already fit.
+or WebP images that already fit. A sticker without an emoji gets an amber **+** badge: it can still
+be published, but Signal never suggests it while typing.
 
 Signal animates only APNG (animated PNG) stickers. The editor turns an added GIF, animated WebP, or
 APNG that breaks Signal's rules into a square APNG that loops forever and fits in 300 KiB, making it
@@ -41,8 +42,8 @@ conversion, and publishing waits until every conversion is done.
 
 To upload, link your account from the Account tab by scanning its QR code with your phone (see
 [Link your account](#link-your-account)), then publish from the Publish tab. It lists anything
-Signal would reject, and once uploaded shows the new pack's link and QR code. Each publish makes a
-new pack, so publishing again waits until you change something.
+Signal would reject and notes stickers without an emoji, and once uploaded shows the new pack's link
+and QR code. Each publish makes a new pack, so publishing again waits until you change something.
 
 Every change is saved to a `pack` folder next to the credentials (see
 [Link your account](#link-your-account)), which the server prints when it starts:

@@ -161,7 +161,12 @@ async function readError(response: Response): Promise<ApiError> {
 }
 
 function isValidationIssue(value: unknown): value is ValidationIssue {
-	return isRecord(value) && typeof value.code === "string" && typeof value.message === "string";
+	return (
+		isRecord(value) &&
+		typeof value.code === "string" &&
+		(value.severity === "error" || value.severity === "warning") &&
+		typeof value.message === "string"
+	);
 }
 
 const RESPONSE_GUARDS: {

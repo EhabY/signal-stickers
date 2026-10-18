@@ -8,7 +8,15 @@ import { ApiError, type ValidationIssue } from "../../src/lib/api.ts";
 import { LiveProgress } from "../../src/lib/events.svelte.ts";
 import { PackSession } from "../../src/lib/packSession.svelte.ts";
 import type { StickerEncoder } from "../../src/lib/stickerImage.ts";
-import { CATS, fakeApi, LIMITS, LINKED, packResponse, UNLINKED } from "../support/api.ts";
+import {
+	CATS,
+	fakeApi,
+	LIMITS,
+	LINKED,
+	missingEmoji,
+	packResponse,
+	UNLINKED,
+} from "../support/api.ts";
 
 type PublishOptions = { status?: StatusResponse; issues?: readonly ValidationIssue[] };
 
@@ -67,6 +75,16 @@ describe("PublishView", () => {
 		const { publish } = renderPublish(options);
 
 		expect(publish).toHaveProperty("disabled", true);
+	});
+
+	it("publishes stickers without an emoji, showing the warning", () => {
+		const { publish } = renderPublish({ issues: [missingEmoji("003.webp")] });
+
+		expect(publish).toHaveProperty("disabled", false);
+		expect(
+			screen.getByText("1 sticker has no emoji, so Signal won't suggest it while typing."),
+		).toBeTruthy();
+		expect(screen.queryByText(/Fix these/u)).toBeNull();
 	});
 
 	it("waits for the images being converted before publishing", async () => {

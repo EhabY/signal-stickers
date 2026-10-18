@@ -2,12 +2,14 @@
 	import { tick } from "svelte";
 
 	import type { Pack, StickerLimits, ValidationIssue } from "../lib/api.ts";
+	import { errorsIn, warningsIn } from "../lib/issues.ts";
 	import type { PackImageTarget } from "../lib/packSession.svelte.ts";
 	import { showsStill } from "../lib/stillImage.ts";
 	import Icon from "./Icon.svelte";
 	import IssueList from "./IssueList.svelte";
 	import PackImage from "./PackImage.svelte";
 	import StickerGrid from "./StickerGrid.svelte";
+	import WarningNotes from "./WarningNotes.svelte";
 
 	type Props = {
 		pack: Pack;
@@ -39,6 +41,8 @@
 		onconvert,
 	}: Props = $props();
 	const id = $props.id();
+	const errors = $derived(errorsIn(issues));
+	const warnings = $derived(warningsIn(issues));
 	const titleIssues = $derived(issues.filter(({ code }) => code === "missingTitle"));
 	const authorIssues = $derived(issues.filter(({ code }) => code === "missingAuthor"));
 	const hasSeparateCover = $derived(!pack.stickers.some(({ file }) => file === pack.cover));
@@ -100,17 +104,17 @@
 <section class="editor" aria-labelledby="{id}-heading">
 	<h2 id="{id}-heading">Edit pack</h2>
 
-	<!-- One heading for both states, so it keeps focus when the last issue is fixed. -->
-	<div class={issues.length > 0 ? "summary" : "ready"}>
+	<!-- One heading for both states, so it keeps focus when the last error is fixed. -->
+	<div class={errors.length > 0 ? "summary" : "ready"}>
 		<h3 tabindex="-1" bind:this={summaryStatus}>
-			{#if issues.length > 0}
-				{issues.length === 1 ? "1 thing" : `${issues.length} things`} to fix before publishing
+			{#if errors.length > 0}
+				{errors.length === 1 ? "1 thing" : `${errors.length} things`} to fix before publishing
 			{:else}
 				Ready to publish.
 			{/if}
 		</h3>
-		{#if issues.length > 0}
-			<IssueList {issues} />
+		{#if errors.length > 0}
+			<IssueList issues={errors} />
 			{#if convertible.length > 1}
 				<button type="button" class="convert-all" {disabled} onclick={convertAll}>
 					Convert all to animated PNG
@@ -118,6 +122,7 @@
 			{/if}
 		{/if}
 	</div>
+	<WarningNotes {warnings} />
 
 	<div class="details panel">
 		<div class="field">
@@ -234,7 +239,7 @@
 
 	<StickerGrid
 		{pack}
-		{issues}
+		{errors}
 		{imageUrl}
 		{converting}
 		{disabled}

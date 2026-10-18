@@ -50,6 +50,12 @@ export function linkUntilAborted(signal?: AbortSignal): Promise<StatusResponse> 
 	});
 }
 
+/** The warning the server gives for a sticker without an emoji. */
+export function missingEmoji(file: string): ValidationIssue {
+	const message = `${file} has no emoji, so Signal won't suggest it while typing`;
+	return { code: "missingEmoji", severity: "warning", message, file };
+}
+
 export function packResponse(
 	pack: Pack = CATS,
 	issues: readonly ValidationIssue[] = [],

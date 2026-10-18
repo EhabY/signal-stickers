@@ -3,10 +3,12 @@
 
 	import { ApiError, errorMessage, type Pack, type ValidationIssue } from "../lib/api.ts";
 	import type { LiveProgress } from "../lib/events.svelte.ts";
+	import { errorsIn, warningsIn } from "../lib/issues.ts";
 	import type { PackSession } from "../lib/packSession.svelte.ts";
 	import IssueList from "./IssueList.svelte";
 	import ProgressBar from "./ProgressBar.svelte";
 	import QrCode from "./QrCode.svelte";
+	import WarningNotes from "./WarningNotes.svelte";
 
 	type Props = {
 		status: StatusResponse;
@@ -24,13 +26,11 @@
 	let error: string | undefined = $state();
 	let refusedIssues: readonly ValidationIssue[] = $state.raw([]);
 	const link = $derived(status.link);
+	const errors = $derived(errorsIn(session.issues));
+	const warnings = $derived(warningsIn(session.issues));
 	const unchanged = $derived(published !== undefined && session.pack === publishedPack);
 	const ready = $derived(
-		link.linked &&
-			link.env === status.env &&
-			session.issues.length === 0 &&
-			!session.pending &&
-			!unchanged,
+		link.linked && link.env === status.env && errors.length === 0 && !session.pending && !unchanged,
 	);
 
 	async function publish(): Promise<void> {
@@ -81,12 +81,13 @@
 		</p>
 	{/if}
 
-	{#if session.issues.length > 0}
+	{#if errors.length > 0}
 		<div>
 			<p>Fix these in the editor first:</p>
-			<IssueList issues={session.issues} />
+			<IssueList issues={errors} />
 		</div>
 	{/if}
+	<WarningNotes {warnings} />
 
 	{#if session.pending}
 		<p class="muted">Publishing waits until the images being converted are in the pack.</p>

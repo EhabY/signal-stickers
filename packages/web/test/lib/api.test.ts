@@ -104,4 +104,11 @@ describe("createApi", () => {
 
 		await expect(api.getPack()).rejects.toThrow("Unexpected response to GET /api/pack");
 	});
+
+	it("rejects an issue that is neither an error nor a warning", async () => {
+		const issue = { code: "missingTitle", severity: "note", message: "Add a title" };
+		const { api } = serve({ pack: CATS, issues: [issue] });
+
+		await expect(api.getPack()).rejects.toThrow("Unexpected response to GET /api/pack");
+	});
 });
