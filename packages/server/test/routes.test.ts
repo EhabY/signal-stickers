@@ -24,6 +24,7 @@ import { describe, expect, it } from "vitest";
 import {
 	blockUntilAborted,
 	listenForEvents,
+	PACK,
 	serve,
 	servePack,
 	startRequest,
@@ -198,6 +199,26 @@ describe("POST /api/push", () => {
 		expect(cdn.uploads).toHaveLength(pack.stickers.length + 1);
 	});
 
+	it("uploads a working copy whose stickers have no emoji", async () => {
+		const { pack, images } = validPack();
+		const stickers = pack.stickers.map(({ file }) => ({ file }));
+		const cdn = memoryCdn();
+		const server = await serve({
+			packDir: await writePackFolder({ ...pack, stickers }, images),
+			linked: CREDENTIALS,
+			deps: {
+				createChat: fakeUploadChat().factory,
+				createCdn: () => cdn,
+				pushPack: pushThroughCore,
+			},
+		});
+
+		const reply = await server.send("POST", "/api/push");
+
+		expect(reply.status).toBe(200);
+		expect(cdn.uploads).toHaveLength(stickers.length + 1);
+	});
+
 	it("returns the issues core finds before uploading anything", async () => {
 		const cdn = memoryCdn();
 		const server = await servePack({
@@ -213,12 +234,30 @@ describe("POST /api/push", () => {
 		const reply = await server.send("POST", "/api/push");
 
 		const issues = await validateThroughCore(server.packDir);
-		expect(issues).not.toEqual([]);
+		expect(issues.map(({ severity }) => severity)).toContain("error");
 		expect(reply).toEqual({
 			status: 400,
 			body: { error: "The pack is not ready to upload", issues },
 		});
 		expect(cdn.uploads).toEqual([]);
+	});
+
+	it("leaves warnings out of the issues that refused a push", async () => {
+		const server = await servePack({
+			pack: { ...PACK, stickers: [{ file: "001.png" }, { file: "002.png" }] },
+			linked: CREDENTIALS,
+			deps: { createChat: fakeUploadChat().factory, pushPack: pushThroughCore },
+		});
+
+		const reply = await server.send("POST", "/api/push");
+
+		const issues = await validateThroughCore(server.packDir);
+		const errors = issues.filter(({ severity }) => severity === "error");
+		expect(errors).not.toEqual(issues);
+		expect(reply).toEqual({
+			status: 400,
+			body: { error: "The pack is not ready to upload", issues: errors },
+		});
 	});
 
 	it("asks to link first", async () => {

@@ -67,7 +67,10 @@ export type PullRequest = Readonly<{ link: string }>;
 
 export type PackResponse = Readonly<{
 	pack: Pack;
-	/** What would stop a push; empty when the pack is ready. */
+	/**
+	 * Errors, which stop a push, and warnings, such as a sticker without an emoji, which do not. Empty
+	 * when there is nothing to tell.
+	 */
 	issues: readonly ValidationIssue[];
 }>;
 
@@ -77,7 +80,7 @@ export type PushResponse = Readonly<{ link: string }>;
 
 export type ErrorResponse = Readonly<{
 	error: string;
-	/** Present when a push was refused because the pack is invalid. */
+	/** Present when a push was refused because the pack has errors; holds only the errors. */
 	issues?: readonly ValidationIssue[] | undefined;
 }>;
 

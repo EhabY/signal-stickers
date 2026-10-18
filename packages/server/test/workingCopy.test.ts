@@ -29,6 +29,21 @@ describe("pack editing", () => {
 		expect(reply).toEqual({ status: 200, body: { pack: PACK, issues } });
 	});
 
+	it("reports a sticker without an emoji as a warning, apart from errors", async () => {
+		const stickers = [PACK.stickers[0]!, { file: "002.png" }];
+		const server = await servePack({ pack: { ...PACK, stickers }, deps: { validatePackFolder } });
+
+		const reply = await server.get("/api/pack");
+
+		expect(reply.body).toMatchObject({
+			issues: [
+				{ code: "missingEmoji", severity: "warning", file: "002.png" },
+				{ code: "unsupportedFormat", severity: "error", file: "001.png" },
+				{ code: "unsupportedFormat", severity: "error", file: "002.png" },
+			],
+		});
+	});
+
 	it("saves an edited pack.json", async () => {
 		const server = await servePack();
 		const edited = { ...PACK, title: "Puppies", stickers: PACK.stickers.toReversed() };
