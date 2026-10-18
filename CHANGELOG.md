@@ -42,5 +42,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Explain what to do when the browser cannot make WebP stickers
 - Remove the sticker you clicked when two share an image
 - Treat single-frame WebPs as still images, not animations
+- Keep focus after canceling a conversion
 
 

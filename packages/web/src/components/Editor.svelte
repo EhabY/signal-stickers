@@ -59,6 +59,10 @@
 
 	type FileInputEvent = Event & { currentTarget: HTMLInputElement };
 
+	export function focusAddImages(): void {
+		addInput?.focus();
+	}
+
 	function addImages(event: FileInputEvent): void {
 		const images = takeFiles(event);
 		if (images.length > 0) {
@@ -248,7 +252,7 @@
 		onconvert={(index, file) => {
 			onconvert([{ index, file }]);
 		}}
-		onempty={() => addInput?.focus()}
+		onempty={focusAddImages}
 	/>
 </section>
 

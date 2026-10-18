@@ -71,6 +71,30 @@ describe("App while images convert", () => {
 		expect(api.addSticker).not.toHaveBeenCalled();
 	});
 
+	it("moves focus to the next conversion's Cancel, then to Add images", async () => {
+		const api = fakeApi();
+		api.getPack.mockResolvedValue(packResponse());
+		renderApp(api, encodeUntilAborted);
+		const animations = ["cat.gif", "dog.gif"].map(
+			(name) => new File(["gif"], name, { type: "image/gif" }),
+		);
+
+		await fireEvent.change(await screen.findByLabelText("Add images"), {
+			target: { files: animations },
+		});
+		await fireEvent.click(screen.getByRole("button", { name: "Cancel converting cat.gif" }));
+		await vi.waitFor(() => {
+			expect(document.activeElement).toBe(
+				screen.getByRole("button", { name: "Cancel converting dog.gif" }),
+			);
+		});
+		await fireEvent.click(screen.getByRole("button", { name: "Cancel converting dog.gif" }));
+
+		await vi.waitFor(() => {
+			expect(document.activeElement).toBe(screen.getByLabelText("Add images"));
+		});
+	});
+
 	it("keeps the pack editable while an image converts", async () => {
 		const api = fakeApi();
 		api.getPack.mockResolvedValue(packResponse());

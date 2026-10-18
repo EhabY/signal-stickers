@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { PackResponse, StatusResponse } from "@signal-stickers/server/api";
-	import { onMount } from "svelte";
+	import { onMount, tick } from "svelte";
 
 	import AccountView from "./components/AccountView.svelte";
 	import Editor from "./components/Editor.svelte";
@@ -21,6 +21,8 @@
 	let view: View = $state("import");
 	let loadError: string | undefined = $state();
 	let packError: string | undefined = $state();
+	let conversionList: HTMLElement | undefined = $state();
+	let editor: ReturnType<typeof Editor> | undefined = $state();
 
 	const views: readonly { view: View; label: string; needsPack: boolean }[] = [
 		{ view: "import", label: "Import", needsPack: false },
@@ -59,6 +61,19 @@
 	function showEditor(): void {
 		packError = undefined;
 		view = "edit";
+	}
+
+	// The clicked Cancel goes away; focus the next one, or Add images when no conversion is left.
+	async function cancelConversion(id: number, index: number): Promise<void> {
+		session.conversions.cancel(id);
+		await tick();
+		const buttons = conversionList?.querySelectorAll("button") ?? [];
+		const next = buttons[Math.min(index, buttons.length - 1)];
+		if (next) {
+			next.focus();
+		} else {
+			editor?.focusAddImages();
+		}
 	}
 
 	function describeConversion({ file, waiting, progress: stage }: Conversion): string {
@@ -125,24 +140,27 @@
 				{#if session.error !== undefined}
 					<p class="alert" role="alert">{session.error}</p>
 				{/if}
-				{#each session.conversions.list as conversion (conversion.id)}
-					<p class="conversion muted" role="status">
-						{describeConversion(conversion)}
-						<button
-							type="button"
-							aria-label="Cancel converting {conversion.file}"
-							onclick={() => {
-								session.conversions.cancel(conversion.id);
-							}}
-						>
-							Cancel
-						</button>
-					</p>
-				{/each}
+				{#if session.conversions.list.length > 0}
+					<div class="conversions" bind:this={conversionList}>
+						{#each session.conversions.list as conversion, index (conversion.id)}
+							<p class="conversion muted" role="status">
+								{describeConversion(conversion)}
+								<button
+									type="button"
+									aria-label="Cancel converting {conversion.file}"
+									onclick={() => cancelConversion(conversion.id, index)}
+								>
+									Cancel
+								</button>
+							</p>
+						{/each}
+					</div>
+				{/if}
 				{#if session.flattened.length > 0}
 					<p class="warning" role="status">{describeFlattened(session.flattened)}</p>
 				{/if}
 				<Editor
+					bind:this={editor}
 					pack={session.pack}
 					issues={session.issues}
 					{limits}
@@ -240,6 +258,11 @@
 
 	main .alert p {
 		margin: 0 0 0.5rem;
+	}
+
+	.conversions {
+		display: grid;
+		gap: 1rem;
 	}
 
 	.conversion {
