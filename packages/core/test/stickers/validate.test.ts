@@ -60,7 +60,7 @@ describe("validateImage", () => {
 				code: "unsupportedAnimation",
 				file: "001.webp",
 				message:
-					"001.webp is an animated WebP, but Signal only animates PNG stickers; remove it and add the original file in the web editor, which converts it to an animated PNG",
+					"001.webp is an animated WebP, but Signal only animates PNG stickers. Convert it to an animated PNG in the web editor.",
 			},
 		]);
 	});

@@ -151,7 +151,11 @@ too, and also ignores the server's answer to a request already sent.
 The editor animates only what Signal animates. A pack image the server flags `unsupportedAnimation`
 (an animated WebP, from a pulled pack or the disk) shows only its first frame: `PackImage.svelte`
 fetches it, draws it on a canvas (`lib/stillImage.ts`), and shows that as an object URL, revoked
-once no longer shown. The app talks to nothing but the local server: the emoji picker's data
+once no longer shown. Its sticker card, or the separate cover, offers to convert it, and the issues
+summary to convert them all: `PackSession.convertAnimations` downloads each image, converts it like
+an added animation (refusing to flatten it, so the original stays when the browser cannot convert),
+and saves it with `PUT /api/pack/sticker/:index/:file`, or `PUT /api/pack/cover` for a separate
+cover. The app talks to nothing but the local server: the emoji picker's data
 (`emoji-picker-element-data`) is bundled by Vite as an asset.
 
 ## Environments

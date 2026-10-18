@@ -145,6 +145,9 @@
 					oncover={(image) => {
 						void session.setCover(image, limits);
 					}}
+					onconvert={(targets) => {
+						void session.convertAnimations(targets, limits);
+					}}
 				/>
 			</div>
 			<div class="view" hidden={view !== "publish"}>

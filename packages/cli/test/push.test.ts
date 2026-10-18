@@ -98,7 +98,7 @@ describe("push", () => {
 
 		expect(code).toBe(1);
 		expect(stderr).toContain(
-			"\n  - 001.webp is an animated WebP, but Signal only animates PNG stickers; remove it and add the original file in the web editor, which converts it to an animated PNG\n",
+			"\n  - 001.webp is an animated WebP, but Signal only animates PNG stickers. Convert it to an animated PNG in the web editor.\n",
 		);
 	});
 

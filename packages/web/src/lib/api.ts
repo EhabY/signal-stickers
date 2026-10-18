@@ -33,7 +33,11 @@ export type Api = Readonly<{
 	addSticker(image: Blob): Promise<AddStickerResponse>;
 	/** Removes the sticker at `index`, failing unless its image is still `file`. */
 	removeSticker(index: number, file: string): Promise<PackResponse>;
+	/** Replaces the image of the sticker at `index`, failing unless its image is still `file`. */
+	replaceSticker(index: number, file: string, image: Blob): Promise<PackResponse>;
 	setCover(image: Blob): Promise<PackResponse>;
+	/** Downloads a working-copy image. */
+	getImage(file: string, signal?: AbortSignal): Promise<Blob>;
 	push(): Promise<PushResponse>;
 	/** The URL of a working-copy image; a new `version` makes the browser fetch it again. */
 	stickerUrl(file: string, version: number): string;
@@ -77,7 +81,13 @@ export function createApi(fetchFn: typeof fetch = (input, init) => fetch(input, 
 		addSticker: (image) => call("POST /api/pack/sticker", { body: image }),
 		removeSticker: (index, file) =>
 			call("DELETE /api/pack/sticker/:index/:file", { params: { index: String(index), file } }),
+		replaceSticker: (index, file, image) =>
+			call("PUT /api/pack/sticker/:index/:file", {
+				params: { index: String(index), file },
+				body: image,
+			}),
 		setCover: (image) => call("PUT /api/pack/cover", { body: image }),
+		getImage: (file, signal) => fetchImage(fetchFn, file, signal),
 		push: () => call("POST /api/push"),
 		stickerUrl: (file, version) => `${routePath("/api/pack/sticker/:file", { file })}?v=${version}`,
 	};
@@ -118,6 +128,20 @@ async function callApi<R extends JsonRoute>(
 		throw new ApiError(response.status, `Unexpected response to ${route}`);
 	}
 	return result;
+}
+
+async function fetchImage(
+	fetchFn: typeof fetch,
+	file: string,
+	signal: AbortSignal | undefined,
+): Promise<Blob> {
+	const response = await fetchFn(routePath("/api/pack/sticker/:file", { file }), {
+		signal: signal ?? null,
+	});
+	if (!response.ok) {
+		throw await readError(response);
+	}
+	return response.blob();
 }
 
 function routePath(template: string, params: RouteParams = {}): string {

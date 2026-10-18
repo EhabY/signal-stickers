@@ -29,7 +29,10 @@ Signal animates only APNG (animated PNG) stickers. The editor turns an added GIF
 APNG that breaks Signal's rules into a square APNG that loops forever and fits in 300 KiB, making it
 smaller, with fewer colors, or with fewer frames as needed. This needs a browser with WebCodecs'
 `ImageDecoder`, such as Chrome, Edge, or Firefox. Elsewhere a GIF or animated WebP becomes a still
-image, as in Signal's own sticker creator, and an APNG must already fit.
+image, as in Signal's own sticker creator, and an APNG must already fit. An animated WebP already in
+the pack, such as one from an imported pack, shows a **Convert to animated PNG** button that
+converts it in place, keeping its position, emoji, and cover; **Convert all to animated PNG**, shown
+when there are several, does every one.
 
 To upload, link your account from the Account tab by scanning its QR code with your phone (see
 [Link your account](#link-your-account)), then publish from the Publish tab. It lists anything

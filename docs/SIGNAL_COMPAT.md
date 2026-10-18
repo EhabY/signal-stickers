@@ -259,7 +259,8 @@ something breaks after that date, Signal changed it.
 - Where the creator flattens, the web editor converts GIF, animated WebP, and APNG that break these
   rules to an APNG that meets them (`packages/web/src/lib/apng.ts`, `animatedImage.ts`), so the
   pushed file is again one the creator would upload unchanged. A browser that cannot decode the
-  animation flattens a GIF or WebP to a still WebP like the creator does.
+  animation flattens a GIF or WebP to a still WebP like the creator does. An animated WebP already
+  in the pack (pulled or copied in) is converted the same way in place, never flattened.
 - Our own rule, not Signal's: no two stickers may share an image, by bytes or by file name, though
   the cover may reuse one. The creator's `encrypt` (`sticker-creator/src/util/crypto.ts`) uploads a
   repeated image once but numbers stickers by position, so its manifest can name images it never

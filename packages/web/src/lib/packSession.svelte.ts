@@ -10,15 +10,18 @@ import {
 } from "./api.ts";
 import type { StickerEncoder } from "./stickerImage.ts";
 
-/** An added image being converted to an animated PNG, and how far along. */
+/** An image being converted to an animated PNG, and how far along. */
 export type Conversion = Readonly<{ file: string; progress: ConversionProgress }>;
+
+/** A pack image: the sticker at `index`, or the separate cover when `index` is undefined. */
+export type PackImageTarget = Readonly<{ file: string; index?: number | undefined }>;
 
 const SAVE_DELAY_MS = 300;
 
 /**
- * The working copy being edited. Edits show at once and are saved shortly after, in order. Adding
- * and removing stickers and setting the cover image first save pending edits and set `busy` until
- * the server answers, unless canceled or another pack loads first.
+ * The working copy being edited. Edits show at once and are saved shortly after, in order. Adding,
+ * removing, and converting stickers and setting the cover image first save pending edits and set
+ * `busy` until the server answers, unless canceled or another pack loads first.
  */
 export class PackSession {
 	pack: Pack | undefined = $state.raw();
@@ -28,14 +31,14 @@ export class PackSession {
 	busy = $state(false);
 	/** Why the last save failed, until one succeeds or a pack loads. */
 	saveError: string | undefined = $state();
-	/** Why the last add, remove, or cover change failed, until the next one starts or a pack loads. */
+	/** Why the last change to the images failed, until the next one starts or a pack loads. */
 	error: string | undefined = $state();
 	/**
 	 * The added animations that became still images because the browser cannot convert them, until
-	 * the next add or cover change starts.
+	 * the next change to the images starts.
 	 */
 	flattened: readonly string[] = $state.raw([]);
-	/** The animation being converted, while an add or cover change converts one. */
+	/** The animation being converted, while an add, conversion, or cover change converts one. */
 	conversion: Conversion | undefined = $state.raw();
 
 	readonly #api: Api;
@@ -50,7 +53,7 @@ export class PackSession {
 		this.#encode = encode;
 	}
 
-	/** Shows another pack, canceling a running add, remove, or cover change and ignoring its answer. */
+	/** Shows another pack, canceling a running change to the images and ignoring its answer. */
 	load(response: PackResponse): void {
 		this.cancel();
 		this.#running = undefined;
@@ -85,19 +88,41 @@ export class PackSession {
 
 	/** Converts each image to fit `limits` and appends it; failures are reported per file. */
 	add(images: readonly File[], limits: StickerLimits): Promise<void> {
-		return this.#exclusive(async (signal) => {
-			const failures: string[] = [];
-			for (const image of images) {
-				// oxlint-disable-next-line no-await-in-loop -- the server names each image after the last.
-				const failure = await this.#addOne(image, limits, signal);
-				if (failure !== undefined) {
-					failures.push(failure);
-				}
-			}
-			if (failures.length > 0) {
-				throw new Error(failures.join("\n"));
-			}
-		});
+		return this.#exclusive((signal) =>
+			eachInTurn(
+				images,
+				({ name }) => name,
+				signal,
+				async (image) => {
+					const sticker = await this.#convert(image, limits, signal);
+					this.#showUnlessReplaced(await this.#api.addSticker(sticker), signal);
+				},
+			),
+		);
+	}
+
+	/**
+	 * Converts each target's image to an animated PNG that fits `limits`, in its place; failures are
+	 * reported per file.
+	 */
+	convertAnimations(targets: readonly PackImageTarget[], limits: StickerLimits): Promise<void> {
+		return this.#exclusive((signal) =>
+			eachInTurn(
+				targets,
+				({ file }) => file,
+				signal,
+				async ({ file, index }) => {
+					const stored = await this.#api.getImage(file, signal);
+					const image = new File([stored], file, { type: stored.type });
+					const apng = await this.#convert(image, limits, signal, { mustAnimate: true });
+					const response =
+						index === undefined
+							? await this.#api.setCover(apng)
+							: await this.#api.replaceSticker(index, file, apng);
+					this.#showUnlessReplaced(response, signal);
+				},
+			),
+		);
 	}
 
 	remove(index: number, file: string): Promise<void> {
@@ -162,25 +187,16 @@ export class PackSession {
 		}
 	}
 
-	async #addOne(
+	async #convert(
 		image: File,
 		limits: StickerLimits,
 		signal: AbortSignal,
-	): Promise<string | undefined> {
-		try {
-			const sticker = await this.#convert(image, limits, signal);
-			this.#showUnlessReplaced(await this.#api.addSticker(sticker), signal);
-			return undefined;
-		} catch (error) {
-			signal.throwIfAborted();
-			return `${image.name}: ${errorMessage(error)}`;
-		}
-	}
-
-	async #convert(image: File, limits: StickerLimits, signal: AbortSignal): Promise<Blob> {
+		{ mustAnimate = false } = {},
+	): Promise<Blob> {
 		try {
 			const sticker = await this.#encode(image, limits, {
 				signal,
+				mustAnimate,
 				onProgress: (progress) => {
 					this.conversion = { file: image.name, progress };
 				},
@@ -205,3 +221,28 @@ export class PackSession {
 }
 
 function ignore(): void {}
+
+/**
+ * Runs `task` on each item in turn and then rejects naming each failed item, but stops at once when
+ * `signal` aborts.
+ */
+async function eachInTurn<T>(
+	items: readonly T[],
+	name: (item: T) => string,
+	signal: AbortSignal,
+	task: (item: T) => Promise<void>,
+): Promise<void> {
+	const failures: string[] = [];
+	for (const item of items) {
+		try {
+			// oxlint-disable-next-line no-await-in-loop -- the server names each image after the last.
+			await task(item);
+		} catch (error) {
+			signal.throwIfAborted();
+			failures.push(`${name(item)}: ${errorMessage(error)}`);
+		}
+	}
+	if (failures.length > 0) {
+		throw new Error(failures.join("\n"));
+	}
+}

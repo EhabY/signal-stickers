@@ -105,6 +105,14 @@ describe("stickerEncoder", () => {
 		expect(onFlattened).toHaveBeenCalledOnce();
 	});
 
+	it("refuses an animated WebP the browser cannot convert when it must animate", async () => {
+		const { worker } = fakeWorker(() => [{ type: "unsupported" }]);
+
+		const sticker = stickerEncoder(() => worker)(ANIMATED_WEBP, LIMITS, { mustAnimate: true });
+
+		await expect(sticker).rejects.toThrow(CANNOT_CONVERT);
+	});
+
 	it("refuses an APNG the browser cannot convert, since Signal would reject it", async () => {
 		const image = new Blob([pngChunks({ width: 600, height: 400, plays: 0 })]);
 		const { sticker, onFlattened } = encodeAnswering(image, { type: "unsupported" });

@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import Editor from "../../src/components/Editor.svelte";
 import type { Pack, ValidationIssue } from "../../src/lib/api.ts";
+import type { PackImageTarget } from "../../src/lib/packSession.svelte.ts";
 import { CATS, files, LIMITS } from "../support/api.ts";
 import { stubModalDialogs } from "../support/dialog.ts";
 import { DRAWN_URL, stubImageDrawing } from "../support/drawing.ts";
@@ -23,6 +24,7 @@ function renderEditor({
 	const onchange = vi.fn<(pack: Pack) => void>();
 	const onremove = vi.fn<(index: number, file: string) => void>();
 	const oncover = vi.fn<(image: File) => void>();
+	const onconvert = vi.fn<(targets: PackImageTarget[]) => void>();
 	const { rerender } = render(Editor, {
 		pack,
 		issues,
@@ -32,8 +34,9 @@ function renderEditor({
 		onadd: vi.fn<(images: File[]) => void>(),
 		onremove,
 		oncover,
+		onconvert,
 	});
-	return { onremove, oncover, rerender, changed: () => onchange.mock.lastCall?.[0] };
+	return { onremove, oncover, onconvert, rerender, changed: () => onchange.mock.lastCall?.[0] };
 }
 
 /** The text of what `aria-describedby` points at. */
@@ -222,6 +225,68 @@ describe("Editor", () => {
 		await vi.waitFor(() => {
 			expect(imageSource("Current cover")).toBe("/stickers/cover.webp");
 		});
+	});
+
+	it("converts the sticker clicked, though another shares its image, from its card", async () => {
+		const stickers = CATS.stickers.with(1, { file: "003.webp" });
+		const { onconvert } = renderEditor({
+			pack: { ...CATS, stickers },
+			issues: [animatedWebp("003.webp")],
+		});
+
+		await fireEvent.click(
+			screen.getByRole("button", { name: "Convert sticker 3 to an animated PNG" }),
+		);
+
+		expect(onconvert).toHaveBeenCalledWith([{ index: 2, file: "003.webp" }]);
+		expect(screen.getAllByRole("button", { name: /^Convert sticker/u })).toHaveLength(2);
+	});
+
+	it("converts a separate cover Signal would not animate", async () => {
+		const { onconvert } = renderEditor({
+			pack: { ...CATS, cover: "cover.webp" },
+			issues: [animatedWebp("cover.webp")],
+		});
+
+		await fireEvent.click(
+			screen.getByRole("button", { name: "Convert the cover to an animated PNG" }),
+		);
+
+		expect(onconvert).toHaveBeenCalledWith([{ file: "cover.webp" }]);
+	});
+
+	it("converts every animation Signal would not animate at once", async () => {
+		const { onconvert } = renderEditor({
+			pack: { ...CATS, cover: "cover.webp" },
+			issues: [animatedWebp("001.png"), animatedWebp("003.webp"), animatedWebp("cover.webp")],
+		});
+
+		await fireEvent.click(screen.getByRole("button", { name: "Convert all to animated PNG" }));
+
+		expect(onconvert).toHaveBeenCalledWith([
+			{ index: 0, file: "001.png" },
+			{ index: 2, file: "003.webp" },
+			{ file: "cover.webp" },
+		]);
+	});
+
+	it.each([
+		["sticker 3", () => screen.getByRole("button", { name: "Choose an emoji for sticker 3" })],
+		["the cover", () => screen.getByLabelText("Replace the cover image")],
+		["all", () => screen.getByText("Ready to publish.")],
+	])("keeps focus nearby once converting %s is done", async (target, focused) => {
+		const { rerender } = renderEditor({
+			pack: { ...CATS, cover: "cover.webp" },
+			issues: [animatedWebp("003.webp"), animatedWebp("cover.webp")],
+		});
+
+		await fireEvent.click(
+			screen.getByRole("button", { name: new RegExp(`^Convert ${target}`, "u") }),
+		);
+		await rerender({ disabled: true });
+		await rerender({ disabled: false, issues: [] });
+
+		expect(document.activeElement).toBe(focused());
 	});
 
 	it("says the pack is ready when nothing needs fixing", () => {

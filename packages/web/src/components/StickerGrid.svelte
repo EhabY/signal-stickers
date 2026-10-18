@@ -15,32 +15,45 @@
 		disabled?: boolean;
 		onchange: (pack: Pack) => void;
 		onremove: (index: number, file: string) => void;
+		/** Converts the sticker's image, an animation Signal does not animate, to an animated PNG. */
+		onconvert: (index: number, file: string) => void;
 		/** Called after removing the last sticker, so the parent can place focus. */
 		onempty: () => void;
 	};
 
-	let { pack, issues, imageUrl, disabled = false, onchange, onremove, onempty }: Props = $props();
+	let {
+		pack,
+		issues,
+		imageUrl,
+		disabled = false,
+		onchange,
+		onremove,
+		onconvert,
+		onempty,
+	}: Props = $props();
 	const id = $props.id();
 	let dragFrom: number | undefined = $state();
 	let dropAt: number | undefined = $state();
 	let pickingFor: number | undefined = $state();
 	let announcement = $state("");
 	let list: HTMLOListElement | undefined = $state();
-	let removedAt: number | undefined;
+	let focusWhenEnabled: { index: number; control: Control } | undefined;
 
 	type Control = "emoji" | "earlier" | "later" | "remove";
 
-	// Removing disables the grid until the server answers; then focus the card now in that place.
+	// Removing or converting disables the grid until the server answers; then focus the card now in
+	// that place.
 	$effect(() => {
-		if (disabled || removedAt === undefined) {
+		if (disabled || focusWhenEnabled === undefined) {
 			return;
 		}
+		const { index, control } = focusWhenEnabled;
 		if (pack.stickers.length === 0) {
 			onempty();
 		} else {
-			focusControl(Math.min(removedAt, pack.stickers.length - 1), "remove");
+			focusControl(Math.min(index, pack.stickers.length - 1), control);
 		}
-		removedAt = undefined;
+		focusWhenEnabled = undefined;
 	});
 
 	async function setCover(index: number, file: string): Promise<void> {
@@ -69,8 +82,13 @@
 	}
 
 	function remove(index: number, file: string): void {
-		removedAt = index;
+		focusWhenEnabled = { index, control: "remove" };
 		onremove(index, file);
+	}
+
+	function convert(index: number, file: string): void {
+		focusWhenEnabled = { index, control: "emoji" };
+		onconvert(index, file);
 	}
 
 	function setEmoji(index: number, emoji: string): void {
@@ -144,6 +162,7 @@
 		{@const number = index + 1}
 		{@const isCover = pack.cover === sticker.file}
 		{@const stickerIssues = issues.filter(({ file }) => file === sticker.file)}
+		{@const unsupportedAnimation = showsStill(issues, sticker.file)}
 		<li
 			class="card"
 			class:cover={isCover}
@@ -167,7 +186,7 @@
 				<PackImage
 					src={imageUrl(sticker.file)}
 					alt={isCover ? `Sticker ${number} (cover)` : `Sticker ${number}`}
-					still={showsStill(issues, sticker.file)}
+					still={unsupportedAnimation}
 					draggable="false"
 				/>
 				{#if isCover}
@@ -240,6 +259,19 @@
 			</div>
 			{#if stickerIssues.length > 0}
 				<IssueList issues={stickerIssues} id={issuesId(index)} />
+			{/if}
+			{#if unsupportedAnimation}
+				<button
+					type="button"
+					class="convert"
+					aria-label="Convert sticker {number} to an animated PNG"
+					{disabled}
+					onclick={() => {
+						convert(index, sticker.file);
+					}}
+				>
+					Convert to animated PNG
+				</button>
 			{/if}
 		</li>
 	{/each}
@@ -422,6 +454,15 @@
 
 	.card :global(.issues) {
 		font-size: 0.8rem;
+	}
+
+	.convert {
+		justify-self: start;
+		padding: 0.25rem 0.7rem;
+		border-color: var(--accent);
+		color: var(--accent);
+		font-size: 0.85rem;
+		font-weight: 600;
 	}
 
 	@media (prefers-reduced-motion: reduce) {

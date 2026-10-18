@@ -34,6 +34,9 @@ export type ValidationCode =
 	| "tooLarge"
 	| "duplicateImage";
 
+/** An image too large to read whole: its byte length, and whether it is an animated WebP. */
+export type OversizedImage = Readonly<{ length: number; animated: boolean }>;
+
 /** Something that would stop a push. `file` names the image for per-sticker issues. */
 export type ValidationIssue = Readonly<{
 	code: ValidationCode;
@@ -62,11 +65,7 @@ export function validateImage(file: string, bytes: Uint8Array): ValidationIssue[
 	if (!info) {
 		issues.push({ code: "unsupportedFormat", file, message: `${file} is not a PNG or WebP image` });
 	} else if (info.animated) {
-		issues.push({
-			code: "unsupportedAnimation",
-			file,
-			message: `${file} is an animated WebP, but Signal only animates PNG stickers; remove it and add the original file in the web editor, which converts it to an animated PNG`,
-		});
+		issues.push(unsupportedAnimation(file));
 	} else if (sizeRule !== undefined) {
 		issues.push({
 			code: "wrongSize",
@@ -86,12 +85,12 @@ export function validateImage(file: string, bytes: Uint8Array): ValidationIssue[
 /**
  * Checks a pack for push: title, author, sticker count, an emoji per sticker, every image it names
  * (the cover included), and that no two stickers share an image. `images` maps file names to their
- * bytes, and `oversizedImages` to the length of those too large to read; others are missing.
+ * bytes, and `oversizedImages` those too large to read; others are missing.
  */
 export function validatePack(
 	pack: Pack,
 	images: ReadonlyMap<string, Uint8Array>,
-	oversizedImages: ReadonlyMap<string, number> = new Map(),
+	oversizedImages: ReadonlyMap<string, OversizedImage> = new Map(),
 ): ValidationIssue[] {
 	const { minStickers, maxStickers } = STICKER_LIMITS;
 	const issues: ValidationIssue[] = [];
@@ -120,13 +119,16 @@ export function validatePack(
 	}
 	for (const file of packImageFiles(pack)) {
 		const bytes = images.get(file);
-		const oversizedLength = oversizedImages.get(file);
+		const oversized = oversizedImages.get(file);
 		if (bytes) {
 			issues.push(...validateImage(file, bytes));
-		} else if (oversizedLength === undefined) {
+		} else if (oversized === undefined) {
 			issues.push({ code: "missingImage", file, message: `${file} is missing` });
 		} else {
-			issues.push(tooLarge(file, oversizedLength));
+			if (oversized.animated) {
+				issues.push(unsupportedAnimation(file));
+			}
+			issues.push(tooLarge(file, oversized.length));
 		}
 	}
 	issues.push(...findDuplicateImages(pack, images));
@@ -147,6 +149,11 @@ function brokenSizeRule({ width, height, plays }: ImageInfo): string | undefined
 	return width === height && width >= minAnimatedSize && width <= size
 		? undefined
 		: `animated stickers must be square, from ${minAnimatedSize}x${minAnimatedSize} to ${size}x${size}`;
+}
+
+function unsupportedAnimation(file: string): ValidationIssue {
+	const message = `${file} is an animated WebP, but Signal only animates PNG stickers. Convert it to an animated PNG in the web editor.`;
+	return { code: "unsupportedAnimation", file, message };
 }
 
 function tooLarge(file: string, length: number): ValidationIssue {

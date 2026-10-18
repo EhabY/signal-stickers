@@ -1,7 +1,18 @@
 import { describe, expect, it } from "vitest";
 
-import { readImageInfo, sniffImageFormat } from "../../src/stickers/image.ts";
+import { isAnimatedWebp, readImageInfo, sniffImageFormat } from "../../src/stickers/image.ts";
 import { imageFixture, png, stickerWebp } from "../support/index.ts";
+
+const WEBP_ANIMATIONS = [
+	["a still WebP with alpha", stickerWebp(["ALPH", "VP8 "]), undefined],
+	["an animation of one frame", stickerWebp(["ANIM", "ANMF", "EXIF"]), undefined],
+	["an animation of two frames", stickerWebp(["ANIM", "ANMF", "ANMF", "EXIF"]), true],
+	[
+		"an animation cut off in its second frame",
+		stickerWebp(["ANIM", "ANMF", "ANMF"]).subarray(0, -6),
+		undefined,
+	],
+] as const;
 
 describe("sniffImageFormat", () => {
 	it.each([
@@ -27,16 +38,7 @@ describe("readImageInfo", () => {
 		expect(readImageInfo(imageFixture(name))).toEqual(info);
 	});
 
-	it.each([
-		["a still WebP with alpha", stickerWebp(["ALPH", "VP8 "]), undefined],
-		["an animation of one frame", stickerWebp(["ANIM", "ANMF", "EXIF"]), undefined],
-		["an animation of two frames", stickerWebp(["ANIM", "ANMF", "ANMF", "EXIF"]), true],
-		[
-			"an animation cut off in its second frame",
-			stickerWebp(["ANIM", "ANMF", "ANMF"]).subarray(0, -6),
-			undefined,
-		],
-	])("tells whether %s animates", (_, bytes, animated) => {
+	it.each(WEBP_ANIMATIONS)("tells whether %s animates", (_, bytes, animated) => {
 		expect(readImageInfo(bytes)).toEqual({ format: "webp", width: 512, height: 512, animated });
 	});
 
@@ -49,4 +51,16 @@ describe("readImageInfo", () => {
 	])("rejects %s", (_, bytes) => {
 		expect(readImageInfo(bytes)).toBeUndefined();
 	});
+});
+
+describe("isAnimatedWebp", () => {
+	it.each([...WEBP_ANIMATIONS, ["a PNG", imageFixture("animated.png"), undefined]] as const)(
+		"tells from its headers whether %s animates",
+		async (_, bytes, animated) => {
+			const read = (offset: number, length: number) =>
+				Promise.resolve(bytes.subarray(offset, offset + length));
+
+			expect(await isAnimatedWebp(read)).toBe(animated === true);
+		},
+	);
 });

@@ -2,6 +2,7 @@
 	import { tick } from "svelte";
 
 	import type { Pack, StickerLimits, ValidationIssue } from "../lib/api.ts";
+	import type { PackImageTarget } from "../lib/packSession.svelte.ts";
 	import { showsStill } from "../lib/stillImage.ts";
 	import Icon from "./Icon.svelte";
 	import IssueList from "./IssueList.svelte";
@@ -18,6 +19,8 @@
 		onadd: (images: File[]) => void;
 		onremove: (index: number, file: string) => void;
 		oncover: (image: File) => void;
+		/** Converts pack images, animations Signal does not animate, to animated PNGs in place. */
+		onconvert: (targets: PackImageTarget[]) => void;
 	};
 
 	let {
@@ -30,14 +33,31 @@
 		onadd,
 		onremove,
 		oncover,
+		onconvert,
 	}: Props = $props();
 	const id = $props.id();
 	const titleIssues = $derived(issues.filter(({ code }) => code === "missingTitle"));
 	const authorIssues = $derived(issues.filter(({ code }) => code === "missingAuthor"));
 	const hasSeparateCover = $derived(!pack.stickers.some(({ file }) => file === pack.cover));
+	const unsupportedAnimations: PackImageTarget[] = $derived([
+		...pack.stickers.flatMap(({ file }, index) =>
+			showsStill(issues, file) ? [{ index, file }] : [],
+		),
+		...(hasSeparateCover && showsStill(issues, pack.cover) ? [{ file: pack.cover }] : []),
+	]);
 	const firstSticker = $derived(pack.stickers.at(0));
 	let coverInput: HTMLInputElement | undefined = $state();
 	let addInput: HTMLInputElement | undefined = $state();
+	let summaryStatus: HTMLElement | undefined = $state();
+	let focusWhenEnabled: "cover" | "summary" | undefined;
+
+	// Converting disables the editor and removes the Convert button clicked; focus what replaces it.
+	$effect(() => {
+		if (!disabled && focusWhenEnabled) {
+			(focusWhenEnabled === "cover" ? coverInput : summaryStatus)?.focus();
+			focusWhenEnabled = undefined;
+		}
+	});
 
 	type FileInputEvent = Event & { currentTarget: HTMLInputElement };
 
@@ -53,6 +73,16 @@
 		if (image) {
 			oncover(image);
 		}
+	}
+
+	function convertCover(): void {
+		focusWhenEnabled = "cover";
+		onconvert([{ file: pack.cover }]);
+	}
+
+	function convertAll(): void {
+		focusWhenEnabled = "summary";
+		onconvert(unsupportedAnimations);
 	}
 
 	async function useFirstStickerAsCover(): Promise<void> {
@@ -77,13 +107,18 @@
 
 	{#if issues.length > 0}
 		<div class="summary">
-			<h3>
+			<h3 tabindex="-1" bind:this={summaryStatus}>
 				{issues.length === 1 ? "1 thing" : `${issues.length} things`} to fix before publishing
 			</h3>
 			<IssueList {issues} />
+			{#if unsupportedAnimations.length > 1}
+				<button type="button" class="convert-all" {disabled} onclick={convertAll}>
+					Convert all to animated PNG
+				</button>
+			{/if}
 		</div>
 	{:else}
-		<p class="ready">Ready to publish.</p>
+		<p class="ready" tabindex="-1" bind:this={summaryStatus}>Ready to publish.</p>
 	{/if}
 
 	<div class="details panel">
@@ -144,6 +179,17 @@
 						{hasSeparateCover ? "Replace" : "Upload a separate cover"}
 					</label>
 					{#if hasSeparateCover}
+						{#if showsStill(issues, pack.cover)}
+							<button
+								type="button"
+								class="link"
+								aria-label="Convert the cover to an animated PNG"
+								{disabled}
+								onclick={convertCover}
+							>
+								Convert to animated PNG
+							</button>
+						{/if}
 						<button
 							type="button"
 							class="link"
@@ -193,6 +239,9 @@
 		{disabled}
 		{onchange}
 		{onremove}
+		onconvert={(index, file) => {
+			onconvert([{ index, file }]);
+		}}
 		onempty={() => addInput?.focus()}
 	/>
 </section>
@@ -216,6 +265,10 @@
 	.summary h3 {
 		font-size: 1rem;
 		color: var(--danger);
+	}
+
+	.convert-all {
+		margin-top: 0.6rem;
 	}
 
 	.ready {

@@ -104,6 +104,60 @@ describe("PackSession", () => {
 		expect(editing.pack?.cover).toBe("cover.webp");
 	});
 
+	it("converts a sticker's image to an animated PNG in its place", async () => {
+		const { api, encode, editing } = session();
+		const converted = { ...CATS, stickers: CATS.stickers.with(2, { file: "004.png" }) };
+		api.replaceSticker.mockResolvedValue(packResponse(converted));
+
+		await editing.convertAnimations([{ index: 2, file: "003.webp" }], LIMITS);
+
+		const [image, limits, options] = encode.mock.calls[0]!;
+		expect(image).toBeInstanceOf(File);
+		expect(image).toMatchObject({ name: "003.webp", type: "image/webp" });
+		expect([limits, options?.mustAnimate]).toEqual([LIMITS, true]);
+		expect(api.getImage).toHaveBeenCalledWith("003.webp", expect.any(AbortSignal));
+		expect(api.replaceSticker).toHaveBeenCalledWith(
+			2,
+			"003.webp",
+			await encode.mock.results[0]!.value,
+		);
+		expect(editing.pack).toEqual(converted);
+	});
+
+	it("converts a separate cover through the cover route", async () => {
+		const { api, encode, editing } = session();
+		editing.load(packResponse({ ...CATS, cover: "cover.webp" }));
+
+		await editing.convertAnimations([{ file: "cover.webp" }], LIMITS);
+
+		expect(api.setCover).toHaveBeenCalledWith(await encode.mock.results[0]!.value);
+		expect(api.replaceSticker).not.toHaveBeenCalled();
+	});
+
+	it("converts every image it can and names the ones it cannot", async () => {
+		const { api, encode, editing } = session();
+		encode.mockRejectedValueOnce(new Error("The animation does not fit"));
+
+		api.replaceSticker
+			.mockResolvedValueOnce(packResponse())
+			.mockRejectedValueOnce(new Error("Gone"));
+
+		await editing.convertAnimations(
+			[
+				{ index: 1, file: "002.png" },
+				{ index: 2, file: "003.webp" },
+				{ index: 2, file: "gone.webp" },
+			],
+			LIMITS,
+		);
+
+		expect(api.replaceSticker.mock.calls.map(([index, file]) => [index, file])).toEqual([
+			[2, "003.webp"],
+			[2, "gone.webp"],
+		]);
+		expect(editing.error).toBe("002.png: The animation does not fit\ngone.webp: Gone");
+	});
+
 	it("shows an animation's conversion until it is added", async () => {
 		const { encode, editing } = session();
 		const progress = { step: "decode", done: 1, total: 2 } as const;

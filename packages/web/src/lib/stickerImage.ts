@@ -20,6 +20,8 @@ export type EncodeOptions = Readonly<{
 	onProgress?: (progress: ConversionProgress) => void;
 	/** Called when the browser cannot convert an animated GIF or WebP, so it keeps its first frame. */
 	onFlattened?: () => void;
+	/** Rejects with {@link CANNOT_CONVERT} instead of keeping only the first frame. */
+	mustAnimate?: boolean;
 }>;
 
 export const CANNOT_CONVERT =
@@ -64,7 +66,7 @@ export function stickerEncoder(
 			return new Blob([answer.apng], { type: "image/png" });
 		}
 		if (answer.type === "unsupported") {
-			if (type === "image/png") {
+			if (type === "image/png" || options.mustAnimate === true) {
 				throw new StickerImageError(CANNOT_CONVERT);
 			}
 			options.onFlattened?.();

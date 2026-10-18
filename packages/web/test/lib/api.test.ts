@@ -40,6 +40,35 @@ describe("createApi", () => {
 		});
 	});
 
+	it("replaces a sticker's image with the image as is", async () => {
+		const { api, fetch } = serve(packResponse());
+		const image = new Blob(["apng"], { type: "image/png" });
+
+		await api.replaceSticker(1, "002.webp", image);
+
+		const [path, init] = fetch.mock.calls[0]!;
+		expect({ path, method: init?.method, body: init?.body }).toEqual({
+			path: "/api/pack/sticker/1/002.webp",
+			method: "PUT",
+			body: image,
+		});
+	});
+
+	it("downloads an image", async () => {
+		const fetch = vi.fn<typeof globalThis.fetch>(() => Promise.resolve(new Response("webp")));
+
+		const image = await createApi(fetch).getImage("my cat#1.webp");
+
+		expect(fetch.mock.calls[0]?.[0]).toBe("/api/pack/sticker/my%20cat%231.webp");
+		expect(await image.text()).toBe("webp");
+	});
+
+	it("rejects a failed download with the server's message", async () => {
+		const { api } = serve({ error: "002.webp is not in the pack" }, 404);
+
+		await expect(api.getImage("002.webp")).rejects.toThrow("002.webp is not in the pack");
+	});
+
 	it("encodes file names into sticker paths", async () => {
 		const { api, fetch } = serve(packResponse());
 
