@@ -1,11 +1,12 @@
 import type { AnimationType } from "./animatedImage.ts";
 import { errorMessage, type StickerLimits } from "./api.ts";
 import {
+	decodedShare,
 	dropFrames,
 	fitAnimation,
 	fittingSizes,
 	frameDuration,
-	frameStep,
+	keepsFrame,
 	type FitAttempt,
 	type TimedFrame,
 } from "./apng.ts";
@@ -110,7 +111,7 @@ async function encodeFrames<T>(
 		return { type: "still" };
 	}
 	const sizes = fittingSizes(decoder, limits);
-	const apng = await fitAnimation({
+	const fitted = await fitAnimation({
 		frames: await decodeFrames(decoder, sizes[0] ?? limits.size, onProgress),
 		sizes,
 		maxBytes: limits.maxBytes,
@@ -119,17 +120,17 @@ async function encodeFrames<T>(
 			onProgress({ step: "encode", ...attempt });
 		},
 	});
-	if (!apng) {
+	if (!fitted) {
 		const kib = Math.floor(limits.maxBytes / 1024);
 		const message = `The animation does not fit in ${kib} KiB, even smaller and with fewer colors and frames. Shorten or simplify it and try again.`;
 		return { type: "error", message };
 	}
-	return { type: "done", apng: apng.slice().buffer };
+	return { type: "done", apng: fitted.apng.slice().buffer };
 }
 
 /**
- * Decodes every frame for its duration but, past {@link frameStep}'s limit, draws only the first of
- * each group of frames, which then shows for the whole group.
+ * Decodes every frame for its duration but draws only those in {@link decodedShare}, each showing
+ * for the frames dropped after it too.
  */
 async function decodeFrames<T>(
 	decoder: AnimationDecoder<T>,
@@ -137,10 +138,10 @@ async function decodeFrames<T>(
 	onProgress: (progress: ConversionProgress) => void,
 ): Promise<TimedFrame<T>[]> {
 	const { frameCount } = decoder;
-	const step = frameStep(frameCount);
+	const share = decodedShare(frameCount);
 	const frames: TimedFrame<T>[] = [];
 	const decodeFrom = async (index: number): Promise<void> => {
-		const draws = index % step === 0;
+		const draws = keepsFrame(index, share);
 		const { duration, image = frames.at(-1)?.image } = await decoder.decode(
 			index,
 			draws ? size : undefined,
@@ -152,5 +153,5 @@ async function decodeFrames<T>(
 		return index + 1 < frameCount ? decodeFrom(index + 1) : undefined;
 	};
 	await decodeFrom(0);
-	return dropFrames(frames, step);
+	return dropFrames(frames, share);
 }

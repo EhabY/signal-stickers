@@ -22,6 +22,9 @@ const REQUEST: ConversionRequest = { bytes: gif(2).buffer, type: "image/gif", li
 
 const NO_DECODER: AnimationDecoder<FakeImage> | undefined = undefined;
 
+/** Two frames of 50 ms at the image's longer side. */
+const ENCODING = { size: 200, colors: 256, frames: 2, fps: 20 };
+
 /** Serves one request like the worker does: the progress it posts, then its answer. */
 async function convert(open: OpenDecoder<FakeImage>, request = REQUEST) {
 	const progress: ConversionMessage[] = [];
@@ -68,7 +71,7 @@ describe("serveConversions", () => {
 		expect(progress).toEqual([
 			{ type: "progress", progress: { step: "decode", done: 1, total: 2 } },
 			{ type: "progress", progress: { step: "decode", done: 2, total: 2 } },
-			{ type: "progress", progress: { step: "encode", size: 200, colors: 256, frames: 2 } },
+			{ type: "progress", progress: { step: "encode", ...ENCODING } },
 		]);
 		expect(decodeApng(apngOf(answer))).toEqual({
 			width: 200,
@@ -81,14 +84,19 @@ describe("serveConversions", () => {
 		expect(decoder.close).toHaveBeenCalledOnce();
 	});
 
-	it("keeps every other frame of a long animation, each showing for both", async () => {
-		const { open, decoded } = openFake({ frameCount: 102, duration: 30_000 });
+	it("draws 150 frames of a longer animation, each showing for those dropped after it", async () => {
+		const { open, decoded } = openFake({
+			width: 16,
+			height: 16,
+			frameCount: 300,
+			duration: 30_000,
+		});
 
 		const { answer } = await convert(open);
 
 		const drawn = decoded.filter(({ size }) => size !== undefined).map(({ index }) => index);
-		expect(drawn).toEqual(Array.from({ length: 51 }, (_, i) => i * 2));
-		expect(decodeApng(apngOf(answer)).delays).toEqual(Array.from({ length: 51 }, () => 60));
+		expect(drawn).toEqual(Array.from({ length: 150 }, (_, i) => i * 2));
+		expect(decodeApng(apngOf(answer)).delays).toEqual(Array.from({ length: 150 }, () => 60));
 	});
 
 	it("answers still for a single frame, so the page draws it as a still image", async () => {

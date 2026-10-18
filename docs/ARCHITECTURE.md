@@ -146,14 +146,18 @@ forever, within 300 KiB) is kept; any other animation goes to a module worker
 (`lib/animationWorker.ts`), so the page stays responsive. The worker decodes frames and their
 durations with WebCodecs' `ImageDecoder`, draws each one fitted in a transparent square on an
 `OffscreenCanvas`, and encodes with upng-js (palette quantization and frame deltas, `num_plays` 0).
-`lib/apng.ts` fits the result in 300 KiB: each size from the image's longer side (at most 512) down
-to 256 with 256 colors, then 128 and 64 colors, then every other frame dropped, its time added to
-the frame before, and only then the sizes below 256, down to 128. Over 100 frames, only every
-second, fourth, … frame is drawn. The worker posts progress, which the editor shows, then the APNG,
-`still` for a single frame, `unsupported` when the browser cannot decode the type, or an error. Like
-Signal's creator, the page draws a single frame, and a GIF or WebP the browser cannot decode, as a
-still WebP; such an APNG is refused. The protocol and the decoder interface live in
-`lib/animationConversion.ts`, so tests run it with a fake decoder.
+`lib/apng.ts` fits the result in 300 KiB, keeping the frame rate as long as it can, since a low
+frame rate shows more than a small sticker: each size from the image's longer side (at most 512)
+down to 160 with 256 colors, then 128 and 64 colors, then all of that again keeping 2 of every 3
+frames, then 1 of 2, then 1 of 3 (each kept frame also shows for the time of those dropped after
+it), then 128 pixels, and as a last resort every other frame dropped again until two remain. A
+smaller size never encodes larger, so after trying the image as it is, each pass tries its smallest
+size first, which is all a pass where nothing fits costs, and then bisects the sizes above it. Over
+150 frames, 150 frames spread evenly are drawn. The worker posts progress, which the editor shows
+with the frame rate, then the APNG, `still` for a single frame, `unsupported` when the browser
+cannot decode the type, or an error. Like Signal's creator, the page draws a single frame, and a GIF
+or WebP the browser cannot decode, as a still WebP; such an APNG is refused. The protocol and the
+decoder interface live in `lib/animationConversion.ts`, so tests run it with a fake decoder.
 
 Conversions (`lib/conversions.svelte.ts`) run while the pack stays editable, each listed with its
 progress and a Cancel that terminates its worker. Images chosen together convert one after another;

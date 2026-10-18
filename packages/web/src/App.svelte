@@ -83,8 +83,12 @@
 		const step =
 			stage.step === "decode"
 				? `reading frame ${stage.done} of ${stage.total}`
-				: `trying ${stage.size}×${stage.size} pixels, ${stage.colors} colors, ${stage.frames} frames`;
+				: `trying ${stage.size}×${stage.size}, ${stage.colors} colors, ${describeFps(stage.fps)}`;
 		return `Converting ${file} to an animated PNG: ${step}`;
+	}
+
+	function describeFps(fps: number): string {
+		return `${Number(fps.toPrecision(2))} fps`;
 	}
 
 	function describeFlattened(files: readonly string[]): string {

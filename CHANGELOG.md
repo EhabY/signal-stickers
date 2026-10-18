@@ -43,5 +43,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Remove the sticker you clicked when two share an image
 - Treat single-frame WebPs as still images, not animations
 - Keep focus after canceling a conversion
+- Keep animations smooth by shrinking before dropping frames
 
 

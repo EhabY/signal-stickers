@@ -30,7 +30,7 @@ describe("App while images convert", () => {
 		api.getPack.mockResolvedValue(packResponse());
 		const converted = Promise.withResolvers<Blob>();
 		renderApp(api, (_, __, options) => {
-			options?.onProgress?.({ step: "encode", size: 384, colors: 256, frames: 40 });
+			options?.onProgress?.({ step: "encode", size: 320, colors: 256, frames: 90, fps: 29.97 });
 			return converted.promise;
 		});
 		const animation = new File(["gif"], "cat.gif", { type: "image/gif" });
@@ -42,7 +42,7 @@ describe("App while images convert", () => {
 		converted.resolve(new Blob(["apng"], { type: "image/png" }));
 
 		expect(status).toContain(
-			"Converting cat.gif to an animated PNG: trying 384×384 pixels, 256 colors, 40 frames",
+			"Converting cat.gif to an animated PNG: trying 320×320, 256 colors, 30 fps",
 		);
 		await vi.waitFor(() => {
 			expect(screen.queryByRole("status")).toBeNull();
