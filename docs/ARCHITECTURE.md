@@ -128,22 +128,23 @@ Browsers without a WebP encoder, such as Safari, give back a lossless PNG instea
 it fits; otherwise the error says which images still work.
 
 Animations become APNG, the only animated format Signal shows. `lib/animatedImage.ts` reads the
-header: a GIF with more than one frame, a WebP with the `VP8X` animation flag, or a PNG with `acTL`.
-An APNG that Signal takes as it is (square, 10 to 512 pixels, looping forever, within 300 KiB) is
-kept; any other animation goes to a module worker (`lib/animationWorker.ts`), so the page stays
-responsive. The worker decodes frames and their durations with WebCodecs' `ImageDecoder`, draws each
-one fitted in a transparent square on an `OffscreenCanvas`, and encodes with upng-js (palette
-quantization and frame deltas, `num_plays` 0). `lib/apng.ts` fits the result in 300 KiB: each size
-from the image's longer side (at most 512) down to 256 with 256 colors, then 128 and 64 colors, then
-every other frame dropped, its time added to the frame before, and only then the sizes below 256,
-down to 128. Over 100 frames, only every second, fourth, … frame is drawn. The worker posts
-progress, which the editor shows, then the APNG, `still` for a single frame, `unsupported` when the
-browser cannot decode the type, or an error. Like Signal's creator, the page draws a single frame,
-and a GIF or WebP the browser cannot decode, as a still WebP; such an APNG is refused. The protocol
-and the decoder interface live in `lib/animationConversion.ts`, so tests run it with a fake decoder.
-Canceling the conversion stops `PackSession`'s running add or cover change and terminates the
-worker; importing another pack does too, and also ignores the server's answer to a request already
-sent.
+header: a GIF with more than one frame, a WebP with the `VP8X` animation flag and more than one
+`ANMF` frame, or a PNG with `acTL`. A WebP with the flag but a single frame is redrawn as a plain
+still WebP, even when it fits. An APNG that Signal takes as it is (square, 10 to 512 pixels, looping
+forever, within 300 KiB) is kept; any other animation goes to a module worker
+(`lib/animationWorker.ts`), so the page stays responsive. The worker decodes frames and their
+durations with WebCodecs' `ImageDecoder`, draws each one fitted in a transparent square on an
+`OffscreenCanvas`, and encodes with upng-js (palette quantization and frame deltas, `num_plays` 0).
+`lib/apng.ts` fits the result in 300 KiB: each size from the image's longer side (at most 512) down
+to 256 with 256 colors, then 128 and 64 colors, then every other frame dropped, its time added to
+the frame before, and only then the sizes below 256, down to 128. Over 100 frames, only every
+second, fourth, … frame is drawn. The worker posts progress, which the editor shows, then the APNG,
+`still` for a single frame, `unsupported` when the browser cannot decode the type, or an error. Like
+Signal's creator, the page draws a single frame, and a GIF or WebP the browser cannot decode, as a
+still WebP; such an APNG is refused. The protocol and the decoder interface live in
+`lib/animationConversion.ts`, so tests run it with a fake decoder. Canceling the conversion stops
+`PackSession`'s running add or cover change and terminates the worker; importing another pack does
+too, and also ignores the server's answer to a request already sent.
 
 The editor animates only what Signal animates. A pack image the server flags `unsupportedAnimation`
 (an animated WebP, from a pulled pack or the disk) shows only its first frame: `PackImage.svelte`

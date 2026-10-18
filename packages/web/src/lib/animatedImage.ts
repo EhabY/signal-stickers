@@ -5,20 +5,29 @@ export type AnimationType = "image/gif" | "image/webp" | "image/png";
 
 /**
  * Detects an animated image from its bytes: a GIF with more than one frame, a WebP with the `VP8X`
- * animation flag, or a PNG with an `acTL` chunk before `IDAT`, which Signal treats as an APNG.
+ * animation flag and more than one `ANMF` frame, or a PNG with an `acTL` chunk before `IDAT`, which
+ * Signal treats as an APNG.
  */
 export function sniffAnimation(bytes: Uint8Array): AnimationType | undefined {
 	if (startsWith(bytes, GIF) && countGifFrames(bytes, 2) > 1) {
 		return "image/gif";
 	}
-	if (
-		startsWith(bytes, RIFF) &&
-		startsWith(bytes.subarray(8), WEBP_VP8X) &&
-		(byteAt(bytes, VP8X_FLAGS) & VP8X_ANIMATION_FLAG) !== 0
-	) {
+	if (hasWebpAnimationFlag(bytes) && countWebpFrames(bytes, 2) > 1) {
 		return "image/webp";
 	}
 	return readApng(bytes) ? "image/png" : undefined;
+}
+
+/**
+ * Whether a WebP's `VP8X` header sets the animation flag, which encoders also set on a single frame
+ * that {@link sniffAnimation} counts as a still image.
+ */
+export function hasWebpAnimationFlag(bytes: Uint8Array): boolean {
+	return (
+		startsWith(bytes, RIFF) &&
+		startsWith(bytes.subarray(8), WEBP_VP8X) &&
+		(byteAt(bytes, VP8X_FLAGS) & VP8X_ANIMATION_FLAG) !== 0
+	);
 }
 
 /**
@@ -93,6 +102,33 @@ function skipSubBlocks(bytes: Uint8Array, offset: number): number {
 	return next + 1;
 }
 
+const RIFF_HEADER_SIZE = 12;
+const RIFF_CHUNK_HEADER_SIZE = 8;
+
+/** Like core's `readImageInfo`: counts `ANMF` chunks, up to `limit`. */
+function countWebpFrames(bytes: Uint8Array, limit: number): number {
+	const view = dataView(bytes);
+	let offset = RIFF_HEADER_SIZE;
+	let frames = 0;
+	while (frames < limit && offset + RIFF_CHUNK_HEADER_SIZE <= bytes.length) {
+		if (fourCc(bytes, offset) === "ANMF") {
+			frames += 1;
+		}
+		const size = view.getUint32(offset + 4, true);
+		// RIFF pads a chunk of odd size with a byte.
+		offset += RIFF_CHUNK_HEADER_SIZE + size + (size % 2);
+	}
+	return frames;
+}
+
+function dataView(bytes: Uint8Array): DataView {
+	return new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+}
+
+function fourCc(bytes: Uint8Array, offset: number): string {
+	return String.fromCodePoint(...bytes.subarray(offset, offset + 4));
+}
+
 const PNG_CHUNK_HEADER_SIZE = 8;
 const PNG_CHUNK_CRC_SIZE = 4;
 
@@ -101,10 +137,10 @@ function readApng(bytes: Uint8Array): { width: number; height: number; plays: nu
 	if (!startsWith(bytes, PNG_SIGNATURE) || bytes.length < 24) {
 		return undefined;
 	}
-	const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+	const view = dataView(bytes);
 	let offset = PNG_SIGNATURE.length;
 	while (offset + PNG_CHUNK_HEADER_SIZE <= bytes.length) {
-		const type = String.fromCodePoint(...bytes.subarray(offset + 4, offset + 8));
+		const type = fourCc(bytes, offset + 4);
 		if (type === "acTL") {
 			const plays = offset + PNG_CHUNK_HEADER_SIZE + 4;
 			return plays + 4 <= bytes.length

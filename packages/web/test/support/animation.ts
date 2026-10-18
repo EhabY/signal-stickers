@@ -29,16 +29,20 @@ export function gif(frames: number): Uint8Array<ArrayBuffer> {
 	]);
 }
 
-/** The start of an extended WebP whose `VP8X` flags are `flags` (0x02 animates). */
-export function webpVp8x(flags: number): Uint8Array<ArrayBuffer> {
-	// The chunk length, flags, reserved bytes, and a 512x512 canvas.
-	const vp8x = [10, 0, 0, 0, flags, 0, 0, 0, 255, 1, 0, 255, 1, 0];
-	return Uint8Array.from([
-		...encoder.encode("RIFF"),
-		...new Uint8Array(4),
-		...encoder.encode("WEBPVP8X"),
-		...vp8x,
-	]);
+/**
+ * A 512x512 extended WebP whose `VP8X` header precedes a chunk of each type in `chunks`, each with 3
+ * bytes of data and a pad byte. `ANIM` sets the animation flag, and `ALPH` the alpha flag.
+ */
+export function extendedWebp(chunks: readonly string[]): Uint8Array<ArrayBuffer> {
+	const flags = (chunks.includes("ANIM") ? 0x02 : 0) | (chunks.includes("ALPH") ? 0x10 : 0);
+	// The flags, reserved bytes, and a 512x512 canvas.
+	const vp8x = [flags, 0, 0, 0, 255, 1, 0, 255, 1, 0];
+	const body = [
+		...encoder.encode("WEBP"),
+		...riffChunk("VP8X", vp8x),
+		...chunks.flatMap((type) => riffChunk(type, [1, 2, 3])),
+	];
+	return Uint8Array.from([...encoder.encode("RIFF"), ...uint32Le(body.length), ...body]);
 }
 
 export type PngOptions = { width: number; height: number; plays?: number; padding?: number };
@@ -182,6 +186,18 @@ export const encodeUntilAborted: StickerEncoder = (_image, _limits, { signal } =
 			reject(new Error("Converting was canceled"));
 		});
 	});
+
+/** A RIFF chunk, padded to an even length. */
+function riffChunk(type: string, data: readonly number[]): number[] {
+	const padding = data.length % 2 === 0 ? [] : [0];
+	return [...encoder.encode(type), ...uint32Le(data.length), ...data, ...padding];
+}
+
+function uint32Le(value: number): Uint8Array {
+	const bytes = new Uint8Array(4);
+	new DataView(bytes.buffer).setUint32(0, value, true);
+	return bytes;
+}
 
 function chunk(type: string, data: Uint8Array): number[] {
 	return [...uint32s(data.length), ...encoder.encode(type), ...data, 0, 0, 0, 0];

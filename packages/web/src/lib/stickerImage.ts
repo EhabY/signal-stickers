@@ -1,4 +1,4 @@
-import { isReadyApng, sniffAnimation } from "./animatedImage.ts";
+import { hasWebpAnimationFlag, isReadyApng, sniffAnimation } from "./animatedImage.ts";
 import type {
 	ConversionMessage,
 	ConversionProgress,
@@ -53,7 +53,7 @@ export function stickerEncoder(
 		const bytes = new Uint8Array(await image.arrayBuffer());
 		const type = sniffAnimation(bytes);
 		if (type === undefined) {
-			return encodeStill(image, limits);
+			return encodeStill(image, limits, { keepIfFits: !hasWebpAnimationFlag(bytes) });
 		}
 		if (type === "image/png" && isReadyApng(bytes, limits)) {
 			return image;

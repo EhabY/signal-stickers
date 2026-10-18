@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { readImageInfo, sniffImageFormat } from "../../src/stickers/image.ts";
-import { imageFixture, png } from "../support/index.ts";
+import { imageFixture, png, stickerWebp } from "../support/index.ts";
 
 describe("sniffImageFormat", () => {
 	it.each([
@@ -25,6 +25,19 @@ describe("readImageInfo", () => {
 		["alpha.webp", { format: "webp", width: 305, height: 205 }],
 	])("reads %s", (name, info) => {
 		expect(readImageInfo(imageFixture(name))).toEqual(info);
+	});
+
+	it.each([
+		["a still WebP with alpha", stickerWebp(["ALPH", "VP8 "]), undefined],
+		["an animation of one frame", stickerWebp(["ANIM", "ANMF", "EXIF"]), undefined],
+		["an animation of two frames", stickerWebp(["ANIM", "ANMF", "ANMF", "EXIF"]), true],
+		[
+			"an animation cut off in its second frame",
+			stickerWebp(["ANIM", "ANMF", "ANMF"]).subarray(0, -6),
+			undefined,
+		],
+	])("tells whether %s animates", (_, bytes, animated) => {
+		expect(readImageInfo(bytes)).toEqual({ format: "webp", width: 512, height: 512, animated });
 	});
 
 	it.each([

@@ -61,6 +61,29 @@ export function stickerPng(
 	]);
 }
 
+/**
+ * An extended WebP, 512x512 unless overridden, whose `VP8X` header precedes a chunk of each type in
+ * `chunks`, each with 3 bytes of data and a pad byte. An `ANIM` chunk sets the animation flag.
+ */
+export function stickerWebp(
+	chunks: readonly string[],
+	{
+		width = STICKER_LIMITS.size,
+		height = STICKER_LIMITS.size,
+	}: Pick<StickerPngOptions, "width" | "height"> = {},
+): Uint8Array {
+	const header = Buffer.alloc(10);
+	header.writeUInt8(chunks.includes("ANIM") ? VP8X_ANIMATION_FLAG : 0, 0);
+	header.writeUIntLE(width - 1, 4, 3);
+	header.writeUIntLE(height - 1, 7, 3);
+	const body = Buffer.concat([
+		Buffer.from("WEBP"),
+		riffChunk("VP8X", header),
+		...chunks.map((type) => riffChunk(type, Uint8Array.of(1, 2, 3))),
+	]);
+	return Buffer.concat([Buffer.from("RIFF"), uint32Le(body.length), body]);
+}
+
 /** Reads an image from `test/fixtures/images`. */
 export function imageFixture(name: string): Uint8Array {
 	return readFileSync(join(import.meta.dirname, "../fixtures/images", name));
@@ -145,4 +168,18 @@ function animationControl(plays: number): Buffer {
 	data.writeUInt32BE(1, 0);
 	data.writeUInt32BE(plays, 4);
 	return data;
+}
+
+const VP8X_ANIMATION_FLAG = 0x02;
+
+/** A RIFF chunk, padded to an even length. */
+function riffChunk(type: string, data: Uint8Array): Buffer {
+	const padding = new Uint8Array(data.length % 2);
+	return Buffer.concat([Buffer.from(type, "latin1"), uint32Le(data.length), data, padding]);
+}
+
+function uint32Le(value: number): Buffer {
+	const bytes = Buffer.alloc(4);
+	bytes.writeUInt32LE(value);
+	return bytes;
 }

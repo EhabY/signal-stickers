@@ -103,10 +103,11 @@ pnpm push ./my-pack
 
 The folder needs a `pack.json` with a title, an author, a cover, and an emoji for every sticker, and
 1 to 200 stickers of at most 300 KiB each: 512x512 PNG or WebP images, or square APNGs from 10x10 to
-512x512 that loop forever. Signal animates only APNG, so an animated WebP is rejected too. Each
-sticker needs its own image; only the cover may repeat one. `push` checks all of this first and
-lists every problem before uploading anything; it does not resize images. It prints the new pack's
-share link, and its QR code in a terminal.
+512x512 that loop forever. Signal animates only APNG, so a WebP with two or more frames is rejected
+too; a WebP animation of a single frame counts as a still image. Each sticker needs its own image;
+only the cover may repeat one. `push` checks all of this first and lists every problem before
+uploading anything; it does not resize images. It prints the new pack's share link, and its QR code
+in a terminal.
 
 Each push creates a new pack with a new link; Signal packs cannot be changed once uploaded. Use the
 same environment you linked with: a device linked with `--staging` only pushes with `--staging`.

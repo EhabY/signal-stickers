@@ -250,8 +250,12 @@ something breaks after that date, Signal changed it.
   (`num_plays` 0). Any other image becomes a 512x512 WebP, so we require PNG and WebP to be 512x512.
 - APNG is the only animated format: `processImage` keeps an image animated only when
   `getAnimatedPngDataIfExists` finds an `acTL` chunk, and draws a GIF or animated WebP to a still
-  WebP. So we reject an animated WebP (the `VP8X` animation flag) instead of uploading a format the
-  creator never produces.
+  WebP. So we reject an animated WebP instead of uploading a format the creator never produces.
+- An animated WebP is one with the `VP8X` animation flag and at least two `ANMF` frames. Encoders
+  also set the flag on a single frame, which browsers and Signal show as a still image, so such a
+  file is checked as a still WebP (512x512). The web editor redraws one as a plain WebP when it is
+  added; one already in a pack folder (pulled or copied in) is uploaded as it is, which Signal shows
+  as a still image.
 - Where the creator flattens, the web editor converts GIF, animated WebP, and APNG that break these
   rules to an APNG that meets them (`packages/web/src/lib/apng.ts`, `animatedImage.ts`), so the
   pushed file is again one the creator would upload unchanged. A browser that cannot decode the

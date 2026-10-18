@@ -13,7 +13,7 @@ import {
 	stickerEncoder,
 	type ConversionWorker,
 } from "../../src/lib/stickerImage.ts";
-import { fakeWorker, gif, pngChunks, solidFrame, webpVp8x } from "../support/animation.ts";
+import { extendedWebp, fakeWorker, gif, pngChunks, solidFrame } from "../support/animation.ts";
 import { LIMITS } from "../support/api.ts";
 import { stubImageDrawing } from "../support/drawing.ts";
 
@@ -21,7 +21,7 @@ type Encode = (quality: number) => Promise<Blob>;
 
 const APNG = encodeApng([solidFrame(1, 64), solidFrame(2, 64)], 64, 256, [100, 100]);
 const PROGRESS: ConversionProgress = { step: "decode", done: 1, total: 2 };
-const ANIMATED_WEBP = new Blob([webpVp8x(0x02)], { type: "image/webp" });
+const ANIMATED_WEBP = new Blob([extendedWebp(["ANIM", "ANMF", "ANMF"])], { type: "image/webp" });
 
 const drawing = stubImageDrawing();
 
@@ -73,6 +73,20 @@ describe("stickerEncoder", () => {
 		expect(await bytesOf(sticker)).toEqual(APNG);
 		expect(requests.map(({ request }) => [request.type, request.limits])).toEqual([[type, LIMITS]]);
 		expect(onProgress).toHaveBeenCalledWith(PROGRESS);
+	});
+
+	it.each([
+		["keeps a still WebP", extendedWebp(["ALPH", "VP8 "]), true],
+		["redraws a WebP animation of one frame", extendedWebp(["ANIM", "ANMF"]), false],
+	])("%s that fits without the worker", async (_, bytes, kept) => {
+		drawing.decodeImage.mockResolvedValue({ width: 512, height: 512, close: vi.fn<() => void>() });
+		const startWorker = vi.fn<() => ConversionWorker>();
+		const image = new Blob([bytes], { type: "image/webp" });
+
+		const sticker = await stickerEncoder(startWorker)(image, LIMITS);
+
+		expect([sticker === image, sticker.type]).toEqual([kept, "image/webp"]);
+		expect(startWorker).not.toHaveBeenCalled();
 	});
 
 	it("draws a single frame animation as a still WebP, even when it fits", async () => {

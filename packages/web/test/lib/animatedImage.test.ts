@@ -1,22 +1,38 @@
 import { describe, expect, it } from "vitest";
 
-import { isReadyApng, sniffAnimation } from "../../src/lib/animatedImage.ts";
+import { hasWebpAnimationFlag, isReadyApng, sniffAnimation } from "../../src/lib/animatedImage.ts";
 import { encodeApng } from "../../src/lib/apng.ts";
-import { gif, pngChunks, solidFrame, webpVp8x } from "../support/animation.ts";
+import { extendedWebp, gif, pngChunks, solidFrame } from "../support/animation.ts";
 import { LIMITS } from "../support/api.ts";
 
 describe("sniffAnimation", () => {
 	it.each([
 		["a GIF with two frames", gif(2), "image/gif"],
-		["a WebP with the animation flag", webpVp8x(0x02), "image/webp"],
+		["a WebP with two frames", extendedWebp(["ANIM", "ANMF", "ANMF", "EXIF"]), "image/webp"],
 		["an APNG", pngChunks({ width: 600, height: 400, plays: 0 }), "image/png"],
 		["a GIF with one frame", gif(1), undefined],
-		["a WebP with only the alpha flag", webpVp8x(0x10), undefined],
+		["a WebP animation of one frame", extendedWebp(["ANIM", "ANMF", "EXIF"]), undefined],
+		[
+			"a WebP cut off in its second frame",
+			extendedWebp(["ANIM", "ANMF", "ANMF"]).subarray(0, -6),
+			undefined,
+		],
+		["a still WebP with alpha", extendedWebp(["ALPH", "VP8 "]), undefined],
 		["a still PNG", pngChunks({ width: 512, height: 512 }), undefined],
 		["a JPEG", Uint8Array.of(0xff, 0xd8, 0xff, 0xe0), undefined],
 		["nothing", new Uint8Array(), undefined],
 	])("detects %s", (_, bytes, type) => {
 		expect(sniffAnimation(bytes)).toBe(type);
+	});
+});
+
+describe("hasWebpAnimationFlag", () => {
+	it.each([
+		["an animation of one frame", extendedWebp(["ANIM", "ANMF"]), true],
+		["a still WebP with alpha", extendedWebp(["ALPH", "VP8 "]), false],
+		["a GIF", gif(2), false],
+	])("tells whether %s has the flag", (_, bytes, flagged) => {
+		expect(hasWebpAnimationFlag(bytes)).toBe(flagged);
 	});
 });
 

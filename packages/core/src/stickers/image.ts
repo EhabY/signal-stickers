@@ -6,7 +6,7 @@ export type ImageInfo = Readonly<{
 	height: number;
 	/** How many times an APNG plays, 0 meaning forever; undefined for an image that does not animate. */
 	plays?: number | undefined;
-	/** Set for an animated WebP; Signal animates only APNG stickers. */
+	/** Set for a WebP with two or more frames; Signal animates only APNG stickers. */
 	animated?: true | undefined;
 }>;
 
@@ -84,7 +84,9 @@ function readApngPlays(bytes: Uint8Array, view: DataView): number | undefined {
 	return undefined;
 }
 
-const WEBP_CHUNK = 20;
+const RIFF_HEADER_SIZE = 12;
+const RIFF_CHUNK_HEADER_SIZE = 8;
+const WEBP_CHUNK = RIFF_HEADER_SIZE + RIFF_CHUNK_HEADER_SIZE;
 const VP8_START_CODE = [0x9d, 0x01, 0x2a];
 const VP8L_SIGNATURE = 0x2f;
 const VP8X_ANIMATION_FLAG = 0x02;
@@ -92,7 +94,7 @@ const VP8X_ANIMATION_FLAG = 0x02;
 /** Reads the first chunk after the RIFF header: lossy `VP8 `, lossless `VP8L`, or extended `VP8X`. */
 function readWebpInfo(bytes: Uint8Array): ImageInfo | undefined {
 	const view = dataView(bytes);
-	switch (fourCc(bytes, 12)) {
+	switch (fourCc(bytes, RIFF_HEADER_SIZE)) {
 		case "VP8 ":
 			// A 3-byte frame tag and the start code precede two 14-bit dimensions.
 			if (
@@ -121,9 +123,10 @@ function readWebpInfo(bytes: Uint8Array): ImageInfo | undefined {
 			const uint24 = (offset: number) =>
 				view.getUint16(offset, true) + (view.getUint8(offset + 2) << 16);
 			const info = webpInfo(uint24(WEBP_CHUNK + 4) + 1, uint24(WEBP_CHUNK + 7) + 1);
-			return (view.getUint8(WEBP_CHUNK) & VP8X_ANIMATION_FLAG) === 0
-				? info
-				: { ...info, animated: true };
+			const animated =
+				(view.getUint8(WEBP_CHUNK) & VP8X_ANIMATION_FLAG) !== 0 &&
+				countWebpFrames(bytes, view, 2) > 1;
+			return animated ? { ...info, animated: true } : info;
 		}
 		default:
 			return undefined;
@@ -132,4 +135,22 @@ function readWebpInfo(bytes: Uint8Array): ImageInfo | undefined {
 
 function webpInfo(width: number, height: number): ImageInfo {
 	return { format: "webp", width, height };
+}
+
+/**
+ * Counts `ANMF` chunks, up to `limit`. Encoders also set the animation flag on a single frame, which
+ * shows as a still image.
+ */
+function countWebpFrames(bytes: Uint8Array, view: DataView, limit: number): number {
+	let offset = RIFF_HEADER_SIZE;
+	let frames = 0;
+	while (frames < limit && offset + RIFF_CHUNK_HEADER_SIZE <= bytes.length) {
+		if (fourCc(bytes, offset) === "ANMF") {
+			frames += 1;
+		}
+		const size = view.getUint32(offset + 4, true);
+		// RIFF pads a chunk of odd size with a byte.
+		offset += RIFF_CHUNK_HEADER_SIZE + size + (size % 2);
+	}
+	return frames;
 }

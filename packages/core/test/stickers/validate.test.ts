@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { Pack } from "../../src/stickers/pack.ts";
 import { STICKER_LIMITS, validateImage, validatePack } from "../../src/stickers/validate.ts";
-import { imageFixture, stickerPng, validPack } from "../support/index.ts";
+import { imageFixture, stickerPng, stickerWebp, validPack } from "../support/index.ts";
 
 function validate(pack: Pack, images: Readonly<Record<string, Uint8Array>>) {
 	return validatePack(pack, new Map(Object.entries(images)));
@@ -61,6 +61,18 @@ describe("validateImage", () => {
 				file: "001.webp",
 				message:
 					"001.webp is an animated WebP, but Signal only animates PNG stickers; remove it and add the original file in the web editor, which converts it to an animated PNG",
+			},
+		]);
+	});
+
+	it("checks a WebP animation of one frame as a still image", () => {
+		const webp = stickerWebp(["ANIM", "ANMF"], { width: 300, height: 300 });
+
+		expect(validateImage("001.webp", webp)).toEqual([
+			{
+				code: "wrongSize",
+				file: "001.webp",
+				message: "001.webp is 300x300 pixels; stickers must be 512x512",
 			},
 		]);
 	});
