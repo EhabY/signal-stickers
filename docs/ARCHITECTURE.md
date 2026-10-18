@@ -115,6 +115,8 @@ time. A pull writes into a sibling folder and swaps it in, so a failed pull keep
 Image routes only serve files that `pack.json` names, and added images get server-chosen names.
 Removing the cover's sticker makes the first remaining sticker the cover. A separate cover is saved
 as `cover.png` or `cover.webp` (`PUT /api/pack/cover`), replacing the previous separate cover.
+Replacing a sticker's image (`PUT /api/pack/sticker/:index/:file`) saves it under a new name in the
+same place, with the same emoji, and as the cover if the old image was.
 
 ## Web
 

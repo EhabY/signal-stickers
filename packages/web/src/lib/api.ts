@@ -151,6 +151,7 @@ const RESPONSE_GUARDS: {
 	"PUT /api/pack": isPackResponse,
 	"POST /api/pack/sticker": isAddStickerResponse,
 	"DELETE /api/pack/sticker/:index/:file": isPackResponse,
+	"PUT /api/pack/sticker/:index/:file": isPackResponse,
 	"PUT /api/pack/cover": isPackResponse,
 	"POST /api/push": isPushResponse,
 };

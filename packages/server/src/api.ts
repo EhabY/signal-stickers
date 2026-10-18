@@ -38,6 +38,13 @@ export type ApiRoutes = {
 	 */
 	"DELETE /api/pack/sticker/:index/:file": { request: undefined; response: PackResponse };
 	/**
+	 * Replaces the image of the sticker at `index`, keeping its place and emoji, and the cover if it
+	 * was that image. The image is saved under a new name; the old one is removed unless the pack
+	 * still uses it. 404 unless that sticker's image is `file`, like DELETE. The body is the image
+	 * itself (PNG or WebP), not JSON.
+	 */
+	"PUT /api/pack/sticker/:index/:file": { request: Blob; response: PackResponse };
+	/**
 	 * Makes the image the separate cover, saved as `cover.png` or `cover.webp` in place of any
 	 * earlier separate cover. The body is the image itself (PNG or WebP), not JSON.
 	 */

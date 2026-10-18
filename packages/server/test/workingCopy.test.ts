@@ -153,6 +153,51 @@ describe("pack editing", () => {
 		expect(await readPack(server.packDir)).toEqual(PACK);
 	});
 
+	it("replaces a sticker's image under a new name, keeping its place, emoji, and cover", async () => {
+		const server = await servePack();
+
+		const reply = await server.send("PUT", "/api/pack/sticker/0/001.png", WEBP);
+
+		const [first, second] = PACK.stickers;
+		const pack = { ...PACK, cover: "003.webp", stickers: [{ ...first, file: "003.webp" }, second] };
+		expect(reply).toEqual({ status: 200, body: { pack, issues: [] } });
+		expect(await readPack(server.packDir)).toEqual(pack);
+		expect(await readdir(server.packDir)).toEqual(["002.png", "003.webp", "pack.json"]);
+		expect(new Uint8Array(await readFile(join(server.packDir, "003.webp")))).toEqual(WEBP);
+	});
+
+	it("keeps a replaced image that another sticker still uses", async () => {
+		const stickers = [PACK.stickers[0]!, { file: "001.png", emoji: "😀" }];
+		const server = await servePack({ pack: { ...PACK, cover: "002.png", stickers } });
+
+		const reply = await server.send("PUT", "/api/pack/sticker/1/001.png", png(3));
+
+		expect(reply).toMatchObject({
+			body: {
+				pack: { cover: "002.png", stickers: [stickers[0], { file: "003.png", emoji: "😀" }] },
+			},
+		});
+		expect(await readdir(server.packDir)).toEqual(["001.png", "002.png", "003.png", "pack.json"]);
+	});
+
+	it.each([
+		["a stale position", "/api/pack/sticker/1/001.png", WEBP, 404],
+		["a position that is not a number", "/api/pack/sticker/first/001.png", WEBP, 400],
+		["a file that is not an image", "/api/pack/sticker/0/001.png", Uint8Array.of(1, 2, 3), 415],
+		[
+			"an image over the size limit",
+			"/api/pack/sticker/0/001.png",
+			new Uint8Array(300 * 1024 + 1),
+			413,
+		],
+	])("refuses to replace a sticker's image given %s", async (_, path, body, status) => {
+		const server = await servePack();
+
+		expect(await server.send("PUT", path, body)).toMatchObject({ status });
+		expect(await readPack(server.packDir)).toEqual(PACK);
+		expect(await readdir(server.packDir)).toEqual(["001.png", "002.png", "pack.json"]);
+	});
+
 	it("sets a separate cover, replacing the previous one", async () => {
 		const server = await servePack();
 		await server.send("PUT", "/api/pack/cover", WEBP);
@@ -199,6 +244,9 @@ describe("pack editing", () => {
 		expect(await server.send("DELETE", "/api/pack/sticker/0/001.png")).toEqual({
 			status: 409,
 			body: { error: "Wait for the pull to finish" },
+		});
+		expect(await server.send("PUT", "/api/pack/sticker/0/001.png", WEBP)).toMatchObject({
+			status: 409,
 		});
 	});
 });

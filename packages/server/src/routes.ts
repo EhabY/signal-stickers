@@ -200,6 +200,7 @@ function packHandlers(
 	| "GET /api/pack/sticker/:file"
 	| "POST /api/pack/sticker"
 	| "DELETE /api/pack/sticker/:index/:file"
+	| "PUT /api/pack/sticker/:index/:file"
 	| "PUT /api/pack/cover"
 > {
 	const { workingCopy } = context;
@@ -221,6 +222,13 @@ function packHandlers(
 			const index = wholeNumberParam(request, "index");
 			assertEditable();
 			const pack = await workingCopy.removeSticker(index, routeParam(request, "file"));
+			return packResponse(pack, context);
+		},
+		"PUT /api/pack/sticker/:index/:file": async (request) => {
+			const index = wholeNumberParam(request, "index");
+			const image = await request.body(STICKER_LIMITS.maxBytes);
+			assertEditable();
+			const pack = await workingCopy.replaceSticker(index, routeParam(request, "file"), image);
 			return packResponse(pack, context);
 		},
 		"PUT /api/pack/cover": async (request) => {

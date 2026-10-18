@@ -12,6 +12,7 @@ import {
 	writePack,
 	type ImageFormat,
 	type Pack,
+	type PackSticker,
 } from "@signal-stickers/core";
 
 import { ApiError } from "./errors.ts";
@@ -32,6 +33,11 @@ export type WorkingCopy = Readonly<{
 	 * uses it.
 	 */
 	removeSticker(index: number, file: string): Promise<Pack>;
+	/**
+	 * Saves a PNG or WebP image under a new name as the image of the sticker at `index`, when its image
+	 * is `file`, and as the cover if that was `file`. Removes `file` unless the pack still uses it.
+	 */
+	replaceSticker(index: number, file: string, image: Uint8Array): Promise<Pack>;
 	/** Saves a PNG or WebP image as the separate cover, removing the previous separate cover. */
 	setCover(image: Uint8Array): Promise<Pack>;
 	/** Lets `fill` write a fresh sibling folder and swaps it in only when `fill` succeeds. */
@@ -49,6 +55,8 @@ export function createWorkingCopy(dir: string): WorkingCopy {
 		readImage: (file) => readImage(dir, file),
 		addSticker: (image) => serialize(() => addSticker(dir, image)),
 		removeSticker: (index, file) => serialize(() => removeSticker(dir, index, file)),
+		replaceSticker: (index, file, image) =>
+			serialize(() => replaceSticker(dir, index, file, image)),
 		setCover: (image) => serialize(() => setCover(dir, image)),
 		replace: (fill) => serialize(() => replaceFolder(dir, fill)),
 		whileLocked: serialize,
@@ -127,19 +135,49 @@ async function nextImageNumber(dir: string): Promise<string> {
 
 async function removeSticker(dir: string, index: number, file: string): Promise<Pack> {
 	const pack = await readWorkingPack(dir);
-	if (pack.stickers[index]?.file !== file) {
-		throw new ApiError(404, `${file} is not sticker ${index + 1} in the pack`);
-	}
+	stickerAt(pack, index, file);
 	const stickers = pack.stickers.toSpliced(index, 1);
 	const [first] = stickers;
 	const coverRemoved = pack.cover === file && !stickers.some((sticker) => sticker.file === file);
 	const cover = coverRemoved && first ? first.file : pack.cover;
-	const updated = { ...pack, cover, stickers };
-	await writePack(dir, updated);
-	if (!packImageFiles(updated).includes(file)) {
+	return writePackWithout(dir, { ...pack, cover, stickers }, file);
+}
+
+/** The sticker at `index`; a 404 unless its image is `file`, since the position may be stale. */
+function stickerAt(pack: Pack, index: number, file: string): PackSticker {
+	const sticker = pack.stickers[index];
+	if (sticker?.file !== file) {
+		throw new ApiError(404, `${file} is not sticker ${index + 1} in the pack`);
+	}
+	return sticker;
+}
+
+/** Writes `pack`, then removes the image `file` unless `pack` still uses it. */
+async function writePackWithout(dir: string, pack: Pack, file: string): Promise<Pack> {
+	await writePack(dir, pack);
+	if (!packImageFiles(pack).includes(file)) {
 		await rm(join(dir, file), { force: true });
 	}
-	return updated;
+	return pack;
+}
+
+async function replaceSticker(
+	dir: string,
+	index: number,
+	file: string,
+	image: Uint8Array,
+): Promise<Pack> {
+	const format = imageFormat(image);
+	const pack = await readWorkingPack(dir);
+	const sticker = stickerAt(pack, index, file);
+	const replacement = `${await nextImageNumber(dir)}.${format}`;
+	await writeFile(join(dir, replacement), image, { flag: "wx" });
+	const updated = {
+		...pack,
+		cover: pack.cover === file ? replacement : pack.cover,
+		stickers: pack.stickers.with(index, { ...sticker, file: replacement }),
+	};
+	return writePackWithout(dir, updated, file);
 }
 
 async function setCover(dir: string, image: Uint8Array): Promise<Pack> {
@@ -150,12 +188,7 @@ async function setCover(dir: string, image: Uint8Array): Promise<Pack> {
 		throw new ApiError(409, `A sticker uses ${file}, so the cover cannot replace it`);
 	}
 	await writeFile(join(dir, file), image);
-	const updated = { ...pack, cover: file };
-	await writePack(dir, updated);
-	if (!packImageFiles(updated).includes(pack.cover)) {
-		await rm(join(dir, pack.cover), { force: true });
-	}
-	return updated;
+	return writePackWithout(dir, { ...pack, cover: file }, pack.cover);
 }
 
 async function replaceFolder<T>(dir: string, fill: (staging: string) => Promise<T>): Promise<T> {
