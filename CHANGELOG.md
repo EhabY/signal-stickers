@@ -29,6 +29,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Convert an animated WebP already in the pack with one click
 - Keep editing the pack while images convert
 - Let stickers without an emoji through as a warning
+- Warn when pushing stickers without an emoji
 
 ### Fixed
 

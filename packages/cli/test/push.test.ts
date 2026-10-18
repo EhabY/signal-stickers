@@ -65,6 +65,44 @@ describe("push", () => {
 		expect(cdn.uploads).toHaveLength(pack.stickers.length + 1);
 	});
 
+	it("warns about stickers without an emoji before uploading them", async () => {
+		const { pack, images } = validPack();
+		const stickers = [{ file: "001.png" }, { file: "002.png", emoji: "😀" }];
+		const dir = await writePackFolder({ ...pack, stickers }, images);
+		const cdn = memoryCdn();
+
+		const { code, stderr } = await runCli(["push", dir], {
+			chat: fakeUploadChat(),
+			cdn,
+			credentialsStore: memoryCredentialsStore(CREDENTIALS),
+			pushPack: pushThroughCore,
+		});
+
+		expect(code).toBe(0);
+		expect(stderr).toMatch(
+			/^Pushing .+\nWarning: 001\.png has no emoji, so Signal won't suggest it while typing\nUploaded 1\/3\n/u,
+		);
+		expect(cdn.uploads).toHaveLength(stickers.length + 1);
+	});
+
+	it("shows the warnings next to the errors that refuse a push", async () => {
+		const { pack, images } = validPack();
+		const stickers = [{ file: "001.png" }, { file: "002.png", emoji: "😀" }];
+		const dir = await writePackFolder({ ...pack, title: "", stickers }, images);
+
+		const { code, stderr } = await runCli(["push", dir], {
+			chat: fakeUploadChat(),
+			cdn: memoryCdn(),
+			credentialsStore: memoryCredentialsStore(CREDENTIALS),
+			pushPack: pushThroughCore,
+		});
+
+		expect(code).toBe(1);
+		expect(stderr).toMatch(
+			/\nWarning: 001\.png has no emoji, so Signal won't suggest it while typing\nError: The pack is not ready to push:\n {2}- The pack needs a title\n$/u,
+		);
+	});
+
 	it("lists the problems core finds before uploading anything", async () => {
 		const { pack, images } = validPack();
 		const dir = await writePackFolder({ ...pack, title: "" }, images);

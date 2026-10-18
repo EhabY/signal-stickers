@@ -45,6 +45,11 @@ export async function push(
 		cdn: createCdn(env),
 		signal,
 		onProgress: progress.update,
+		onWarnings: (warnings) => {
+			for (const { message } of warnings) {
+				stderr.write(`Warning: ${message}\n`);
+			}
+		},
 	}).finally(progress.end);
 	stdout.write(`${link}\n`);
 	if (stdout.isTTY === true) {
