@@ -8,6 +8,8 @@ import type {
 	StatusResponse,
 } from "@signal-stickers/server/api";
 
+export type { PackResponse, StatusResponse };
+
 // Core's types, reached through the server's API so web depends only on that contract.
 export type Pack = PackResponse["pack"];
 export type PackSticker = Pack["stickers"][number];

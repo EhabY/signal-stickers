@@ -115,7 +115,9 @@
 	}
 
 	section {
+		width: 100%;
 		max-width: 48rem;
+		margin-inline: auto;
 	}
 
 	h2 {

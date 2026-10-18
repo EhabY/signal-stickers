@@ -209,22 +209,23 @@
 					still={unsupportedAnimation}
 					draggable="false"
 				/>
+				{#if isCover}
+					<span class="cover-badge">Cover</span>
+				{:else}
+					<button
+						type="button"
+						class="set-cover"
+						title="Use as cover"
+						aria-label="Use sticker {number} as the cover"
+						{disabled}
+						onclick={() => {
+							void setCover(index, sticker.file);
+						}}
+					>
+						<Icon name="cover" />
+					</button>
+				{/if}
 				<div class="controls">
-					{#if isCover}
-						<span class="cover-badge">Cover</span>
-					{:else}
-						<button
-							type="button"
-							class="set-cover"
-							aria-label="Use sticker {number} as the cover"
-							{disabled}
-							onclick={() => {
-								void setCover(index, sticker.file);
-							}}
-						>
-							Set as cover
-						</button>
-					{/if}
 					<button
 						type="button"
 						class="emoji"
@@ -389,25 +390,29 @@
 
 	.cover-badge,
 	.set-cover {
-		grid-column: 1 / -1;
-		display: grid;
-		place-items: center;
-		min-height: 32px;
-		padding: 0.25rem 0.5rem;
-		border-radius: 6px;
-		font-size: 0.8rem;
-		font-weight: 600;
+		position: absolute;
+		top: 0.5rem;
+		border-radius: 8px;
 	}
 
 	.cover-badge {
+		left: 0.5rem;
+		padding: 0.25rem 0.6rem;
 		background: var(--accent);
 		color: var(--accent-text);
+		font-size: 0.75rem;
+		font-weight: 600;
 	}
 
 	.set-cover {
-		border: 1px solid var(--accent);
+		right: 0.5rem;
+		display: grid;
+		place-items: center;
+		width: 32px;
+		min-height: 32px;
+		padding: 0;
 		background: var(--surface);
-		color: var(--accent);
+		color: var(--text-muted);
 	}
 
 	.set-cover:hover:not(:disabled) {

@@ -1,12 +1,18 @@
 <script lang="ts">
-	import type { PackResponse, StatusResponse } from "@signal-stickers/server/api";
 	import { onMount, tick } from "svelte";
 
 	import AccountView from "./components/AccountView.svelte";
 	import Editor from "./components/Editor.svelte";
 	import ImportView from "./components/ImportView.svelte";
 	import PublishView from "./components/PublishView.svelte";
-	import { createApi, errorMessage, type Api } from "./lib/api.ts";
+	import ThemeSwitch from "./components/ThemeSwitch.svelte";
+	import {
+		createApi,
+		errorMessage,
+		type Api,
+		type PackResponse,
+		type StatusResponse,
+	} from "./lib/api.ts";
 	import { connectEvents, LiveProgress, type ConnectEvents } from "./lib/events.svelte.ts";
 	import {
 		PackSession,
@@ -108,10 +114,13 @@
 
 <header>
 	<div class="brand">
-		<h1>Signal Stickers</h1>
-		{#if status}
-			<span class="env" class:staging={status.env === "staging"}>Signal {status.env}</span>
-		{/if}
+		<img class="app-mark" src="/favicon.svg" alt="" width="36" height="36" />
+		<div class="brand-name">
+			<h1>Signal Stickers</h1>
+			{#if status}
+				<span class="env" class:staging={status.env === "staging"}>Signal {status.env}</span>
+			{/if}
+		</div>
 	</div>
 	{#if status}
 		<nav aria-label="Sections">
@@ -128,6 +137,7 @@
 			{/each}
 		</nav>
 	{/if}
+	<div class="theme-control"><ThemeSwitch /></div>
 </header>
 
 <main id="main" tabindex="-1">
@@ -214,8 +224,8 @@
 
 <style>
 	header {
-		display: flex;
-		flex-wrap: wrap;
+		display: grid;
+		grid-template-columns: auto 1fr auto;
 		gap: 0.75rem 1.5rem;
 		justify-content: space-between;
 		align-items: center;
@@ -229,6 +239,21 @@
 		flex-wrap: wrap;
 		gap: 0.75rem;
 		align-items: center;
+	}
+
+	.app-mark {
+		flex: none;
+	}
+
+	.brand-name {
+		display: grid;
+		justify-items: start;
+		gap: 0.25rem;
+	}
+
+	.theme-control {
+		grid-column: 3;
+		justify-self: end;
 	}
 
 	h1 {
@@ -251,6 +276,7 @@
 	}
 
 	nav {
+		justify-self: end;
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.25rem;
@@ -305,8 +331,32 @@
 		display: none;
 	}
 
-	@media (max-width: 560px) {
+	@media (max-width: 760px) {
+		header {
+			grid-template-columns: minmax(0, 1fr) auto;
+			gap: 0.75rem;
+		}
+
+		.brand {
+			flex-wrap: nowrap;
+			gap: 0.5rem;
+		}
+
+		h1 {
+			font-size: 1.05rem;
+		}
+
+		.env {
+			font-size: 0.75rem;
+		}
+
+		.theme-control {
+			grid-column: 2;
+			grid-row: 1;
+		}
+
 		nav {
+			grid-column: 1 / -1;
 			width: 100%;
 		}
 

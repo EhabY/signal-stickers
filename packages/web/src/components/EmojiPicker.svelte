@@ -79,6 +79,17 @@
 	}
 
 	emoji-picker {
+		color-scheme: inherit;
+		--background: var(--surface);
+		--border-color: var(--border);
+		--input-border-color: var(--control-border);
+		--input-font-color: var(--text);
+		--input-placeholder-color: var(--text-muted);
+		--category-font-color: var(--text);
+		--outline-color: var(--focus);
+		--indicator-color: var(--accent);
+		--button-active-background: var(--accent-soft);
+		--button-hover-background: var(--surface-muted);
 		width: min(352px, 80vw);
 		height: min(420px, 65vh);
 	}

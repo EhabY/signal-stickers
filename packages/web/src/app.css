@@ -1,23 +1,23 @@
 :root {
 	color-scheme: light dark;
-	--bg: #f4f6fa;
-	--surface: #ffffff;
-	--surface-muted: #eef0f3;
-	--text: #1b1b1d;
-	--text-muted: #5e6066;
-	--border: #d8dadf;
-	--control-border: #858b98;
-	--accent: #245dcc;
-	--accent-text: #ffffff;
-	--accent-soft: #e3ecfd;
-	--danger: #c4232f;
-	--danger-soft: #fdecee;
-	--warning: #8a5a00;
-	--warning-soft: #fff4d6;
-	--success: #1b7f3b;
-	--focus: #2c6bed;
+	--bg: light-dark(#f4f6fa, #121214);
+	--surface: light-dark(#ffffff, #1d1d20);
+	--surface-muted: light-dark(#eef0f3, #2a2a2e);
+	--text: light-dark(#1b1b1d, #e9e9eb);
+	--text-muted: light-dark(#5e6066, #a3a4a9);
+	--border: light-dark(#d8dadf, #3a3a3f);
+	--control-border: light-dark(#858b98, #737b8b);
+	--accent: light-dark(#245dcc, #6b9cff);
+	--accent-text: light-dark(#ffffff, #0b1530);
+	--accent-soft: light-dark(#e3ecfd, #1d2a47);
+	--danger: light-dark(#c4232f, #ff7b84);
+	--danger-soft: light-dark(#fdecee, #3a1c1f);
+	--warning: light-dark(#8a5a00, #ffcf66);
+	--warning-soft: light-dark(#fff4d6, #3a2f14);
+	--success: light-dark(#1b7f3b, #6fd28f);
+	--focus: light-dark(#2c6bed, #8fb4ff);
 	--radius: 16px;
-	--shadow: 0 2px 8px rgb(25 40 70 / 4%);
+	--shadow: 0 2px 8px light-dark(rgb(25 40 70 / 4%), rgb(0 0 0 / 20%));
 
 	font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 	line-height: 1.5;
@@ -25,26 +25,12 @@
 	background: var(--bg);
 }
 
-@media (prefers-color-scheme: dark) {
-	:root {
-		--bg: #121214;
-		--surface: #1d1d20;
-		--surface-muted: #2a2a2e;
-		--text: #e9e9eb;
-		--text-muted: #a3a4a9;
-		--border: #3a3a3f;
-		--control-border: #737b8b;
-		--accent: #6b9cff;
-		--accent-text: #0b1530;
-		--accent-soft: #1d2a47;
-		--danger: #ff7b84;
-		--danger-soft: #3a1c1f;
-		--warning: #ffcf66;
-		--warning-soft: #3a2f14;
-		--success: #6fd28f;
-		--focus: #8fb4ff;
-		--shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 4px 16px rgb(0 0 0 / 30%);
-	}
+:root[data-theme="light"] {
+	color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+	color-scheme: dark;
 }
 
 *,
@@ -80,7 +66,8 @@ a {
 }
 
 button,
-input {
+input,
+select {
 	font: inherit;
 	color: inherit;
 }

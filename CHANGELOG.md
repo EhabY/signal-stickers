@@ -32,6 +32,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Warn when pushing stickers without an emoji
 - Mark stickers without an emoji as a warning that allows publishing
 - Say what size, frame rate, and file size a conversion made
+- Add theme choice and polish the pack editor
 
 ### Changed
 

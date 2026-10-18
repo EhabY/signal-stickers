@@ -127,7 +127,9 @@
 
 <style>
 	section {
+		width: 100%;
 		max-width: 48rem;
+		margin-inline: auto;
 		display: grid;
 		gap: 0.75rem;
 		justify-items: start;

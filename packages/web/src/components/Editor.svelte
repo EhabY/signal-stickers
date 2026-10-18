@@ -129,41 +129,43 @@
 	<WarningNotes {warnings} />
 
 	<div class="details panel">
-		<div class="field">
-			<label for="{id}-title">Title</label>
-			<input
-				id="{id}-title"
-				type="text"
-				value={pack.title}
-				{disabled}
-				aria-invalid={titleIssues.length > 0}
-				aria-describedby={titleIssues.length > 0 ? `${id}-title-issues` : undefined}
-				oninput={(event) => {
-					onchange({ ...pack, title: event.currentTarget.value });
-				}}
-			/>
-			{#if titleIssues.length > 0}
-				<IssueList issues={titleIssues} id="{id}-title-issues" />
-			{/if}
+		<div class="pack-fields">
+			<div class="field">
+				<label for="{id}-title">Title</label>
+				<input
+					id="{id}-title"
+					type="text"
+					value={pack.title}
+					{disabled}
+					aria-invalid={titleIssues.length > 0}
+					aria-describedby={titleIssues.length > 0 ? `${id}-title-issues` : undefined}
+					oninput={(event) => {
+						onchange({ ...pack, title: event.currentTarget.value });
+					}}
+				/>
+				{#if titleIssues.length > 0}
+					<IssueList issues={titleIssues} id="{id}-title-issues" />
+				{/if}
+			</div>
+			<div class="field">
+				<label for="{id}-author">Author</label>
+				<input
+					id="{id}-author"
+					type="text"
+					value={pack.author}
+					{disabled}
+					aria-invalid={authorIssues.length > 0}
+					aria-describedby={authorIssues.length > 0 ? `${id}-author-issues` : undefined}
+					oninput={(event) => {
+						onchange({ ...pack, author: event.currentTarget.value });
+					}}
+				/>
+				{#if authorIssues.length > 0}
+					<IssueList issues={authorIssues} id="{id}-author-issues" />
+				{/if}
+			</div>
 		</div>
-		<div class="field">
-			<label for="{id}-author">Author</label>
-			<input
-				id="{id}-author"
-				type="text"
-				value={pack.author}
-				{disabled}
-				aria-invalid={authorIssues.length > 0}
-				aria-describedby={authorIssues.length > 0 ? `${id}-author-issues` : undefined}
-				oninput={(event) => {
-					onchange({ ...pack, author: event.currentTarget.value });
-				}}
-			/>
-			{#if authorIssues.length > 0}
-				<IssueList issues={authorIssues} id="{id}-author-issues" />
-			{/if}
-		</div>
-		<div class="field" role="group" aria-labelledby="{id}-cover">
+		<div class="field cover-field" role="group" aria-labelledby="{id}-cover">
 			<span id="{id}-cover" class="label">Cover</span>
 			<div class="cover">
 				<PackImage
@@ -183,7 +185,7 @@
 							onchange={chooseCover}
 							bind:this={coverInput}
 						/>
-						{hasSeparateCover ? "Replace" : "Upload a separate cover"}
+						{hasSeparateCover ? "Replace image" : "Upload image"}
 					</label>
 					{#if hasSeparateCover}
 						{#if converting.includes(pack.cover)}
@@ -208,9 +210,7 @@
 							Use a sticker instead
 						</button>
 					{:else}
-						<span class="muted cover-hint"
-							>or choose <strong>Set as cover</strong> on a sticker</span
-						>
+						<span class="muted cover-hint">Choose the cover icon on a sticker to use it here.</span>
 					{/if}
 				</div>
 			</div>
@@ -240,12 +240,15 @@
 		</label>
 	</div>
 
-	<p class="muted image-hint">
-		Images are fitted to {limits.size}&times;{limits.size} under {Math.floor(
-			limits.maxBytes / 1024,
-		)}
-		KiB; PNG and WebP that already fit are kept. Animations become animated PNG.
-	</p>
+	<details class="image-help">
+		<summary>Image formats and limits</summary>
+		<p class="muted image-hint">
+			Images are fitted to {limits.size}&times;{limits.size} under {Math.floor(
+				limits.maxBytes / 1024,
+			)}
+			KiB; PNG and WebP that already fit are kept. Animations become animated PNG.
+		</p>
+	</details>
 
 	<StickerGrid
 		{pack}
@@ -298,9 +301,14 @@
 
 	.details {
 		display: grid;
-		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+		grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
 		gap: 1rem 1.25rem;
-		align-items: start;
+		align-items: center;
+	}
+
+	.pack-fields {
+		display: grid;
+		gap: 1.25rem;
 	}
 
 	.field {
@@ -312,21 +320,23 @@
 		font-weight: 600;
 	}
 
-	.field[role="group"] {
-		grid-column: 1 / -1;
-		padding-top: 1rem;
-		border-top: 1px solid var(--border);
+	.cover-field {
+		justify-items: center;
+		text-align: center;
+		padding-left: 1.5rem;
+		border-left: 1px solid var(--border);
 	}
 
 	.cover {
-		display: flex;
+		display: grid;
 		gap: 0.75rem;
-		align-items: center;
+		justify-items: center;
 	}
 
 	.cover :global(img) {
-		width: 64px;
-		height: 64px;
+		width: 96px;
+		height: 96px;
+		padding: 0.5rem;
 		object-fit: contain;
 		border: 1px solid var(--border);
 		border-radius: 10px;
@@ -336,7 +346,7 @@
 	.cover-actions {
 		display: grid;
 		gap: 0.3rem;
-		justify-items: start;
+		justify-items: center;
 	}
 
 	.cover-hint,
@@ -385,7 +395,13 @@
 	}
 
 	.image-hint {
-		margin: -0.5rem 0 0;
+		margin: 0.5rem 0 0;
+	}
+
+	.image-help summary {
+		cursor: pointer;
+		color: var(--text-muted);
+		font-size: 0.85rem;
 	}
 
 	.file-button {
@@ -433,6 +449,12 @@
 	@media (max-width: 760px) {
 		.details {
 			grid-template-columns: 1fr;
+		}
+
+		.cover-field {
+			padding: 1.25rem 0 0;
+			border-left: 0;
+			border-top: 1px solid var(--border);
 		}
 	}
 </style>
