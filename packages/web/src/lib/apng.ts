@@ -128,8 +128,24 @@ const MAX_APNG_DELAY_MS = 0xffff;
  */
 export const encodeApng: ApngEncoder = (frames, size, colors, durations) => {
 	const delays = durations.map((duration) => Math.min(Math.round(duration), MAX_APNG_DELAY_MS));
-	return new Uint8Array(UPNG.encode(frames, size, size, colors, delays));
+	// UPNG takes seconds to quantize large areas of one color. Frames with fewer colors than the
+	// palette holds need no quantizing: 0 keeps them all, plus transparent black.
+	const quantized = hasMoreColors(frames, colors - 1) ? colors : 0;
+	return new Uint8Array(UPNG.encode(frames, size, size, quantized, delays));
 };
+
+function hasMoreColors(frames: readonly ArrayBuffer[], count: number): boolean {
+	const seen = new Set<number>();
+	for (const frame of frames) {
+		for (const color of new Uint32Array(frame)) {
+			seen.add(color);
+			if (seen.size > count) {
+				return true;
+			}
+		}
+	}
+	return false;
+}
 
 /** Encodes `frames` at `size` with `colors`, resolving the result only if it fits. */
 type EncodeFitting<T> = (

@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
+import UPNG from "upng-js";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { isReadyApng } from "../../src/lib/animatedImage.ts";
 import {
@@ -255,5 +256,20 @@ describe("encodeApng", () => {
 		const apng = encodeApng([solidFrame(1, 32), solidFrame(2, 32)], 32, 64, [100, 100]);
 
 		expect(decodeApng(apng).plays).toBe(0);
+	});
+
+	it.each([
+		["keeps every color of frames with fewer than allowed", solidFrame, 0],
+		["quantizes frames with more colors than allowed", noiseFrame, 64],
+	])("%s", (_, draw, quantized) => {
+		const encode = vi.spyOn(UPNG, "encode");
+		onTestFinished(() => {
+			encode.mockRestore();
+		});
+		const pixels = [draw(1, 32), draw(2, 32)];
+
+		encodeApng(pixels, 32, 64, [100, 100]);
+
+		expect(encode).toHaveBeenCalledWith(pixels, 32, 32, quantized, [100, 100]);
 	});
 });

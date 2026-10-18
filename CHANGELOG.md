@@ -33,6 +33,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Mark stickers without an emoji as a warning that allows publishing
 - Say what size, frame rate, and file size a conversion made
 
+### Changed
+
+- Convert flat-color animations many times faster
+
 ### Fixed
 
 - Keep saved credentials private to your Windows user on every setup
