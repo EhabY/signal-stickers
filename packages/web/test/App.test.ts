@@ -1,38 +1,12 @@
-import type { PackResponse, ServerEvent } from "@signal-stickers/server/api";
-import { fireEvent, render, screen } from "@testing-library/svelte";
+import type { PackResponse } from "@signal-stickers/server/api";
+import { fireEvent, screen } from "@testing-library/svelte";
 import { describe, expect, it, vi } from "vitest";
 
-import App from "../src/App.svelte";
 import { ApiError } from "../src/lib/api.ts";
-import { encodeWithinLimit, type StickerEncoder } from "../src/lib/stickerImage.ts";
-import { encodeUntilAborted } from "./support/animation.ts";
-import {
-	CATS,
-	fakeApi,
-	LIMITS,
-	LINKED,
-	linkUntilAborted,
-	packResponse,
-	QR_URL,
-} from "./support/api.ts";
+import { CATS, fakeApi, LINKED, linkUntilAborted, packResponse, QR_URL } from "./support/api.ts";
+import { renderApp } from "./support/app.ts";
 
 const LINK = "https://signal.art/addstickers/#pack_id=abc&pack_key=def";
-
-function renderApp(
-	api = fakeApi(),
-	encode: StickerEncoder = vi.fn<StickerEncoder>((image) => Promise.resolve(image)),
-) {
-	const events: { send?: (event: ServerEvent) => void } = {};
-	render(App, {
-		api,
-		encode,
-		connect: (onEvent: (event: ServerEvent) => void) => {
-			events.send = onEvent;
-			return vi.fn<() => void>();
-		},
-	});
-	return { api, events };
-}
 
 describe("App", () => {
 	it("opens the editor on the server's working copy", async () => {
@@ -112,6 +86,32 @@ describe("App", () => {
 		});
 	});
 
+	it("moves focus to the sticker left after removing two before the first answer", async () => {
+		const api = fakeApi();
+		api.getPack.mockResolvedValue(packResponse());
+		const firstAnswer = Promise.withResolvers<PackResponse>();
+		api.removeSticker
+			.mockReturnValueOnce(firstAnswer.promise)
+			.mockResolvedValueOnce(packResponse({ ...CATS, stickers: CATS.stickers.slice(0, 1) }));
+		renderApp(api);
+		const removeThird = await screen.findByRole("button", { name: "Remove sticker 3" });
+		removeThird.focus();
+
+		await fireEvent.click(removeThird);
+		const removeSecond = screen.getByRole("button", { name: "Remove sticker 2" });
+		removeSecond.focus();
+		await fireEvent.click(removeSecond);
+		firstAnswer.resolve(packResponse({ ...CATS, stickers: CATS.stickers.slice(0, 2) }));
+
+		await vi.waitFor(() => {
+			expect(document.activeElement?.getAttribute("aria-label")).toBe("Remove sticker 1");
+		});
+		expect(api.removeSticker.mock.calls).toEqual([
+			[2, "003.webp"],
+			[1, "002.png"],
+		]);
+	});
+
 	it("moves focus to Add images after removing the only sticker", async () => {
 		const api = fakeApi();
 		const onlySticker = { ...CATS, stickers: CATS.stickers.slice(0, 1) };
@@ -153,88 +153,6 @@ describe("App", () => {
 			expect(document.activeElement?.getAttribute("aria-label")).toMatch(/ of sticker 2$/u);
 		});
 		expect(screen.getByAltText("Sticker 2 (cover)")).toBeTruthy();
-	});
-
-	it("explains when the browser cannot convert an added image to WebP", async () => {
-		const api = fakeApi();
-		api.getPack.mockResolvedValue(packResponse());
-		// Like Safari, whose canvas encodes PNG when asked for WebP.
-		const png = new Blob([new Uint8Array(LIMITS.maxBytes + 1)], { type: "image/png" });
-		renderApp(api, (_, limits) => encodeWithinLimit(() => Promise.resolve(png), limits));
-		const photo = new File(["jpeg"], "photo.jpg", { type: "image/jpeg" });
-
-		await fireEvent.change(await screen.findByLabelText("Add images"), {
-			target: { files: [photo] },
-		});
-
-		expect((await screen.findByRole("alert")).textContent).toContain(
-			"photo.jpg: This browser cannot convert images to WebP",
-		);
-		expect(api.addSticker).not.toHaveBeenCalled();
-	});
-
-	it("shows how far converting an added animation has got", async () => {
-		const api = fakeApi();
-		api.getPack.mockResolvedValue(packResponse());
-		const converted = Promise.withResolvers<Blob>();
-		renderApp(api, (_, __, options) => {
-			options?.onProgress?.({ step: "encode", size: 384, colors: 256, frames: 40 });
-			return converted.promise;
-		});
-		const animation = new File(["gif"], "cat.gif", { type: "image/gif" });
-
-		await fireEvent.change(await screen.findByLabelText("Add images"), {
-			target: { files: [animation] },
-		});
-		const status = (await screen.findByRole("status")).textContent;
-		converted.resolve(new Blob(["apng"], { type: "image/png" }));
-
-		expect(status).toContain(
-			"Converting cat.gif to an animated PNG: trying 384×384 pixels, 256 colors, 40 frames",
-		);
-		await vi.waitFor(() => {
-			expect(screen.queryByRole("status")).toBeNull();
-		});
-		expect(api.addSticker).toHaveBeenCalledOnce();
-	});
-
-	it("cancels converting an added animation", async () => {
-		const api = fakeApi();
-		api.getPack.mockResolvedValue(packResponse());
-		renderApp(api, (image, limits, options) => {
-			options?.onProgress?.({ step: "decode", done: 1, total: 40 });
-			return encodeUntilAborted(image, limits, options);
-		});
-		const animation = new File(["gif"], "cat.gif", { type: "image/gif" });
-
-		await fireEvent.change(await screen.findByLabelText("Add images"), {
-			target: { files: [animation] },
-		});
-		await fireEvent.click(await screen.findByRole("button", { name: "Cancel" }));
-
-		await vi.waitFor(() => {
-			expect(screen.queryByRole("status")).toBeNull();
-		});
-		expect(screen.queryByRole("alert")).toBeNull();
-		expect(api.addSticker).not.toHaveBeenCalled();
-	});
-
-	it("says which added animations became still images", async () => {
-		const api = fakeApi();
-		api.getPack.mockResolvedValue(packResponse());
-		renderApp(api, (image, _, options) => {
-			options?.onFlattened?.();
-			return Promise.resolve(image);
-		});
-		const animation = new File(["gif"], "cat.gif", { type: "image/gif" });
-
-		await fireEvent.change(await screen.findByLabelText("Add images"), {
-			target: { files: [animation] },
-		});
-
-		expect((await screen.findByRole("status")).textContent).toBe(
-			"This browser cannot convert animations, so these became still images: cat.gif. To keep them animated, add them in Chrome, Edge, or Firefox.",
-		);
 	});
 
 	it("keeps a running publish and its link when switching views", async () => {

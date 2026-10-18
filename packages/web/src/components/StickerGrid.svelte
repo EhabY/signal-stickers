@@ -2,6 +2,7 @@
 	import { tick } from "svelte";
 
 	import type { Pack, PackSticker, ValidationIssue } from "../lib/api.ts";
+	import { findSticker } from "../lib/packChanges.ts";
 	import { showsStill } from "../lib/stillImage.ts";
 	import EmojiPicker from "./EmojiPicker.svelte";
 	import Icon from "./Icon.svelte";
@@ -12,6 +13,8 @@
 		pack: Pack;
 		issues: readonly ValidationIssue[];
 		imageUrl: (file: string) => string;
+		/** The pack images being converted in place. */
+		converting?: readonly string[];
 		disabled?: boolean;
 		onchange: (pack: Pack) => void;
 		onremove: (index: number, file: string) => void;
@@ -25,6 +28,7 @@
 		pack,
 		issues,
 		imageUrl,
+		converting = [],
 		disabled = false,
 		onchange,
 		onremove,
@@ -32,28 +36,37 @@
 		onempty,
 	}: Props = $props();
 	const id = $props.id();
-	let dragFrom: number | undefined = $state();
+	let dragging: StickerAt | undefined = $state();
 	let dropAt: number | undefined = $state();
-	let pickingFor: number | undefined = $state();
+	let picking: StickerAt | undefined = $state();
 	let announcement = $state("");
 	let list: HTMLOListElement | undefined = $state();
-	let focusWhenEnabled: { index: number; control: Control } | undefined;
+	/** The removals not answered yet, the last one's index, and the pack's length when last seen. */
+	let removing: { count: number; index: number; length: number } | undefined;
+	// Answers may move the sticker the picker or a drag was started on.
+	const dragFrom = $derived(dragging && findSticker(pack, dragging.index, dragging.file));
+	const pickingFor = $derived(picking && findSticker(pack, picking.index, picking.file));
 
 	type Control = "emoji" | "earlier" | "later" | "remove";
+	type StickerAt = Readonly<{ index: number; file: string }>;
 
-	// Removing or converting disables the grid until the server answers; then focus the card now in
-	// that place.
+	// Removing the last card drops its focus once the server answers; focus the card now in its place.
 	$effect(() => {
-		if (disabled || focusWhenEnabled === undefined) {
+		const { length } = pack.stickers;
+		if (removing === undefined || length >= removing.length) {
 			return;
 		}
-		const { index, control } = focusWhenEnabled;
-		if (pack.stickers.length === 0) {
+		const count = removing.count - (removing.length - length);
+		const { index } = removing;
+		removing = count > 0 ? { count, index, length } : undefined;
+		if (!lostFocus()) {
+			return;
+		}
+		if (length === 0) {
 			onempty();
 		} else {
-			focusControl(Math.min(index, pack.stickers.length - 1), control);
+			focusControl(Math.min(index, length - 1), "remove");
 		}
-		focusWhenEnabled = undefined;
 	});
 
 	async function setCover(index: number, file: string): Promise<void> {
@@ -82,12 +95,13 @@
 	}
 
 	function remove(index: number, file: string): void {
-		focusWhenEnabled = { index, control: "remove" };
+		removing = { count: (removing?.count ?? 0) + 1, index, length: pack.stickers.length };
 		onremove(index, file);
 	}
 
+	/** Converting replaces the button with a note, so focus moves to the card's emoji. */
 	function convert(index: number, file: string): void {
-		focusWhenEnabled = { index, control: "emoji" };
+		focusControl(index, "emoji");
 		onconvert(index, file);
 	}
 
@@ -100,7 +114,7 @@
 
 	async function closePicker(): Promise<void> {
 		const index = pickingFor;
-		pickingFor = undefined;
+		picking = undefined;
 		await tick();
 		if (index !== undefined) {
 			focusControl(index, "emoji");
@@ -116,8 +130,13 @@
 		return false;
 	}
 
-	function startDrag(event: DragEvent, index: number): void {
-		dragFrom = index;
+	function lostFocus(): boolean {
+		const focused = document.activeElement;
+		return focused === null || focused === document.body || !focused.isConnected;
+	}
+
+	function startDrag(event: DragEvent, index: number, file: string): void {
+		dragging = { index, file };
 		if (event.dataTransfer) {
 			event.dataTransfer.effectAllowed = "move";
 			event.dataTransfer.setData("text/plain", String(index));
@@ -141,7 +160,7 @@
 	}
 
 	function endDrag(): void {
-		dragFrom = undefined;
+		dragging = undefined;
 		dropAt = undefined;
 	}
 
@@ -171,7 +190,7 @@
 			class:drop-target={dropAt === index && dragFrom !== index}
 			draggable={!disabled}
 			ondragstart={(event) => {
-				startDrag(event, index);
+				startDrag(event, index, sticker.file);
 			}}
 			ondragover={(event) => {
 				dragOver(event, index);
@@ -213,7 +232,7 @@
 					aria-haspopup="dialog"
 					title={sticker.emoji === undefined ? "Choose an emoji" : "Change the emoji"}
 					{disabled}
-					onclick={() => (pickingFor = index)}
+					onclick={() => (picking = { index, file: sticker.file })}
 				>
 					{sticker.emoji ?? "+"}
 				</button>
@@ -260,7 +279,9 @@
 			{#if stickerIssues.length > 0}
 				<IssueList issues={stickerIssues} id={issuesId(index)} />
 			{/if}
-			{#if unsupportedAnimation}
+			{#if converting.includes(sticker.file)}
+				<span class="converting muted">Converting…</span>
+			{:else if unsupportedAnimation}
 				<button
 					type="button"
 					class="convert"
@@ -454,6 +475,10 @@
 
 	.card :global(.issues) {
 		font-size: 0.8rem;
+	}
+
+	.converting {
+		font-size: 0.85rem;
 	}
 
 	.convert {

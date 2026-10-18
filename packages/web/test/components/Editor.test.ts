@@ -1,43 +1,13 @@
-import { fireEvent, render, screen, within } from "@testing-library/svelte";
+import { fireEvent, screen, within } from "@testing-library/svelte";
 import { describe, expect, it, vi } from "vitest";
 
-import Editor from "../../src/components/Editor.svelte";
-import type { Pack, ValidationIssue } from "../../src/lib/api.ts";
-import type { PackImageTarget } from "../../src/lib/packSession.svelte.ts";
-import { CATS, files, LIMITS } from "../support/api.ts";
+import { CATS, files } from "../support/api.ts";
 import { stubModalDialogs } from "../support/dialog.ts";
-import { DRAWN_URL, stubImageDrawing } from "../support/drawing.ts";
+import { renderEditor } from "../support/editor.ts";
 
 // The real picker fetches its emoji data from a CDN; tests drive the element's events instead.
 vi.mock("emoji-picker-element", () => ({}));
 stubModalDialogs();
-const drawing = stubImageDrawing();
-
-function animatedWebp(file: string): ValidationIssue {
-	return { code: "unsupportedAnimation", message: `${file} is an animated WebP`, file };
-}
-
-function renderEditor({
-	pack = CATS,
-	issues = [],
-}: { pack?: Pack; issues?: ValidationIssue[] } = {}) {
-	const onchange = vi.fn<(pack: Pack) => void>();
-	const onremove = vi.fn<(index: number, file: string) => void>();
-	const oncover = vi.fn<(image: File) => void>();
-	const onconvert = vi.fn<(targets: PackImageTarget[]) => void>();
-	const { rerender } = render(Editor, {
-		pack,
-		issues,
-		limits: LIMITS,
-		imageUrl: (file) => `/stickers/${file}`,
-		onchange,
-		onadd: vi.fn<(images: File[]) => void>(),
-		onremove,
-		oncover,
-		onconvert,
-	});
-	return { onremove, oncover, onconvert, rerender, changed: () => onchange.mock.lastCall?.[0] };
-}
 
 /** The text of what `aria-describedby` points at. */
 function description(element: HTMLElement): string | undefined {
@@ -49,16 +19,21 @@ function coverButton(number: number): HTMLElement {
 	return screen.getByRole("button", { name: `Use sticker ${number} as the cover` });
 }
 
-function imageSource(alt: string): string | null {
-	return screen.getByAltText(alt).getAttribute("src");
-}
-
 function stickerCards(): HTMLElement[] {
 	return within(screen.getByRole("list", { name: "Stickers" }))
 		.getAllByRole("img")
 		.map((image) => image.closest("li"))
 		.filter((card) => card !== null);
 }
+
+function pickEmoji(picker: HTMLElement, emoji: string): void {
+	picker
+		.querySelector("emoji-picker")!
+		.dispatchEvent(new CustomEvent("emoji-click", { detail: { unicode: emoji } }));
+}
+
+/** The server's answer to removing the first sticker of {@link CATS}. */
+const FIRST_REMOVED = { ...CATS, cover: "002.png", stickers: CATS.stickers.slice(1) };
 
 describe("Editor", () => {
 	it("reorders stickers by dragging one onto another", async () => {
@@ -70,6 +45,19 @@ describe("Editor", () => {
 		await fireEvent.drop(third!);
 
 		expect(files(changed()!)).toEqual(["002.png", "003.webp", "001.png"]);
+	});
+
+	it("drags the sticker picked up though a removal moves it", async () => {
+		const { changed, rerender } = renderEditor();
+		const [, , third] = stickerCards();
+
+		await fireEvent.dragStart(third!);
+		await rerender({ pack: FIRST_REMOVED });
+		const [first] = stickerCards();
+		await fireEvent.dragOver(first!);
+		await fireEvent.drop(first!);
+
+		expect(files(changed()!)).toEqual(["003.webp", "002.png"]);
 	});
 
 	it("shows stickers that share an image", () => {
@@ -102,15 +90,25 @@ describe("Editor", () => {
 		const { changed } = renderEditor();
 
 		await fireEvent.click(screen.getByRole("button", { name: "Choose an emoji for sticker 3" }));
-		const picker = screen.getByRole("dialog", { name: "Emoji for sticker 3" });
-		picker
-			.querySelector("emoji-picker")!
-			.dispatchEvent(new CustomEvent("emoji-click", { detail: { unicode: "🐱" } }));
+		pickEmoji(screen.getByRole("dialog", { name: "Emoji for sticker 3" }), "🐱");
 
 		expect(changed()!.stickers[2]).toEqual({ file: "003.webp", emoji: "🐱" });
 		await vi.waitFor(() => {
 			expect(screen.queryByRole("dialog")).toBeNull();
 		});
+	});
+
+	it("assigns the emoji to the sticker the picker opened for though a removal moves it", async () => {
+		const { changed, rerender } = renderEditor();
+
+		await fireEvent.click(screen.getByRole("button", { name: "Choose an emoji for sticker 3" }));
+		await rerender({ pack: FIRST_REMOVED });
+		pickEmoji(screen.getByRole("dialog", { name: "Emoji for sticker 2" }), "🐱");
+
+		expect(changed()!.stickers).toEqual([
+			{ file: "002.png", emoji: "😺" },
+			{ file: "003.webp", emoji: "🐱" },
+		]);
 	});
 
 	it("opens the picker as a modal dialog that Escape closes", async () => {
@@ -190,103 +188,6 @@ describe("Editor", () => {
 		expect(description(title)).toBe("Give the pack a title");
 		expect(description(third!)).toBe("003.webp needs an emoji");
 		expect(description(first!)).toBeUndefined();
-	});
-
-	it("shows only the first frame of an animation Signal does not animate", async () => {
-		renderEditor({ issues: [animatedWebp("001.png")] });
-
-		await vi.waitFor(() => {
-			expect(imageSource("Sticker 1 (cover)")).toBe(DRAWN_URL);
-			expect(imageSource("Current cover")).toBe(DRAWN_URL);
-		});
-		expect(drawing.fetchImage).toHaveBeenCalledWith("/stickers/001.png", expect.anything());
-		expect(imageSource("Sticker 2")).toBe("/stickers/002.png");
-	});
-
-	it("revokes the first frame once it is no longer shown", async () => {
-		const { rerender } = renderEditor({ issues: [animatedWebp("001.png")] });
-		await vi.waitFor(() => {
-			expect(imageSource("Current cover")).toBe(DRAWN_URL);
-		});
-
-		await rerender({ issues: [] });
-
-		expect(imageSource("Current cover")).toBe("/stickers/001.png");
-		await vi.waitFor(() => {
-			expect(drawing.revokeObjectURL.mock.calls).toEqual([[DRAWN_URL], [DRAWN_URL]]);
-		});
-	});
-
-	it("shows the image as it is when its first frame cannot be drawn", async () => {
-		drawing.decodeImage.mockRejectedValueOnce(new Error("Cannot decode"));
-
-		renderEditor({ pack: { ...CATS, cover: "cover.webp" }, issues: [animatedWebp("cover.webp")] });
-
-		await vi.waitFor(() => {
-			expect(imageSource("Current cover")).toBe("/stickers/cover.webp");
-		});
-	});
-
-	it("converts the sticker clicked, though another shares its image, from its card", async () => {
-		const stickers = CATS.stickers.with(1, { file: "003.webp" });
-		const { onconvert } = renderEditor({
-			pack: { ...CATS, stickers },
-			issues: [animatedWebp("003.webp")],
-		});
-
-		await fireEvent.click(
-			screen.getByRole("button", { name: "Convert sticker 3 to an animated PNG" }),
-		);
-
-		expect(onconvert).toHaveBeenCalledWith([{ index: 2, file: "003.webp" }]);
-		expect(screen.getAllByRole("button", { name: /^Convert sticker/u })).toHaveLength(2);
-	});
-
-	it("converts a separate cover Signal would not animate", async () => {
-		const { onconvert } = renderEditor({
-			pack: { ...CATS, cover: "cover.webp" },
-			issues: [animatedWebp("cover.webp")],
-		});
-
-		await fireEvent.click(
-			screen.getByRole("button", { name: "Convert the cover to an animated PNG" }),
-		);
-
-		expect(onconvert).toHaveBeenCalledWith([{ file: "cover.webp" }]);
-	});
-
-	it("converts every animation Signal would not animate at once", async () => {
-		const { onconvert } = renderEditor({
-			pack: { ...CATS, cover: "cover.webp" },
-			issues: [animatedWebp("001.png"), animatedWebp("003.webp"), animatedWebp("cover.webp")],
-		});
-
-		await fireEvent.click(screen.getByRole("button", { name: "Convert all to animated PNG" }));
-
-		expect(onconvert).toHaveBeenCalledWith([
-			{ index: 0, file: "001.png" },
-			{ index: 2, file: "003.webp" },
-			{ file: "cover.webp" },
-		]);
-	});
-
-	it.each([
-		["sticker 3", () => screen.getByRole("button", { name: "Choose an emoji for sticker 3" })],
-		["the cover", () => screen.getByLabelText("Replace the cover image")],
-		["all", () => screen.getByText("Ready to publish.")],
-	])("keeps focus nearby once converting %s is done", async (target, focused) => {
-		const { rerender } = renderEditor({
-			pack: { ...CATS, cover: "cover.webp" },
-			issues: [animatedWebp("003.webp"), animatedWebp("cover.webp")],
-		});
-
-		await fireEvent.click(
-			screen.getByRole("button", { name: new RegExp(`^Convert ${target}`, "u") }),
-		);
-		await rerender({ disabled: true });
-		await rerender({ disabled: false, issues: [] });
-
-		expect(document.activeElement).toBe(focused());
 	});
 
 	it("says the pack is ready when nothing needs fixing", () => {

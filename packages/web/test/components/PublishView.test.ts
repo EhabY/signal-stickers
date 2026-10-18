@@ -8,16 +8,16 @@ import { ApiError, type ValidationIssue } from "../../src/lib/api.ts";
 import { LiveProgress } from "../../src/lib/events.svelte.ts";
 import { PackSession } from "../../src/lib/packSession.svelte.ts";
 import type { StickerEncoder } from "../../src/lib/stickerImage.ts";
-import { CATS, fakeApi, LINKED, packResponse, UNLINKED } from "../support/api.ts";
+import { CATS, fakeApi, LIMITS, LINKED, packResponse, UNLINKED } from "../support/api.ts";
 
 type PublishOptions = { status?: StatusResponse; issues?: readonly ValidationIssue[] };
 
 function renderPublish({ status = LINKED, issues = [] }: PublishOptions = {}) {
 	const api = fakeApi();
-	const session = new PackSession(api, vi.fn<StickerEncoder>());
+	const encode = vi.fn<StickerEncoder>();
+	const session = new PackSession(api, encode);
 	session.load(packResponse(CATS, issues));
 	render(PublishView, {
-		api,
 		status,
 		session,
 		progress: new LiveProgress(),
@@ -26,6 +26,7 @@ function renderPublish({ status = LINKED, issues = [] }: PublishOptions = {}) {
 	return {
 		api,
 		session,
+		encode,
 		publish: screen.getByRole("button", { name: "Publish to Signal production" }),
 	};
 }
@@ -63,6 +64,22 @@ describe("PublishView", () => {
 		const { publish } = renderPublish(options);
 
 		expect(publish).toHaveProperty("disabled", true);
+	});
+
+	it("waits for the images being converted before publishing", async () => {
+		const { session, encode, publish } = renderPublish();
+		const converted = Promise.withResolvers<Blob>();
+		encode.mockReturnValue(converted.promise);
+
+		const adding = session.add([new File(["gif"], "cat.gif")], LIMITS);
+		await tick();
+		expect(publish).toHaveProperty("disabled", true);
+		expect(screen.getByText(/^Publishing waits/u)).toBeTruthy();
+		converted.resolve(new Blob(["webp"]));
+		await adding;
+		await tick();
+
+		expect(publish).toHaveProperty("disabled", false);
 	});
 
 	it("shows why the server refused the pack", async () => {

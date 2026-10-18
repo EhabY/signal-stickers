@@ -14,6 +14,8 @@
 		issues: readonly ValidationIssue[];
 		limits: StickerLimits;
 		imageUrl: (file: string) => string;
+		/** The pack images being converted in place. */
+		converting?: readonly string[];
 		disabled?: boolean;
 		onchange: (pack: Pack) => void;
 		onadd: (images: File[]) => void;
@@ -28,6 +30,7 @@
 		issues,
 		limits,
 		imageUrl,
+		converting = [],
 		disabled = false,
 		onchange,
 		onadd,
@@ -39,25 +42,16 @@
 	const titleIssues = $derived(issues.filter(({ code }) => code === "missingTitle"));
 	const authorIssues = $derived(issues.filter(({ code }) => code === "missingAuthor"));
 	const hasSeparateCover = $derived(!pack.stickers.some(({ file }) => file === pack.cover));
-	const unsupportedAnimations: PackImageTarget[] = $derived([
-		...pack.stickers.flatMap(({ file }, index) =>
-			showsStill(issues, file) ? [{ index, file }] : [],
-		),
-		...(hasSeparateCover && showsStill(issues, pack.cover) ? [{ file: pack.cover }] : []),
-	]);
+	const convertible: PackImageTarget[] = $derived(
+		[
+			...pack.stickers.map(({ file }, index) => ({ index, file })),
+			...(hasSeparateCover ? [{ file: pack.cover }] : []),
+		].filter(({ file }) => showsStill(issues, file) && !converting.includes(file)),
+	);
 	const firstSticker = $derived(pack.stickers.at(0));
 	let coverInput: HTMLInputElement | undefined = $state();
 	let addInput: HTMLInputElement | undefined = $state();
 	let summaryStatus: HTMLElement | undefined = $state();
-	let focusWhenEnabled: "cover" | "summary" | undefined;
-
-	// Converting disables the editor and removes the Convert button clicked; focus what replaces it.
-	$effect(() => {
-		if (!disabled && focusWhenEnabled) {
-			(focusWhenEnabled === "cover" ? coverInput : summaryStatus)?.focus();
-			focusWhenEnabled = undefined;
-		}
-	});
 
 	type FileInputEvent = Event & { currentTarget: HTMLInputElement };
 
@@ -75,14 +69,15 @@
 		}
 	}
 
+	// Converting removes the Convert button clicked, so focus moves to what stays nearby.
 	function convertCover(): void {
-		focusWhenEnabled = "cover";
+		coverInput?.focus();
 		onconvert([{ file: pack.cover }]);
 	}
 
 	function convertAll(): void {
-		focusWhenEnabled = "summary";
-		onconvert(unsupportedAnimations);
+		summaryStatus?.focus();
+		onconvert(convertible);
 	}
 
 	async function useFirstStickerAsCover(): Promise<void> {
@@ -105,21 +100,24 @@
 <section class="editor" aria-labelledby="{id}-heading">
 	<h2 id="{id}-heading">Edit pack</h2>
 
-	{#if issues.length > 0}
-		<div class="summary">
-			<h3 tabindex="-1" bind:this={summaryStatus}>
+	<!-- One heading for both states, so it keeps focus when the last issue is fixed. -->
+	<div class={issues.length > 0 ? "summary" : "ready"}>
+		<h3 tabindex="-1" bind:this={summaryStatus}>
+			{#if issues.length > 0}
 				{issues.length === 1 ? "1 thing" : `${issues.length} things`} to fix before publishing
-			</h3>
+			{:else}
+				Ready to publish.
+			{/if}
+		</h3>
+		{#if issues.length > 0}
 			<IssueList {issues} />
-			{#if unsupportedAnimations.length > 1}
+			{#if convertible.length > 1}
 				<button type="button" class="convert-all" {disabled} onclick={convertAll}>
 					Convert all to animated PNG
 				</button>
 			{/if}
-		</div>
-	{:else}
-		<p class="ready" tabindex="-1" bind:this={summaryStatus}>Ready to publish.</p>
-	{/if}
+		{/if}
+	</div>
 
 	<div class="details panel">
 		<div class="field">
@@ -179,7 +177,9 @@
 						{hasSeparateCover ? "Replace" : "Upload a separate cover"}
 					</label>
 					{#if hasSeparateCover}
-						{#if showsStill(issues, pack.cover)}
+						{#if converting.includes(pack.cover)}
+							<span class="muted converting">Converting…</span>
+						{:else if showsStill(issues, pack.cover)}
 							<button
 								type="button"
 								class="link"
@@ -236,6 +236,7 @@
 		{pack}
 		{issues}
 		{imageUrl}
+		{converting}
 		{disabled}
 		{onchange}
 		{onremove}
@@ -262,19 +263,22 @@
 		background: var(--danger-soft);
 	}
 
-	.summary h3 {
+	.summary h3,
+	.ready h3 {
 		font-size: 1rem;
+	}
+
+	.summary h3 {
 		color: var(--danger);
+	}
+
+	.ready h3 {
+		margin: 0;
+		color: var(--success);
 	}
 
 	.convert-all {
 		margin-top: 0.6rem;
-	}
-
-	.ready {
-		margin: 0;
-		color: var(--success);
-		font-weight: 600;
 	}
 
 	.details {
@@ -314,7 +318,8 @@
 		justify-items: start;
 	}
 
-	.cover-hint {
+	.cover-hint,
+	.converting {
 		font-size: 0.85rem;
 	}
 

@@ -1,24 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import { PackSession } from "../../src/lib/packSession.svelte.ts";
-import type { StickerEncoder } from "../../src/lib/stickerImage.ts";
-import { encodeUntilAborted } from "../support/animation.ts";
-import { CATS, fakeApi, files, LIMITS, packResponse } from "../support/api.ts";
-
-const ADDED = { ...CATS, stickers: [...CATS.stickers, { file: "004.webp" }] };
-const DOGS = { ...CATS, title: "Dogs" };
-
-function images(...names: string[]): File[] {
-	return names.map((name) => new File(["gif"], name, { type: "image/gif" }));
-}
-
-function session() {
-	const api = fakeApi();
-	const encode = vi.fn<StickerEncoder>(() => Promise.resolve(new Blob(["webp"])));
-	const editing = new PackSession(api, encode);
-	editing.load(packResponse());
-	return { api, encode, editing };
-}
+import { CATS, files, LIMITS, packResponse } from "../support/api.ts";
+import { ADDED, images, session } from "../support/session.ts";
 
 describe("PackSession", () => {
 	it("saves quick edits once, with the latest pack and its issues", async () => {
@@ -90,7 +73,7 @@ describe("PackSession", () => {
 		expect(encode).toHaveBeenCalledWith(image, LIMITS, expect.any(Object));
 		expect(api.addSticker).toHaveBeenCalledWith(await encode.mock.results[0]!.value);
 		expect(files(editing.pack!)).toEqual(files(ADDED));
-		expect(editing.busy).toBe(false);
+		expect(editing.pending).toBe(false);
 	});
 
 	it("converts a cover image and makes it the separate cover", async () => {
@@ -137,25 +120,22 @@ describe("PackSession", () => {
 	it("converts every image it can and names the ones it cannot", async () => {
 		const { api, encode, editing } = session();
 		encode.mockRejectedValueOnce(new Error("The animation does not fit"));
-
-		api.replaceSticker
-			.mockResolvedValueOnce(packResponse())
-			.mockRejectedValueOnce(new Error("Gone"));
+		api.replaceSticker.mockRejectedValueOnce(new Error("Disk full"));
 
 		await editing.convertAnimations(
 			[
+				{ index: 0, file: "001.png" },
 				{ index: 1, file: "002.png" },
 				{ index: 2, file: "003.webp" },
-				{ index: 2, file: "gone.webp" },
 			],
 			LIMITS,
 		);
 
 		expect(api.replaceSticker.mock.calls.map(([index, file]) => [index, file])).toEqual([
+			[1, "002.png"],
 			[2, "003.webp"],
-			[2, "gone.webp"],
 		]);
-		expect(editing.error).toBe("002.png: The animation does not fit\ngone.webp: Gone");
+		expect(editing.error).toBe("001.png: The animation does not fit\n002.png: Disk full");
 	});
 
 	it("shows an animation's conversion until it is added", async () => {
@@ -164,14 +144,14 @@ describe("PackSession", () => {
 		const shown: unknown[] = [];
 		encode.mockImplementation((_, __, options) => {
 			options?.onProgress?.(progress);
-			shown.push(editing.conversion);
+			shown.push(editing.conversions.list);
 			return Promise.resolve(new Blob(["apng"]));
 		});
 
 		await editing.add(images("cat.gif"), LIMITS);
 
-		expect(shown).toEqual([{ file: "cat.gif", progress }]);
-		expect(editing.conversion).toBeUndefined();
+		expect(shown).toEqual([[{ id: 0, file: "cat.gif", inPlace: false, waiting: false, progress }]]);
+		expect(editing.conversions.list).toEqual([]);
 	});
 
 	it("adds the images it can and names the ones it cannot", async () => {
@@ -199,56 +179,5 @@ describe("PackSession", () => {
 		await editing.add(images("cat.gif", "dog.gif"), LIMITS);
 
 		expect(editing.flattened).toEqual(["cat.gif", "dog.gif"]);
-	});
-
-	it("stops converting and adding images when canceled", async () => {
-		const { api, encode, editing } = session();
-		encode.mockImplementation(encodeUntilAborted);
-
-		const adding = editing.add(images("cat.gif", "dog.gif"), LIMITS);
-		await vi.waitFor(() => {
-			expect(encode).toHaveBeenCalledOnce();
-		});
-		editing.cancel();
-		await adding;
-
-		expect(encode).toHaveBeenCalledOnce();
-		expect(api.addSticker).not.toHaveBeenCalled();
-		expect([editing.error, editing.conversion, editing.busy]).toEqual([
-			undefined,
-			undefined,
-			false,
-		]);
-	});
-
-	it("stops converting when another pack loads", async () => {
-		const { api, encode, editing } = session();
-		encode.mockImplementation(encodeUntilAborted);
-
-		const adding = editing.add(images("cat.gif"), LIMITS);
-		await vi.waitFor(() => {
-			expect(encode).toHaveBeenCalledOnce();
-		});
-		editing.load(packResponse(DOGS));
-		await adding;
-
-		expect(api.addSticker).not.toHaveBeenCalled();
-		expect([editing.pack, editing.error]).toEqual([DOGS, undefined]);
-	});
-
-	it("ignores the answer to an add that was sent before another pack loaded", async () => {
-		const { api, editing } = session();
-		const added = Promise.withResolvers<Awaited<ReturnType<typeof api.addSticker>>>();
-		api.addSticker.mockReturnValue(added.promise);
-
-		const adding = editing.add(images("cat.gif"), LIMITS);
-		await vi.waitFor(() => {
-			expect(api.addSticker).toHaveBeenCalledOnce();
-		});
-		editing.load(packResponse(DOGS));
-		added.resolve({ ...packResponse(ADDED), file: "004.webp" });
-		await adding;
-
-		expect(editing.pack).toEqual(DOGS);
 	});
 });

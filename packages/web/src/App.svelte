@@ -53,11 +53,18 @@
 
 	function showPulled(response: PackResponse): void {
 		session.load(response);
+		showEditor();
+	}
+
+	function showEditor(): void {
 		packError = undefined;
 		view = "edit";
 	}
 
-	function describeConversion({ file, progress: stage }: Conversion): string {
+	function describeConversion({ file, waiting, progress: stage }: Conversion): string {
+		if (stage === undefined) {
+			return waiting ? `Waiting to convert ${file}` : `Converting ${file}`;
+		}
 		const step =
 			stage.step === "decode"
 				? `reading frame ${stage.done} of ${stage.total}`
@@ -107,7 +114,7 @@
 			{#if packError !== undefined}
 				<p class="alert" role="alert">{packError}</p>
 			{/if}
-			<ImportView {api} {progress} packTitle={session.pack?.title} onpulled={showPulled} />
+			<ImportView {session} {progress} onpulled={showEditor} />
 		</div>
 		{#if session.pack}
 			{@const limits = status.limits}
@@ -118,12 +125,20 @@
 				{#if session.error !== undefined}
 					<p class="alert" role="alert">{session.error}</p>
 				{/if}
-				{#if session.conversion}
+				{#each session.conversions.list as conversion (conversion.id)}
 					<p class="conversion muted" role="status">
-						{describeConversion(session.conversion)}
-						<button type="button" onclick={() => session.cancel()}>Cancel</button>
+						{describeConversion(conversion)}
+						<button
+							type="button"
+							aria-label="Cancel converting {conversion.file}"
+							onclick={() => {
+								session.conversions.cancel(conversion.id);
+							}}
+						>
+							Cancel
+						</button>
 					</p>
-				{/if}
+				{/each}
 				{#if session.flattened.length > 0}
 					<p class="warning" role="status">{describeFlattened(session.flattened)}</p>
 				{/if}
@@ -132,7 +147,8 @@
 					issues={session.issues}
 					{limits}
 					imageUrl={(file) => api.stickerUrl(file, session.imageVersion)}
-					disabled={session.busy}
+					converting={session.conversions.inPlace}
+					disabled={session.locked}
 					onchange={(pack) => {
 						session.edit(pack);
 					}}
@@ -151,7 +167,7 @@
 				/>
 			</div>
 			<div class="view" hidden={view !== "publish"}>
-				<PublishView {api} {status} {session} {progress} onaccount={() => (view = "account")} />
+				<PublishView {status} {session} {progress} onaccount={() => (view = "account")} />
 			</div>
 		{/if}
 		<div class="view" hidden={view !== "account"}>

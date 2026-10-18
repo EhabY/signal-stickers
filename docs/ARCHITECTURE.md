@@ -122,12 +122,17 @@ same place, with the same emoji, and as the cover if the old image was.
 
 The browser app talks to the server through a typed `fetch` client (`web/src/lib/api.ts`) and one
 WebSocket (`lib/events.svelte.ts`). `PackSession` (`lib/packSession.svelte.ts`) holds the pack being
-edited, shows edits at once, and saves them shortly after, in order. Every save returns the pack's
-validation issues, so the editor shows them live without duplicating Signal's rules. Added images
-are converted in the browser with a `<canvas>` (`lib/stickerImage.ts`): still PNG and WebP images
-that already fit are kept as they are; anything else becomes a 512x512 WebP within the size limit.
-Browsers without a WebP encoder, such as Safari, give back a lossless PNG instead, which is kept if
-it fits; otherwise the error says which images still work.
+edited, shows edits at once, and saves them shortly after. Every request that changes the pack
+(saves, adds, removals, in-place replacements, cover changes) waits its turn in one queue and goes
+out only after pending edits are saved, so the server has the pack as shown. Its answer becomes the
+shown pack, unless the pack was edited while the request was out; then the same change is made to
+the edited pack (`lib/packChanges.ts`), which is saved next. Only a pull or push, which the server
+will not overlap with edits, locks the editor; both run through the same queue. Every save returns
+the pack's validation issues, so the editor shows them live without duplicating Signal's rules.
+Added images are converted in the browser with a `<canvas>` (`lib/stickerImage.ts`): still PNG and
+WebP images that already fit are kept as they are; anything else becomes a 512x512 WebP within the
+size limit. Browsers without a WebP encoder, such as Safari, give back a lossless PNG instead, which
+is kept if it fits; otherwise the error says which images still work.
 
 Animations become APNG, the only animated format Signal shows. `lib/animatedImage.ts` reads the
 header: a GIF with more than one frame, a WebP with the `VP8X` animation flag and more than one
@@ -144,9 +149,18 @@ second, fourth, … frame is drawn. The worker posts progress, which the editor 
 `still` for a single frame, `unsupported` when the browser cannot decode the type, or an error. Like
 Signal's creator, the page draws a single frame, and a GIF or WebP the browser cannot decode, as a
 still WebP; such an APNG is refused. The protocol and the decoder interface live in
-`lib/animationConversion.ts`, so tests run it with a fake decoder. Canceling the conversion stops
-`PackSession`'s running add or cover change and terminates the worker; importing another pack does
-too, and also ignores the server's answer to a request already sent.
+`lib/animationConversion.ts`, so tests run it with a fake decoder.
+
+Conversions (`lib/conversions.svelte.ts`) run while the pack stays editable, each listed with its
+progress and a Cancel that terminates its worker. Images chosen together convert one after another;
+separate choices convert side by side. A finished conversion applies to the pack as it is then: an
+added image is appended, an in-place conversion finds its sticker by position and image and is
+dropped if that sticker was removed or replaced meanwhile, a converted cover applies only if the
+cover is still the image it replaces, and an uploaded cover applies unless another cover is chosen.
+A removal also finds its sticker by position and image, following an in-place replacement. Removing
+the sticker or choosing another cover cancels the conversion; importing another pack cancels them
+all and ignores answers to requests already sent. Publishing waits until no conversion or change is
+pending.
 
 The editor animates only what Signal animates. A pack image the server flags `unsupportedAnimation`
 (an animated WebP, from a pulled pack or the disk) shows only its first frame: `PackImage.svelte`

@@ -1,10 +1,11 @@
-import type { PackResponse } from "@signal-stickers/server/api";
 import { fireEvent, render, screen } from "@testing-library/svelte";
 import { describe, expect, it, vi } from "vitest";
 
 import ImportView from "../../src/components/ImportView.svelte";
 import { LiveProgress } from "../../src/lib/events.svelte.ts";
-import { fakeApi, packResponse } from "../support/api.ts";
+import { PackSession } from "../../src/lib/packSession.svelte.ts";
+import type { StickerEncoder } from "../../src/lib/stickerImage.ts";
+import { CATS, fakeApi, packResponse } from "../support/api.ts";
 import { stubModalDialogs } from "../support/dialog.ts";
 
 const LINK = "https://signal.art/addstickers/#pack_id=abc&pack_key=def";
@@ -13,22 +14,27 @@ stubModalDialogs();
 
 async function importLink(packTitle?: string) {
 	const api = fakeApi();
-	const onpulled = vi.fn<(response: PackResponse) => void>();
-	render(ImportView, { api, progress: new LiveProgress(), packTitle, onpulled });
+	const session = new PackSession(api, vi.fn<StickerEncoder>());
+	if (packTitle !== undefined) {
+		session.load(packResponse({ ...CATS, title: packTitle }));
+	}
+	const onpulled = vi.fn<() => void>();
+	render(ImportView, { session, progress: new LiveProgress(), onpulled });
 	await fireEvent.input(screen.getByLabelText("Sticker pack link"), { target: { value: LINK } });
 	await fireEvent.click(screen.getByRole("button", { name: "Import pack" }));
-	return { api, onpulled };
+	return { api, session, onpulled };
 }
 
 describe("ImportView", () => {
 	it("imports right away when no pack is being edited", async () => {
-		const { api, onpulled } = await importLink();
+		const { api, session, onpulled } = await importLink();
 
 		expect(screen.queryByRole("dialog")).toBeNull();
 		await vi.waitFor(() => {
-			expect(onpulled).toHaveBeenCalledWith(packResponse());
+			expect(onpulled).toHaveBeenCalledOnce();
 		});
 		expect(api.pull).toHaveBeenCalledWith(LINK);
+		expect(session.pack).toEqual(CATS);
 	});
 
 	it("asks before replacing the pack being edited", async () => {

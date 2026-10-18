@@ -1,21 +1,21 @@
 <script lang="ts">
-	import type { PackResponse } from "@signal-stickers/server/api";
 	import { tick } from "svelte";
 
-	import { errorMessage, type Api } from "../lib/api.ts";
+	import { errorMessage } from "../lib/api.ts";
 	import type { LiveProgress } from "../lib/events.svelte.ts";
+	import type { PackSession } from "../lib/packSession.svelte.ts";
 	import ConfirmDialog from "./ConfirmDialog.svelte";
 	import ProgressBar from "./ProgressBar.svelte";
 
 	type Props = {
-		api: Api;
+		/** The pack being edited, which importing replaces. */
+		session: PackSession;
 		progress: LiveProgress;
-		/** The title of the pack being edited, which importing replaces. */
-		packTitle: string | undefined;
-		onpulled: (response: PackResponse) => void;
+		onpulled: () => void;
 	};
 
-	let { api, progress, packTitle, onpulled }: Props = $props();
+	let { session, progress, onpulled }: Props = $props();
+	const packTitle = $derived(session.pack?.title);
 	let link = $state("");
 	let pulling = $state(false);
 	let confirming = $state(false);
@@ -43,7 +43,8 @@
 		progress.pull = undefined;
 		error = undefined;
 		try {
-			onpulled(await api.pull(link.trim()));
+			await session.pull(link.trim());
+			onpulled();
 			link = "";
 		} catch (caught) {
 			error = errorMessage(caught);

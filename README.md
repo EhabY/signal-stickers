@@ -34,6 +34,11 @@ the pack, such as one from an imported pack, shows a **Convert to animated PNG**
 converts it in place, keeping its position, emoji, and cover; **Convert all to animated PNG**, shown
 when there are several, does every one.
 
+Conversions run in the background, and the pack stays fully editable meanwhile: change emoji, the
+title, or the order, remove stickers, add more images, or start other conversions. Each conversion
+shows its progress and its own **Cancel**. Removing a sticker that is being converted cancels its
+conversion, and publishing waits until every conversion is done.
+
 To upload, link your account from the Account tab by scanning its QR code with your phone (see
 [Link your account](#link-your-account)), then publish from the Publish tab. It lists anything
 Signal would reject, and once uploaded shows the new pack's link and QR code. Each publish makes a

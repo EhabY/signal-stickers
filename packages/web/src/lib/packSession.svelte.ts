@@ -1,6 +1,5 @@
-import type { PackResponse } from "@signal-stickers/server/api";
+import type { PackResponse, PushResponse } from "@signal-stickers/server/api";
 
-import type { ConversionProgress } from "./animationConversion.ts";
 import {
 	errorMessage,
 	type Api,
@@ -8,10 +7,18 @@ import {
 	type StickerLimits,
 	type ValidationIssue,
 } from "./api.ts";
-import type { StickerEncoder } from "./stickerImage.ts";
+import { Conversions, type ConversionStep } from "./conversions.svelte.ts";
+import {
+	addSticker,
+	removeSticker,
+	replaceCover,
+	replaceSticker,
+	type PackChange,
+} from "./packChanges.ts";
+import { RequestQueue } from "./requestQueue.svelte.ts";
+import type { EncodeOptions, StickerEncoder } from "./stickerImage.ts";
 
-/** An image being converted to an animated PNG, and how far along. */
-export type Conversion = Readonly<{ file: string; progress: ConversionProgress }>;
+export type { Conversion } from "./conversions.svelte.ts";
 
 /** A pack image: the sticker at `index`, or the separate cover when `index` is undefined. */
 export type PackImageTarget = Readonly<{ file: string; index?: number | undefined }>;
@@ -19,138 +26,227 @@ export type PackImageTarget = Readonly<{ file: string; index?: number | undefine
 const SAVE_DELAY_MS = 300;
 
 /**
- * The working copy being edited. Edits show at once and are saved shortly after, in order. Adding,
- * removing, and converting stickers and setting the cover image first save pending edits and set
- * `busy` until the server answers, unless canceled or another pack loads first.
+ * The working copy being edited. Edits show at once and are saved shortly after. Every request that
+ * changes the pack waits its turn in one queue, so answers apply in order. Images convert while the
+ * pack stays editable, and each result applies to the pack as it is when the conversion finishes.
+ * Only a pull or push locks editing.
  */
 export class PackSession {
 	pack: Pack | undefined = $state.raw();
 	issues: readonly ValidationIssue[] = $state.raw([]);
 	/** Changes whenever images may have changed, so thumbnails reload. */
 	imageVersion = $state(0);
-	busy = $state(false);
 	/** Why the last save failed, until one succeeds or a pack loads. */
 	saveError: string | undefined = $state();
-	/** Why the last change to the images failed, until the next one starts or a pack loads. */
+	/** Why the last changes to the images failed, until the next one starts or a pack loads. */
 	error: string | undefined = $state();
 	/**
 	 * The added animations that became still images because the browser cannot convert them, until
 	 * the next change to the images starts.
 	 */
 	flattened: readonly string[] = $state.raw([]);
-	/** The animation being converted, while an add, conversion, or cover change converts one. */
-	conversion: Conversion | undefined = $state.raw();
+	readonly conversions = new Conversions();
 
 	readonly #api: Api;
 	readonly #encode: StickerEncoder;
-	#unsaved: Pack | undefined;
-	#saved: Promise<void> = Promise.resolve();
+	readonly #requests = new RequestQueue();
+	#unsaved = false;
 	#saveTimer: ReturnType<typeof setTimeout> | undefined;
-	#running: AbortController | undefined;
+	/** Changes when another pack loads, so answers about the previous one are ignored. */
+	#generation = 0;
+	/** Changes whenever the user chooses a cover, so a cover chosen earlier is not used. */
+	#coverChoices = 0;
+	/** The sticker images replaced in this pack, so a removal clicked before still finds them. */
+	readonly #renamed = new Map<string, string>();
+	/** The removals not answered yet, so clicking Remove twice spares a sticker sharing the image. */
+	readonly #removing = new Set<string>();
 
 	constructor(api: Api, encode: StickerEncoder) {
 		this.#api = api;
 		this.#encode = encode;
 	}
 
-	/** Shows another pack, canceling a running change to the images and ignoring its answer. */
+	/** Whether a pull or push is running, which the server does not let edits overlap. */
+	get locked(): boolean {
+		return this.#requests.locked;
+	}
+
+	/** Whether an image is converting or a change to the images is unanswered, so publishing waits. */
+	get pending(): boolean {
+		return this.conversions.list.length > 0 || this.#requests.changing;
+	}
+
+	/** Shows another pack, canceling every conversion and ignoring answers about the previous one. */
 	load(response: PackResponse): void {
-		this.cancel();
-		this.#running = undefined;
+		this.#generation += 1;
+		this.#renamed.clear();
+		this.conversions.cancelAll();
+		clearTimeout(this.#saveTimer);
+		this.#unsaved = false;
+		this.saveError = undefined;
+		this.error = undefined;
 		this.flattened = [];
 		this.#show(response);
 	}
 
-	/** Stops converting and adding images; a request the server is already handling still shows. */
-	cancel(): void {
-		this.#running?.abort();
+	/** Imports the pack at `link` in place of this one, with editing locked meanwhile. */
+	pull(link: string): Promise<void> {
+		return this.#requests.runLocked(async () => {
+			this.load(await this.#api.pull(link));
+		});
+	}
+
+	/** Saves pending edits and publishes the pack, with editing locked meanwhile. */
+	publish(): Promise<PushResponse> {
+		return this.#requests.runLocked(async () => {
+			await this.#flush();
+			return this.#api.push();
+		});
 	}
 
 	edit(pack: Pack): void {
-		this.pack = pack;
-		this.#unsaved = pack;
-		clearTimeout(this.#saveTimer);
-		this.#saveTimer = setTimeout(() => {
-			this.save().catch(ignore);
-		}, SAVE_DELAY_MS);
+		if (pack.cover !== this.pack?.cover) {
+			this.#coverChoices += 1;
+		}
+		this.#showEdited(pack);
 	}
 
-	/** Saves pending edits now, retrying a failed save. Rejects if the latest save failed. */
+	/** Saves pending edits after the requests before it, retrying a failed save. Rejects if it fails. */
 	save(): Promise<void> {
 		clearTimeout(this.#saveTimer);
-		const pack = this.#unsaved;
-		this.#unsaved = undefined;
-		if (pack) {
-			this.#saved = this.#saved.catch(ignore).then(() => this.#put(pack));
-		}
-		return this.#saved;
+		return this.#requests.run(() => this.#flush());
 	}
 
-	/** Converts each image to fit `limits` and appends it; failures are reported per file. */
+	/** Converts each image in turn to fit `limits` and appends it; failures are reported per file. */
 	add(images: readonly File[], limits: StickerLimits): Promise<void> {
-		return this.#exclusive((signal) =>
-			eachInTurn(
-				images,
-				({ name }) => name,
-				signal,
-				async (image) => {
-					const sticker = await this.#convert(image, limits, signal);
-					this.#showUnlessReplaced(await this.#api.addSticker(sticker), signal);
-				},
-			),
+		return this.#convertInTurn(
+			images.map((image): ConversionStep => ({
+				file: image.name,
+				convert: (options) => this.#encode(image, limits, options),
+				use: (sticker) => this.#send(addSticker(this.#api, sticker)),
+			})),
 		);
 	}
 
 	/**
-	 * Converts each target's image to an animated PNG that fits `limits`, in its place; failures are
-	 * reported per file.
+	 * Converts each target's image in turn to an animated PNG that fits `limits`, in its place, unless
+	 * the target is removed or replaced first; failures are reported per file.
 	 */
 	convertAnimations(targets: readonly PackImageTarget[], limits: StickerLimits): Promise<void> {
-		return this.#exclusive((signal) =>
-			eachInTurn(
-				targets,
-				({ file }) => file,
-				signal,
-				async ({ file, index }) => {
-					const stored = await this.#api.getImage(file, signal);
+		return this.#convertInTurn(
+			targets.map(({ file, index }): ConversionStep => {
+				const convert = async (options: EncodeOptions): Promise<Blob> => {
+					const stored = await this.#api.getImage(file, options.signal);
 					const image = new File([stored], file, { type: stored.type });
-					const apng = await this.#convert(image, limits, signal, { mustAnimate: true });
-					const response =
-						index === undefined
-							? await this.#api.setCover(apng)
-							: await this.#api.replaceSticker(index, file, apng);
-					this.#showUnlessReplaced(response, signal);
-				},
-			),
+					return this.#encode(image, limits, { ...options, mustAnimate: true });
+				};
+				if (index === undefined) {
+					return {
+						...this.#coverStep(file, (pack) => pack.cover === file, convert),
+						inPlace: true,
+					};
+				}
+				return {
+					file,
+					inPlace: true,
+					isStale: (pack) => !pack.stickers.some((sticker) => sticker.file === file),
+					convert,
+					use: (apng) => this.#send(replaceSticker(this.#api, index, file, apng)),
+				};
+			}),
 		);
 	}
 
-	remove(index: number, file: string): Promise<void> {
-		return this.#exclusive(async (signal) => {
-			this.#showUnlessReplaced(await this.#api.removeSticker(index, file), signal);
-		});
+	/** Removes the sticker at `index`, or where its image `file` is by then, unless it is gone. */
+	async remove(index: number, file: string): Promise<void> {
+		const key = `${index}:${file}`;
+		if (this.#removing.has(key)) {
+			return;
+		}
+		this.#removing.add(key);
+		this.#startChanging();
+		const generation = this.#generation;
+		try {
+			await this.#send(removeSticker(this.#api, index, file, this.#renamed));
+		} catch (error) {
+			this.#fail([errorMessage(error)], generation);
+		} finally {
+			this.#removing.delete(key);
+		}
 	}
 
 	/** Converts `image` like an added sticker and makes it the separate cover. */
-	setCover(image: File, limits: StickerLimits): Promise<void> {
-		return this.#exclusive(async (signal) => {
-			const cover = await this.#convert(image, limits, signal);
-			this.#showUnlessReplaced(await this.#api.setCover(cover), signal);
+	async setCover(image: File, limits: StickerLimits): Promise<void> {
+		this.#coverChoices += 1;
+		const choice = this.#coverChoices;
+		const convert = (options: EncodeOptions) => this.#encode(image, limits, options);
+		await this.#convertInTurn([
+			this.#coverStep(image.name, () => choice === this.#coverChoices, convert),
+		]);
+	}
+
+	async #convertInTurn(steps: readonly ConversionStep[]): Promise<void> {
+		this.#startChanging();
+		const generation = this.#generation;
+		const failures = await this.conversions.convertInTurn(steps, (file) => {
+			this.flattened = [...this.flattened, file];
+		});
+		this.#fail(failures, generation);
+	}
+
+	/** A step that makes the converted image the separate cover while `applies` holds. */
+	#coverStep(
+		file: string,
+		applies: (pack: Pack) => boolean,
+		convert: ConversionStep["convert"],
+	): ConversionStep {
+		return {
+			file,
+			replacesCover: true,
+			isStale: (pack) => !applies(pack),
+			convert,
+			use: (image) => this.#send(replaceCover(this.#api, image, applies)),
+		};
+	}
+
+	/**
+	 * Sends `change` once the requests before it are answered and pending edits are saved, so the
+	 * server has the pack as shown. Its answer shows, unless the pack was edited meanwhile; then the
+	 * change applies to the edited pack, which is saved. Ignored once another pack loads.
+	 */
+	#send(change: PackChange): Promise<void> {
+		const generation = this.#generation;
+		return this.#requests.runChange(async () => {
+			if (generation !== this.#generation) {
+				return;
+			}
+			await this.#flush();
+			const sent = this.pack;
+			const applied = sent && (await change(sent));
+			const edited = this.pack;
+			if (!applied || generation !== this.#generation) {
+				return;
+			}
+			if (applied.renamed) {
+				this.#renamed.set(applied.renamed.from, applied.renamed.to);
+			}
+			if (edited === sent || !edited) {
+				this.#show(applied.answer);
+			} else {
+				this.imageVersion += 1;
+				this.#showEdited(applied.merge(edited));
+			}
 		});
 	}
 
-	#show({ pack, issues }: PackResponse): void {
+	/** Saves the pack as shown, unless it is saved already, and again if it is edited meanwhile. */
+	async #flush(): Promise<void> {
+		const pack = this.pack;
+		if (!this.#unsaved || !pack) {
+			return;
+		}
 		clearTimeout(this.#saveTimer);
-		this.#unsaved = undefined;
-		this.#saved = Promise.resolve();
-		this.saveError = undefined;
-		this.error = undefined;
-		this.pack = pack;
-		this.issues = issues;
-		this.imageVersion += 1;
-	}
-
-	async #put(pack: Pack): Promise<void> {
+		this.#unsaved = false;
 		try {
 			const { issues } = await this.#api.savePack(pack);
 			this.saveError = undefined;
@@ -159,90 +255,46 @@ export class PackSession {
 			}
 		} catch (error) {
 			if (this.pack === pack) {
-				this.#unsaved = pack;
+				this.#unsaved = true;
 				this.saveError = `Could not save your changes: ${errorMessage(error)}`;
 			}
 			throw error;
 		}
+		await this.#flush();
 	}
 
-	async #exclusive(task: (signal: AbortSignal) => Promise<void>): Promise<void> {
-		const running = new AbortController();
-		this.#running = running;
-		this.busy = true;
+	#saveSoon(): void {
+		clearTimeout(this.#saveTimer);
+		this.#saveTimer = setTimeout(() => {
+			this.save().catch(ignore);
+		}, SAVE_DELAY_MS);
+	}
+
+	/** Shows `pack`, edited by the user or merged with an answer, and saves it soon. */
+	#showEdited(pack: Pack): void {
+		this.pack = pack;
+		this.#unsaved = true;
+		this.conversions.cancelStale(pack);
+		this.#saveSoon();
+	}
+
+	#show({ pack, issues }: PackResponse): void {
+		this.pack = pack;
+		this.issues = issues;
+		this.imageVersion += 1;
+		this.conversions.cancelStale(pack);
+	}
+
+	#startChanging(): void {
 		this.error = undefined;
 		this.flattened = [];
-		try {
-			await this.save();
-			await task(running.signal);
-		} catch (error) {
-			if (!running.signal.aborted) {
-				this.error = errorMessage(error);
-			}
-		} finally {
-			if (this.#running === running) {
-				this.#running = undefined;
-			}
-			this.busy = false;
-		}
 	}
 
-	async #convert(
-		image: File,
-		limits: StickerLimits,
-		signal: AbortSignal,
-		{ mustAnimate = false } = {},
-	): Promise<Blob> {
-		try {
-			const sticker = await this.#encode(image, limits, {
-				signal,
-				mustAnimate,
-				onProgress: (progress) => {
-					this.conversion = { file: image.name, progress };
-				},
-				onFlattened: () => {
-					this.flattened = [...this.flattened, image.name];
-				},
-			});
-			// Drawing a still image does not watch the signal.
-			signal.throwIfAborted();
-			return sticker;
-		} finally {
-			this.conversion = undefined;
-		}
-	}
-
-	/** Shows the server's answer to the task that `signal` belongs to, unless another pack loaded. */
-	#showUnlessReplaced(response: PackResponse, signal: AbortSignal): void {
-		if (this.#running?.signal === signal) {
-			this.#show(response);
+	#fail(failures: readonly string[], generation: number): void {
+		if (failures.length > 0 && generation === this.#generation) {
+			this.error = [...(this.error === undefined ? [] : [this.error]), ...failures].join("\n");
 		}
 	}
 }
 
 function ignore(): void {}
-
-/**
- * Runs `task` on each item in turn and then rejects naming each failed item, but stops at once when
- * `signal` aborts.
- */
-async function eachInTurn<T>(
-	items: readonly T[],
-	name: (item: T) => string,
-	signal: AbortSignal,
-	task: (item: T) => Promise<void>,
-): Promise<void> {
-	const failures: string[] = [];
-	for (const item of items) {
-		try {
-			// oxlint-disable-next-line no-await-in-loop -- the server names each image after the last.
-			await task(item);
-		} catch (error) {
-			signal.throwIfAborted();
-			failures.push(`${name(item)}: ${errorMessage(error)}`);
-		}
-	}
-	if (failures.length > 0) {
-		throw new Error(failures.join("\n"));
-	}
-}

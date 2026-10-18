@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { StatusResponse } from "@signal-stickers/server/api";
 
-	import { ApiError, errorMessage, type Api, type Pack, type ValidationIssue } from "../lib/api.ts";
+	import { ApiError, errorMessage, type Pack, type ValidationIssue } from "../lib/api.ts";
 	import type { LiveProgress } from "../lib/events.svelte.ts";
 	import type { PackSession } from "../lib/packSession.svelte.ts";
 	import IssueList from "./IssueList.svelte";
@@ -9,14 +9,13 @@
 	import QrCode from "./QrCode.svelte";
 
 	type Props = {
-		api: Api;
 		status: StatusResponse;
 		session: PackSession;
 		progress: LiveProgress;
 		onaccount: () => void;
 	};
 
-	let { api, status, session, progress, onaccount }: Props = $props();
+	let { status, session, progress, onaccount }: Props = $props();
 	let publishing = $state(false);
 	let published: string | undefined = $state();
 	/** The pack as published, so it is not published again until it changes. */
@@ -30,7 +29,7 @@
 		link.linked &&
 			link.env === status.env &&
 			session.issues.length === 0 &&
-			!session.busy &&
+			!session.pending &&
 			!unchanged,
 	);
 
@@ -43,8 +42,7 @@
 		progress.push = undefined;
 		const pack = session.pack;
 		try {
-			await session.save();
-			published = (await api.push()).link;
+			published = (await session.publish()).link;
 			publishedPack = pack;
 		} catch (caught) {
 			error = errorMessage(caught);
@@ -88,6 +86,10 @@
 			<p>Fix these in the editor first:</p>
 			<IssueList issues={session.issues} />
 		</div>
+	{/if}
+
+	{#if session.pending}
+		<p class="muted">Publishing waits until the images being converted are in the pack.</p>
 	{/if}
 
 	<button type="button" class="primary" disabled={!ready || publishing} onclick={publish}>
