@@ -17,6 +17,16 @@ describe("sniffAnimation", () => {
 			extendedWebp(["ANIM", "ANMF", "ANMF"]).subarray(0, -6),
 			undefined,
 		],
+		[
+			"a WebP whose frames start by the 64th chunk",
+			extendedWebp(["ANIM", ...Array.from({ length: 60 }, () => "EXIF"), "ANMF", "ANMF"]),
+			"image/webp",
+		],
+		[
+			"a WebP whose frames start past the 64th chunk",
+			extendedWebp(["ANIM", ...Array.from({ length: 62 }, () => "EXIF"), "ANMF", "ANMF"]),
+			undefined,
+		],
 		["a still WebP with alpha", extendedWebp(["ALPH", "VP8 "]), undefined],
 		["a still PNG", pngChunks({ width: 512, height: 512 }), undefined],
 		["a JPEG", Uint8Array.of(0xff, 0xd8, 0xff, 0xe0), undefined],

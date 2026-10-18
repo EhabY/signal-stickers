@@ -104,13 +104,18 @@ function skipSubBlocks(bytes: Uint8Array, offset: number): number {
 
 const RIFF_HEADER_SIZE = 12;
 const RIFF_CHUNK_HEADER_SIZE = 8;
+const MAX_WEBP_CHUNKS = 64;
 
-/** Like core's `readImageInfo`: counts `ANMF` chunks, up to `limit`. */
+/** Like core's `readImageInfo`: counts `ANMF` chunks, up to `limit`, in the first 64 chunks. */
 function countWebpFrames(bytes: Uint8Array, limit: number): number {
 	const view = dataView(bytes);
 	let offset = RIFF_HEADER_SIZE;
 	let frames = 0;
-	while (frames < limit && offset + RIFF_CHUNK_HEADER_SIZE <= bytes.length) {
+	for (
+		let chunks = 0;
+		frames < limit && chunks < MAX_WEBP_CHUNKS && offset + RIFF_CHUNK_HEADER_SIZE <= bytes.length;
+		chunks += 1
+	) {
 		if (fourCc(bytes, offset) === "ANMF") {
 			frames += 1;
 		}
