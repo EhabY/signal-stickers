@@ -157,13 +157,66 @@ describe("Editor", () => {
 		expect(oncover).toHaveBeenCalledWith(image);
 	});
 
-	it("switches from a separate cover back to the first sticker", async () => {
+	it("asks before replacing an uploaded cover with the chosen sticker", async () => {
 		const { changed } = renderEditor({ pack: { ...CATS, cover: "cover.webp" } });
-		expect(coverButton(1)).toBeTruthy();
+		expect(screen.queryByRole("button", { name: "Use a sticker instead" })).toBeNull();
 
-		await fireEvent.click(screen.getByRole("button", { name: "Use a sticker instead" }));
+		await fireEvent.click(coverButton(2));
 
-		expect(changed()).toEqual({ ...CATS, cover: "001.png" });
+		expect(screen.getByRole("dialog", { name: "Replace the cover?" })).toHaveProperty("open", true);
+		expect(changed()).toBeUndefined();
+		await fireEvent.click(screen.getByRole("button", { name: "Use sticker" }));
+
+		expect(changed()).toEqual({ ...CATS, cover: "002.png" });
+	});
+
+	it.each([
+		["Cancel", () => fireEvent.click(screen.getByRole("button", { name: "Cancel" }))],
+		["Escape", () => fireEvent(screen.getByRole("dialog"), new Event("close"))],
+	])("keeps the uploaded cover when %s closes the confirmation", async (_, cancel) => {
+		const { changed } = renderEditor({ pack: { ...CATS, cover: "cover.webp" } });
+		await fireEvent.click(coverButton(2));
+
+		await cancel();
+
+		expect(changed()).toBeUndefined();
+		expect(screen.queryByRole("dialog")).toBeNull();
+		await vi.waitFor(() => {
+			expect(document.activeElement).toBe(coverButton(2));
+		});
+	});
+
+	it("keeps a newer uploaded cover when an old confirmation is accepted", async () => {
+		const { changed, rerender } = renderEditor({ pack: { ...CATS, cover: "cover.webp" } });
+		await fireEvent.click(coverButton(2));
+		await rerender({ pack: { ...CATS, cover: "new-cover.webp" } });
+
+		await fireEvent.click(screen.getByRole("button", { name: "Use sticker" }));
+
+		expect(changed()).toBeUndefined();
+		expect(screen.queryByRole("dialog")).toBeNull();
+	});
+
+	it("uses the chosen sticker even if it moves before the confirmation", async () => {
+		const { changed, rerender } = renderEditor({ pack: { ...CATS, cover: "cover.webp" } });
+		await fireEvent.click(coverButton(3));
+		const pack = { ...CATS, cover: "cover.webp", stickers: CATS.stickers.toReversed() };
+		await rerender({ pack });
+
+		await fireEvent.click(screen.getByRole("button", { name: "Use sticker" }));
+
+		expect(changed()).toEqual({ ...pack, cover: "003.webp" });
+	});
+
+	it("keeps the uploaded cover if the chosen sticker is removed before confirmation", async () => {
+		const { changed, rerender } = renderEditor({ pack: { ...CATS, cover: "cover.webp" } });
+		await fireEvent.click(coverButton(1));
+		await rerender({ pack: { ...CATS, cover: "cover.webp", stickers: CATS.stickers.slice(1) } });
+
+		await fireEvent.click(screen.getByRole("button", { name: "Use sticker" }));
+
+		expect(changed()).toBeUndefined();
+		expect(screen.queryByRole("dialog")).toBeNull();
 	});
 
 	it("counts the stickers against the limit", () => {

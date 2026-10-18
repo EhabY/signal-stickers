@@ -51,5 +51,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Keep focus after canceling a conversion
 - Keep animations smooth by shrinking before dropping frames
 - Make pack editing clearer and more accessible
+- Simplify controls and protect uploaded covers
 
 

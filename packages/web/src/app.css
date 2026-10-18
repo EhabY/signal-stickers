@@ -25,14 +25,6 @@
 	background: var(--bg);
 }
 
-:root[data-theme="light"] {
-	color-scheme: light;
-}
-
-:root[data-theme="dark"] {
-	color-scheme: dark;
-}
-
 *,
 *::before,
 *::after {
@@ -66,8 +58,7 @@ a {
 }
 
 button,
-input,
-select {
+input {
 	font: inherit;
 	color: inherit;
 }

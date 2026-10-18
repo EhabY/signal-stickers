@@ -90,7 +90,7 @@
 	<WarningNotes {warnings} />
 
 	{#if session.pending}
-		<p class="muted">Publishing waits until the images being converted are in the pack.</p>
+		<p class="muted">Your images are still being prepared. You can publish when they’re ready.</p>
 	{/if}
 
 	<button type="button" class="primary" disabled={!ready || publishing} onclick={publish}>
@@ -115,7 +115,7 @@
 			<h3>Published</h3>
 			<p>Share this link, or scan the code with a phone that has Signal.</p>
 			{#if unchanged}
-				<p class="muted">Each publish makes a new pack, so change this one to publish it again.</p>
+				<p class="muted">This version is published. Make a change to publish a new version.</p>
 			{/if}
 			<div class="link">
 				<a href={published} target="_blank" rel="noreferrer">{published}</a>

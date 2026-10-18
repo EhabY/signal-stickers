@@ -95,7 +95,7 @@ describe("PublishView", () => {
 		const adding = session.add([new File(["gif"], "cat.gif")], LIMITS);
 		await tick();
 		expect(publish).toHaveProperty("disabled", true);
-		expect(screen.getByText(/^Publishing waits/u)).toBeTruthy();
+		expect(screen.getByText(/^Your images are still being prepared/u)).toBeTruthy();
 		converted.resolve(new Blob(["webp"]));
 		await adding;
 		await tick();

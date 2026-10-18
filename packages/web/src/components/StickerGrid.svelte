@@ -4,6 +4,7 @@
 	import type { Pack, PackSticker, ValidationIssue } from "../lib/api.ts";
 	import { findSticker } from "../lib/packChanges.ts";
 	import { showsStill } from "../lib/stillImage.ts";
+	import ConfirmDialog from "./ConfirmDialog.svelte";
 	import EmojiPicker from "./EmojiPicker.svelte";
 	import Icon from "./Icon.svelte";
 	import IssueList from "./IssueList.svelte";
@@ -40,6 +41,7 @@
 	let dragging: StickerAt | undefined = $state();
 	let dropAt: number | undefined = $state();
 	let picking: StickerAt | undefined = $state();
+	let replacingCover: (StickerAt & { cover: string }) | undefined = $state();
 	let announcement = $state("");
 	let list: HTMLOListElement | undefined = $state();
 	/** The removals not answered yet, the last one's index, and the pack's length when last seen. */
@@ -48,7 +50,7 @@
 	const dragFrom = $derived(dragging && findSticker(pack, dragging.index, dragging.file));
 	const pickingFor = $derived(picking && findSticker(pack, picking.index, picking.file));
 
-	type Control = "emoji" | "earlier" | "later" | "remove";
+	type Control = "emoji" | "earlier" | "later" | "remove" | "cover";
 	type StickerAt = Readonly<{ index: number; file: string }>;
 
 	// Removing the last card drops its focus once the server answers; focus the card now in its place.
@@ -70,11 +72,48 @@
 		}
 	});
 
+	function chooseCover(index: number, file: string): void {
+		if (pack.stickers.some((sticker) => sticker.file === pack.cover)) {
+			void setCover(index, file);
+		} else {
+			replacingCover = { index, file, cover: pack.cover };
+		}
+	}
+
 	async function setCover(index: number, file: string): Promise<void> {
 		onchange({ ...pack, cover: file });
 		// The button becomes the "Cover" label, so keep focus on the same card.
 		await tick();
 		focusControl(index, "emoji");
+	}
+
+	async function confirmCover(): Promise<void> {
+		const selected = replacingCover;
+		if (selected === undefined) {
+			return;
+		}
+		const index = findSticker(pack, selected.index, selected.file);
+		if (!disabled && index !== undefined && pack.cover === selected.cover) {
+			replacingCover = undefined;
+			await setCover(index, selected.file);
+		} else {
+			await cancelCover();
+		}
+	}
+
+	async function cancelCover(): Promise<void> {
+		const selected = replacingCover;
+		replacingCover = undefined;
+		await tick();
+		if (selected !== undefined) {
+			const index = findSticker(pack, selected.index, selected.file) ?? selected.index;
+			if (!focusControl(index, "cover")) {
+				focusControl(Math.min(index, pack.stickers.length - 1), "emoji");
+			}
+			if (pack.stickers.length === 0) {
+				onempty();
+			}
+		}
 	}
 
 	async function move(from: number, to: number, focus?: Control): Promise<void> {
@@ -215,14 +254,14 @@
 					<button
 						type="button"
 						class="set-cover"
-						title="Use as cover"
+						data-control="cover"
 						aria-label="Use sticker {number} as the cover"
 						{disabled}
 						onclick={() => {
-							void setCover(index, sticker.file);
+							chooseCover(index, sticker.file);
 						}}
 					>
-						<Icon name="cover" />
+						Use as cover
 					</button>
 				{/if}
 				<div class="controls">
@@ -306,6 +345,16 @@
 
 <p class="visually-hidden" aria-live="polite">{announcement}</p>
 
+{#if replacingCover !== undefined}
+	<ConfirmDialog
+		title="Replace the cover?"
+		message="This sticker will replace your uploaded cover. To use that image again, you’ll need to upload it again."
+		confirmLabel="Use sticker"
+		onconfirm={confirmCover}
+		oncancel={cancelCover}
+	/>
+{/if}
+
 {#if pickingFor !== undefined}
 	{@const index = pickingFor}
 	<EmojiPicker
@@ -381,8 +430,7 @@
 
 	.controls {
 		display: grid;
-		grid-template-columns: 36px 1fr;
-		gap: 0.5rem 0.25rem;
+		grid-template-columns: repeat(4, minmax(0, 1fr));
 		padding: 0.5rem;
 		border-top: 1px solid var(--border);
 		cursor: default;
@@ -408,11 +456,26 @@
 		right: 0.5rem;
 		display: grid;
 		place-items: center;
-		width: 32px;
 		min-height: 32px;
-		padding: 0;
+		padding: 0.25rem 0.5rem;
+		font-size: 0.75rem;
 		background: var(--surface);
 		color: var(--text-muted);
+		opacity: 0;
+		pointer-events: none;
+	}
+
+	.card:hover .set-cover,
+	.card:focus-within .set-cover {
+		opacity: 1;
+		pointer-events: auto;
+	}
+
+	@media (hover: none), (any-pointer: coarse) {
+		.set-cover {
+			opacity: 1;
+			pointer-events: auto;
+		}
 	}
 
 	.set-cover:hover:not(:disabled) {
@@ -421,7 +484,9 @@
 	}
 
 	.emoji {
-		width: 36px;
+		justify-self: center;
+		width: 100%;
+		max-width: 36px;
 		min-height: 36px;
 		padding: 0;
 		border-radius: 8px;
@@ -441,15 +506,15 @@
 	}
 
 	.tools {
-		display: flex;
-		justify-content: flex-end;
-		align-items: center;
+		display: contents;
 	}
 
 	.tools button {
 		display: grid;
 		place-items: center;
-		width: 32px;
+		justify-self: center;
+		width: 100%;
+		max-width: 36px;
 		min-height: 36px;
 		padding: 0;
 		border: 0;

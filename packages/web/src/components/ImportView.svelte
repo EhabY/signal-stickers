@@ -60,9 +60,7 @@
 
 <section class="panel" aria-labelledby="import-heading">
 	<h2 id="import-heading">Import a pack</h2>
-	<p class="intro">
-		Bring in a Signal sticker pack, make it your own, then publish a new pack to share.
-	</p>
+	<p class="intro">Edit a Signal sticker pack and share a new version.</p>
 	<form onsubmit={submit}>
 		<label for="import-link">Sticker pack link</label>
 		<input
@@ -77,8 +75,7 @@
 			bind:value={link}
 		/>
 		<p class="muted" id="import-hint">
-			Copy it from Signal: open the pack, then share it. You only need to link your account when
-			publishing.
+			In Signal, open a pack and share its link. No account needed to import.
 			{#if packTitle !== undefined}Importing replaces the pack you are editing.{/if}
 		</p>
 		<button type="submit" class="primary" disabled={pulling} bind:this={importButton}>

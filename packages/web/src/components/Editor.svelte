@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { tick } from "svelte";
-
 	import type { Pack, StickerLimits, ValidationIssue } from "../lib/api.ts";
 	import { errorsIn, warningsIn } from "../lib/issues.ts";
 	import type { PackImageTarget } from "../lib/packSession.svelte.ts";
@@ -52,7 +50,6 @@
 			...(hasSeparateCover ? [{ file: pack.cover }] : []),
 		].filter(({ file }) => showsStill(issues, file) && !converting.includes(file)),
 	);
-	const firstSticker = $derived(pack.stickers.at(0));
 	let coverInput: HTMLInputElement | undefined = $state();
 	let addInput: HTMLInputElement | undefined = $state();
 	let summaryStatus: HTMLElement | undefined = $state();
@@ -86,15 +83,6 @@
 	function convertAll(): void {
 		summaryStatus?.focus();
 		onconvert(convertible);
-	}
-
-	async function useFirstStickerAsCover(): Promise<void> {
-		if (firstSticker) {
-			onchange({ ...pack, cover: firstSticker.file });
-			// The button disappears with the separate cover; keep focus on the cover controls.
-			await tick();
-			coverInput?.focus();
-		}
 	}
 
 	/** Clears the input, so choosing the same file again still fires `change`. */
@@ -201,18 +189,10 @@
 								Convert to animated PNG
 							</button>
 						{/if}
-						<button
-							type="button"
-							class="link"
-							disabled={disabled || firstSticker === undefined}
-							onclick={useFirstStickerAsCover}
-						>
-							Use a sticker instead
-						</button>
-					{:else}
-						<span class="muted cover-hint">Choose the cover icon on a sticker to use it here.</span>
 					{/if}
 				</div>
+				<span class="muted cover-hint">Choose “Use as cover” on a sticker, or upload an image.</span
+				>
 			</div>
 		</div>
 	</div>
@@ -222,7 +202,7 @@
 			<h3>Stickers</h3>
 			<p class="count">{pack.stickers.length} / {limits.maxStickers} stickers</p>
 			<p class="muted hint">
-				Drag or use the arrows to reorder. Choose an emoji to suggest a sticker while typing.
+				Drag or use the arrows to reorder. Add an emoji for sticker suggestions in Signal.
 			</p>
 		</div>
 		<label class="file-button primary" class:disabled>

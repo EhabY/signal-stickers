@@ -5,7 +5,6 @@
 	import Editor from "./components/Editor.svelte";
 	import ImportView from "./components/ImportView.svelte";
 	import PublishView from "./components/PublishView.svelte";
-	import ThemeSwitch from "./components/ThemeSwitch.svelte";
 	import {
 		createApi,
 		errorMessage,
@@ -137,7 +136,6 @@
 			{/each}
 		</nav>
 	{/if}
-	<div class="theme-control"><ThemeSwitch /></div>
 </header>
 
 <main id="main" tabindex="-1">
@@ -225,7 +223,7 @@
 <style>
 	header {
 		display: grid;
-		grid-template-columns: auto 1fr auto;
+		grid-template-columns: auto 1fr;
 		gap: 0.75rem 1.5rem;
 		justify-content: space-between;
 		align-items: center;
@@ -249,11 +247,6 @@
 		display: grid;
 		justify-items: start;
 		gap: 0.25rem;
-	}
-
-	.theme-control {
-		grid-column: 3;
-		justify-self: end;
 	}
 
 	h1 {
@@ -295,7 +288,6 @@
 		background: var(--accent-soft);
 		color: var(--accent);
 		font-weight: 600;
-		box-shadow: inset 0 -2px var(--accent);
 	}
 
 	main {
@@ -348,11 +340,6 @@
 
 		.env {
 			font-size: 0.75rem;
-		}
-
-		.theme-control {
-			grid-column: 2;
-			grid-row: 1;
 		}
 
 		nav {

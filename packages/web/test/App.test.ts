@@ -5,8 +5,11 @@ import { describe, expect, it, vi } from "vitest";
 import { ApiError } from "../src/lib/api.ts";
 import { CATS, fakeApi, LINKED, linkUntilAborted, packResponse, QR_URL } from "./support/api.ts";
 import { renderApp } from "./support/app.ts";
+import { stubModalDialogs } from "./support/dialog.ts";
 
 const LINK = "https://signal.art/addstickers/#pack_id=abc&pack_key=def";
+
+stubModalDialogs();
 
 describe("App", () => {
 	it("opens the editor on the server's working copy", async () => {
@@ -128,15 +131,18 @@ describe("App", () => {
 		});
 	});
 
-	it("keeps focus on the cover controls after switching back to a sticker cover", async () => {
+	it("keeps focus on the chosen sticker after confirming an uploaded cover replacement", async () => {
 		const api = fakeApi();
 		api.getPack.mockResolvedValue(packResponse({ ...CATS, cover: "cover.webp" }));
 		renderApp(api);
 
-		await fireEvent.click(await screen.findByRole("button", { name: "Use a sticker instead" }));
+		await fireEvent.click(
+			await screen.findByRole("button", { name: "Use sticker 2 as the cover" }),
+		);
+		await fireEvent.click(screen.getByRole("button", { name: "Use sticker" }));
 
 		await vi.waitFor(() => {
-			expect(document.activeElement).toBe(screen.getByLabelText("Upload a separate cover"));
+			expect(document.activeElement?.getAttribute("aria-label")).toMatch(/ of sticker 2$/u);
 		});
 	});
 
