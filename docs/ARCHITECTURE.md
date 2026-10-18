@@ -84,8 +84,10 @@ goes through `getLinkStatus`, which drops it.
 `pushPack` (`stickers/push.ts`) uploads a pack folder as a new pack:
 
 1. Read `pack.json` and its images (`stickers/validateFolder.ts`), leaving any over the size limit
-   unread, and check them against Signal's limits (`stickers/validate.ts`). Any issue throws a
-   `PackValidationError` listing all of them, before any request.
+   unread, and check them against Signal's limits (`stickers/validate.ts`). Each issue is an error
+   or a warning. Warnings, such as a sticker without an emoji, which Signal then never suggests
+   while typing, go to `onWarnings` and do not stop the push. Then any error throws a
+   `PackValidationError` listing every error, before any request.
 2. Build and encrypt the manifest and images under a fresh pack key (`stickers/encryptPack.ts`). The
    cover reuses a sticker's id when it is the same image, as Signal's sticker creator does.
 3. Ask the chat service for upload forms: `GET /v1/sticker/pack/form/{count}`.
@@ -129,10 +131,12 @@ shown pack, unless the pack was edited while the request was out; then the same 
 the edited pack (`lib/packChanges.ts`), which is saved next. Only a pull or push, which the server
 will not overlap with edits, locks the editor; both run through the same queue. Every save returns
 the pack's validation issues, so the editor shows them live without duplicating Signal's rules.
-Added images are converted in the browser with a `<canvas>` (`lib/stickerImage.ts`): still PNG and
-WebP images that already fit are kept as they are; anything else becomes a 512x512 WebP within the
-size limit. Browsers without a WebP encoder, such as Safari, give back a lossless PNG instead, which
-is kept if it fits; otherwise the error says which images still work.
+Errors must be fixed before publishing; warnings show as notes and leave publishing enabled. A
+sticker without an emoji gets an amber dashed badge instead of the red outline of an error. Added
+images are converted in the browser with a `<canvas>` (`lib/stickerImage.ts`): still PNG and WebP
+images that already fit are kept as they are; anything else becomes a 512x512 WebP within the size
+limit. Browsers without a WebP encoder, such as Safari, give back a lossless PNG instead, which is
+kept if it fits; otherwise the error says which images still work.
 
 Animations become APNG, the only animated format Signal shows. `lib/animatedImage.ts` reads the
 header: a GIF with more than one frame, a WebP with the `VP8X` animation flag and more than one
