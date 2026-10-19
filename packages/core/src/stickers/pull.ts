@@ -1,4 +1,4 @@
-import { mkdir, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, open, readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 
 import type { CdnClient } from "../net/cdn.ts";
@@ -28,6 +28,7 @@ export type PullOptions = Readonly<{
 // Signal's reader limit; uploads are capped lower.
 export const MAX_STICKERS_PER_PACK = 1024;
 const DOWNLOAD_CONCURRENCY = 3;
+const WRITE_CONCURRENCY = 8;
 
 type Sticker = StickerProto & { id: number };
 type Image = Readonly<{ sticker: Sticker; data: Uint8Array }>;
@@ -118,12 +119,15 @@ async function writeFolder(dir: string, files: readonly OutputFile[]): Promise<v
 	await assertEmptyDirectory(dir);
 	const written: string[] = [];
 	try {
-		await Promise.all(
-			files.map(async ({ name, data }) => {
-				await writeFile(join(dir, name), data, { flag: "wx" });
-				written.push(name);
-			}),
-		);
+		await mapConcurrent(files, WRITE_CONCURRENCY, async ({ name, data }) => {
+			const handle = await open(join(dir, name), "wx");
+			written.push(name);
+			try {
+				await handle.writeFile(data);
+			} finally {
+				await handle.close();
+			}
+		});
 	} catch (error) {
 		await Promise.all(written.map((name) => rm(join(dir, name), { force: true })));
 		throw error;

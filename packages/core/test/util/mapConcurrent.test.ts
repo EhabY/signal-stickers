@@ -53,4 +53,19 @@ describe("mapConcurrent", () => {
 	it("rejects a concurrency below 1", async () => {
 		await expect(mapConcurrent([ok], 0, (task) => task())).rejects.toThrow(RangeError);
 	});
+
+	it("waits for in-flight work to finish before rejecting", async () => {
+		const failure = new Error("boom");
+		const finished: number[] = [];
+		const finishAfterAbort = async (signal: AbortSignal) => {
+			await once(signal, "abort");
+			await setTimeout(20);
+			finished.push(0);
+		};
+		const tasks = [finishAfterAbort, () => Promise.reject(failure), ok];
+		const mapping = mapConcurrent(tasks, 2, (task, _index, signal) => task(signal));
+		await expect(mapping).rejects.toBe(failure);
+
+		expect(finished).toEqual([0]);
+	});
 });

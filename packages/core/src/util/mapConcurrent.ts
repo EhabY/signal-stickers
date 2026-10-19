@@ -1,6 +1,7 @@
 /**
  * Like `Promise.all(items.map(fn))` with at most `concurrency` calls in flight. The signal passed to
  * `fn` aborts when `signal` does or when any call rejects, and no new calls start after that.
+ * Waits for in-flight calls to settle before rejecting, so callers can safely clean up.
  */
 export async function mapConcurrent<T, R>(
 	items: readonly T[],
@@ -27,6 +28,12 @@ export async function mapConcurrent<T, R>(
 			}
 		}
 	};
-	await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, worker));
+	const workers = Array.from({ length: Math.min(concurrency, items.length) }, worker);
+	try {
+		await Promise.all(workers);
+	} catch (error) {
+		await Promise.allSettled(workers);
+		throw error;
+	}
 	return results;
 }

@@ -2,6 +2,7 @@ import { open, type FileHandle } from "node:fs/promises";
 import { join } from "node:path";
 
 import { ignoreNotFound } from "../util/isNotFound.ts";
+import { mapConcurrent } from "../util/mapConcurrent.ts";
 import { isAnimatedWebp } from "./image.ts";
 import { readPack, type Pack } from "./pack.ts";
 import {
@@ -22,6 +23,8 @@ export type PackFolder = Readonly<{
 	oversizedImages: ReadonlyMap<string, OversizedImage>;
 }>;
 
+const IMAGE_READ_CONCURRENCY = 8;
+
 /**
  * Reads `pack.json` and the images it names from `dir` and validates them with `validatePack`.
  * Throws `PackFormatError` when `pack.json` itself is malformed.
@@ -36,25 +39,23 @@ export async function readPackFolder(dir: string): Promise<PackFolder> {
 	const pack = await readPack(dir);
 	const images = new Map<string, Uint8Array>();
 	const oversizedImages = new Map<string, OversizedImage>();
-	await Promise.all(
-		packImageFiles(pack).map(async (file) => {
-			const handle = await open(join(dir, file)).catch(ignoreNotFound);
-			if (!handle) {
-				return;
+	await mapConcurrent(packImageFiles(pack), IMAGE_READ_CONCURRENCY, async (file) => {
+		const handle = await open(join(dir, file)).catch(ignoreNotFound);
+		if (!handle) {
+			return;
+		}
+		try {
+			const { size } = await handle.stat();
+			if (size > STICKER_LIMITS.maxBytes) {
+				const animated = await isAnimatedWebp((offset, length) => readAt(handle, offset, length));
+				oversizedImages.set(file, { length: size, animated });
+			} else {
+				images.set(file, await handle.readFile());
 			}
-			try {
-				const { size } = await handle.stat();
-				if (size > STICKER_LIMITS.maxBytes) {
-					const animated = await isAnimatedWebp((offset, length) => readAt(handle, offset, length));
-					oversizedImages.set(file, { length: size, animated });
-				} else {
-					images.set(file, await handle.readFile());
-				}
-			} finally {
-				await handle.close();
-			}
-		}),
-	);
+		} finally {
+			await handle.close();
+		}
+	});
 	return { pack, images, oversizedImages };
 }
 
