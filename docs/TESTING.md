@@ -1,104 +1,42 @@
 # Testing
 
-Tests use [Vitest](https://vitest.dev). The root `vitest.config.ts` defines one project per package:
-`core`, `cli`, and `server` run in Node, and `web` runs in jsdom. The web project extends
-`packages/web/vite.config.ts` for the Svelte plugins, whose `svelteTesting()` switches Svelte to its
-browser build and cleans up the DOM between tests.
-
 ```sh
-pnpm test                                   # everything
-pnpm test:coverage                          # with a coverage report
-pnpm --filter core test                     # one package
-pnpm --filter core test test/stickers/pull  # one file
+pnpm test
+pnpm --filter core test
+pnpm --filter core test test/stickers/pull.test.ts
+pnpm test:coverage
 ```
 
-No test talks to Signal.
+Vitest runs core, CLI, and server tests in Node and web tests in jsdom. Automated tests never
+contact Signal or use real credentials.
 
-## Writing tests
+## Fixtures
 
-- Read top to bottom: arrange, act, assert. One behaviour per test.
-- Prefer a small local helper (like `pull()` in `pull.test.ts`) over `beforeEach` chains, and
-  `it.each` tables over copy-pasted tests.
-- Reuse the kit in `packages/core/test/support` (`@signal-stickers/core/testing`):
-  - Pull: `fakeCdn(manifest, { images, failingStickerId })` serves an encrypted pack described by
-    `PACK_ID`, `PACK_KEY`, `PACK_LOCATOR`, `PACK_LINK`, and `PACK_KEYS`, and records sticker
-    requests. `png(byte)` builds a tiny recognisable PNG.
-  - Linking: `fakeProvisioning()` plays the provisioning service and the phone (`scan(qrUrl)`,
-    `scanWhenShown(progress)`, `interrupt(socket)`); `linkDeviceByScanning()` is the real
-    `linkDevice` over it. `fakeChat(respond)` records chat requests and answers them, e.g. with
-    `LINK_RESPONSE`. `memoryCredentialsStore(initial)` and `CREDENTIALS` stand in for the config
-    file.
-  - Push: `validPack(count)` and `writePackFolder(pack, images)` build a pack folder that passes
-    validation, `stickerPng(byte, options)` and `imageFixture(name)` make images, `fakeUploadChat()`
-    hands out upload forms for `NEW_PACK_ID`, and `memoryCdn()` records uploads and serves them
-    back, so a pushed pack pulls back through `pullPack`.
-  - `tempDir()` creates a directory that is removed after the test.
-- cli tests go through `runCli` (`packages/cli/test/support.ts`). Every service, the credentials
-  store, and each core operation default to fakes, and an operation a test does not pass fails if
-  called, so tests never reach the real config directory or Signal.
-- server tests start a real loopback server with `serve()` or `servePack()`
-  (`packages/server/test/support.ts`), injecting core operations through `deps`; the server CLI
-  tests pass a temporary `configDir`. `rawRequest` sets headers that `fetch` cannot, such as `Host`,
-  and `listenForEvents` collects WebSocket events.
-- cli and server each have a few tests that run the real core operations over these fakes (link,
-  unlink, push, validation), so the front ends and core cannot drift apart.
-- web tests render components with `@testing-library/svelte` against `fakeApi()`
-  (`packages/web/test/support/api.ts`). They mock `emoji-picker-element` and fire its `emoji-click`
-  event, and inject the image encoder, since jsdom has no canvas. Components that draw a still frame
-  use `stubImageDrawing()` (`test/support/drawing.ts`), which stubs `fetch`, `createImageBitmap`,
-  the canvas, and object URLs.
-- The animation conversion runs in jsdom without a browser: `test/support/animation.ts` builds GIF,
-  WebP, and PNG headers and RGBA frames in code, fakes the worker and the frame decoder, and decodes
-  results with upng-js to check them. The fitting tests use the real encoder.
-- Pull write-failure tests (`core/test/stickers/pullWrites.test.ts`) inject partial and delayed
-  writes and check that a failed pull removes its files. `mapConcurrent.test.ts` checks that active
-  work settles before rejection. The publish component tests check that importing disables Publish.
+| Area                 | Test support                                                                          |
+| -------------------- | ------------------------------------------------------------------------------------- |
+| Core and integration | `packages/core/test/support/`, also exported as `@signal-stickers/core/testing`       |
+| CLI                  | `packages/cli/test/support.ts`: command runner with injected services                 |
+| Server               | `packages/server/test/support.ts`: loopback server, requests, and WebSocket events    |
+| Web                  | `packages/web/test/support/`: fake API, session, drawing, decoder, and worker helpers |
 
-## Crypto and protocol
+Reuse the fake CDN, chat service, provisioning transport, pack builders, and temporary directories.
+Tests should arrange, act, and assert linearly. Cover behavior rather than implementation details.
 
-Every crypto change needs a round-trip or known-answer test. The vectors in
-`test/stickers/crypto.test.ts` were computed with OpenSSL, and those for the provisioning cipher and
-the device name with `node:crypto` alone, independently of the code under test and libsignal. The
-protobuf tests pin the exact wire bytes. The sample images in `test/fixtures/images` were made with
-Pillow, each a different size so a swapped width and height shows.
+Crypto changes require a round-trip or known-answer test. Protobuf tests pin wire bytes; HTTPS tests
+use a local certificate to verify CA pinning, timeouts, cancellation, and response limits. Platform
+tests check Windows ACLs or POSIX file modes and skip on other platforms.
 
-## Network
+## Manual integration
 
-`test/net/http.test.ts` runs a local HTTPS server (`serveHttps`, `serveAndRecord`) with a
-self-signed certificate from `test/fixtures` to check CA pinning, status handling, size limits,
-aborts, and timeouts. `chat.test.ts` and the upload tests in `cdn.test.ts` run the real clients
-against it by mocking `signalCa.ts` to `TEST_CA` and `getEnvironmentConfig` to the local origin.
-Production code has no CA or URL override.
+These checks contact Signal and require explicit authorization. Prefer staging with a staging
+account.
 
-## Platform-specific tests
+1. Link through the CLI or Account tab by scanning the QR code on a phone. Confirm the device name
+   and owner-only credential permissions.
+2. Import, edit, and publish a small pack. Pull the new link back and compare the images and emoji.
+3. In the browser, check still and animated image conversion, cancellation, editing during
+   conversion, cover replacement, and publishing availability.
+4. Unlink and confirm the device disappears from the phone. With `unlink --local`, remove it on the
+   phone manually.
 
-The credentials store test checks the Windows ACL with `icacls` on Windows and the `0600` mode on
-POSIX; each skips on the other platform, so CI covers both. The working copy test of the `0700`
-folders it creates runs on POSIX only.
-
-The Windows owner-only assertion expects exactly one ACL entry for the current user. Extra sandbox
-or logon-session entries can make it fail locally. Inspect the temporary file's ACL and the test
-process's environment when diagnosing it; keep the assertion strict.
-
-## Manual checks
-
-These hit Signal and need a person, so they are not automated. Try them on staging first where you
-can; staging needs a phone registered on Signal's staging servers.
-
-1. **Pull** a real pack: `pnpm pull "https://signal.art/addstickers/#pack_id=…&pack_key=…" ./pack`
-2. **Link** with your phone: run `pnpm run link`, then in Signal on the phone open Settings > Linked
-   devices > Link new device and scan the QR code within 45 s (a later code also works). Check that
-   a device named `signal-stickers` appears on the phone and that `pnpm status` shows its aci and
-   device id. Check the credentials file is owner-only: on Windows,
-   `icacls "%APPDATA%\signal-stickers\credentials.json"` lists only you with `(F)`; on POSIX,
-   `ls -l` shows `-rw-------`.
-3. **Push** a one-sticker pack with `pnpm push`, then pull the printed link back and compare.
-4. **Web**: run `pnpm dev` (or `pnpm start`), and link, import, edit, and publish in a real browser,
-   including adding a large or non-square image to check the canvas conversion. Check animation
-   conversion, progress, cancellation, and editing during a conversion. Upload a separate cover,
-   then choose a sticker as the cover and check the confirmation. Start another import and check
-   that Publish stays disabled until it finishes; after publishing, it stays disabled until the pack
-   changes.
-5. **Unlink** with `pnpm run unlink` and check the device disappears from the phone. After linking
-   again, `pnpm run unlink --local` deletes the credentials and leaves the device on the phone to
-   remove there.
+The [compatibility reference](SIGNAL_COMPAT.md) records the last production verification.

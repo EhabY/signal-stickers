@@ -32,13 +32,10 @@ instead of guessing.
 
 Read only what the task needs:
 
-- Engine/server/web split, data flows, Electron-readiness:
+- Package boundaries, code organization, and data flows:
   [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-- Where code goes, package boundaries, naming, test placement:
-  [docs/CODE_STRUCTURE.md](docs/CODE_STRUCTURE.md)
 - Tests, the fake chat/CDN, the manual QR step: [docs/TESTING.md](docs/TESTING.md)
-- pnpm, oxlint, oxfmt, TypeScript, esbuild/Vite, Node: [docs/TOOLING.md](docs/TOOLING.md)
-- Running, PRs, reviews, releasing: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Development commands, tooling, PRs, and releases: [CONTRIBUTING.md](CONTRIBUTING.md)
 - Every Signal-side dependency (crypto, endpoints, protobufs), its Signal-Desktop reference, and
   what to check when Signal changes something: [docs/SIGNAL_COMPAT.md](docs/SIGNAL_COMPAT.md).
   Update it when you add one.

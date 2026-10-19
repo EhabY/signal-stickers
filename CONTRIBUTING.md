@@ -1,61 +1,67 @@
 # Contributing
 
-## Setup
+Use Node.js 24+ and the pnpm version pinned in `package.json`.
 
 ```sh
-corepack enable pnpm
 pnpm install
+pnpm dev
 ```
 
-## Everyday commands
+The editor runs at http://localhost:5173, with the API on port 5174.
 
-| Command                                             | What it does                                        |
-| --------------------------------------------------- | --------------------------------------------------- |
-| `pnpm build` / `pnpm watch`                         | Build the CLI bundle and the web app                |
-| `pnpm dev`                                          | Run the server and Vite at http://localhost:5173    |
-| `pnpm start`                                        | Build the web app and open it from the local server |
-| `pnpm pull <link> [dir]` / `pnpm push [dir]`        | Run the CLI from source                             |
-| `pnpm run link` / `pnpm status` / `pnpm run unlink` | Link, inspect, or unlink the CLI's device           |
-| `pnpm test` / `pnpm test:coverage`                  | Run all tests, optionally with coverage             |
-| `pnpm typecheck`                                    | TypeScript 7 and svelte-check                       |
-| `pnpm lint` / `pnpm lint:fix`                       | Oxlint, type-aware                                  |
-| `pnpm format` / `pnpm format:check`                 | Oxfmt                                               |
-| `pnpm changelog`                                    | Regenerate `CHANGELOG.md` from commits              |
-| `pnpm clean`                                        | Remove `node_modules` and build output              |
+## Commands
 
-`pnpm link` and `pnpm unlink` are pnpm built-ins, so those two need `pnpm run`.
+| Command                             | Purpose                              |
+| ----------------------------------- | ------------------------------------ |
+| `pnpm build` / `pnpm watch`         | Build the CLI and web app            |
+| `pnpm typecheck`                    | Check TypeScript and Svelte          |
+| `pnpm lint` / `pnpm lint:fix`       | Type-aware linting                   |
+| `pnpm format:check` / `pnpm format` | Check or apply formatting            |
+| `pnpm test` / `pnpm test:coverage`  | Tests and coverage                   |
+| `pnpm clean`                        | Remove dependencies and build output |
 
-Run typecheck, lint, format check, and the affected tests before opening a pull request.
+Run typecheck, lint, format check, and affected tests before submitting. CI also builds on Linux and
+tests on Linux, Windows, and macOS. See [Testing](docs/TESTING.md) for fixtures and manual checks.
 
-## Pull requests
+## Changes
 
-- One purpose per pull request.
-- Titles follow [Conventional Commits](https://www.conventionalcommits.org): `type(scope): message`,
-  with scopes `core`, `cli`, `server`, `web`, `repo`, or `docs`. CI checks the title, and the
-  squash-merged title becomes the commit.
-- `CHANGELOG.md` is generated from commit titles, so give user-facing `feat`, `fix`, `perf`, and
-  `security` changes a title users will understand, and include the regenerated changelog in the
-  same pull request: `pnpm changelog --with-commit "<pull request title>"`.
-- Changes to crypto or Signal protocol code need a round-trip or known-answer test and a note in
-  [docs/SIGNAL_COMPAT.md](docs/SIGNAL_COMPAT.md) if they depend on something new from Signal.
+Keep changes focused and follow [AGENTS.md](AGENTS.md). Put reusable operations in `core`; CLI,
+server, and web code should respect the [package boundaries](docs/ARCHITECTURE.md).
 
-CI runs typecheck, format check, lint, and build on Linux, and the tests on Linux, Windows, and
-macOS.
+Use Conventional Commit titles: `type(scope): message`. Scopes are `core`, `cli`, `server`, `web`,
+`repo`, and `docs`. PR titles follow the same convention and become squash-merge commits.
 
-See [AGENTS.md](AGENTS.md) for code style and project guardrails, and [docs/](docs) for
-architecture, structure, testing, and tooling.
+For user-facing `feat`, `fix`, `perf`, or `security` changes, generate the changelog entry in the
+same change:
 
-## Releasing
+```sh
+pnpm changelog --with-commit "<commit or PR title>"
+```
 
-Run the **Release** workflow from the Actions tab on `main`. It:
+Do not edit `CHANGELOG.md` by hand. Crypto changes need a round-trip or known-answer test. Update
+[Signal compatibility](docs/SIGNAL_COMPAT.md) when adding or changing a Signal dependency.
 
-1. Picks the next version from the commits since the last tag with git-cliff (or uses the version
-   you enter): `feat` and breaking changes bump the minor version while on 0.x, everything else the
-   patch.
-2. Updates every `package.json` and `CHANGELOG.md`, runs the tests, builds, commits
-   `chore(release): vX.Y.Z`, and pushes the commit and tag.
-3. Publishes a GitHub release with the notes and `signal-stickers.mjs`, plus a signed build
-   provenance attestation
-   (`gh attestation verify signal-stickers.mjs --repo EhabY/signal-stickers`).
+## Toolchain
 
-If `main` gets branch protection, allow GitHub Actions to push to it, or the commit step fails.
+- Dependency versions live in the `pnpm-workspace.yaml` catalog. Keep libsignal pinned to the
+  version used by Signal Desktop. Discuss new runtime dependencies before adding them.
+- Source runs with Node's type stripping. Use erasable TypeScript, ES modules, and explicit `.ts`
+  imports. TypeScript 7 checks types; the TypeScript 6 alias supports Svelte's transpiler.
+- Oxlint and Oxfmt enforce linting and formatting. Their configs are authoritative; changing lint
+  rules requires approval.
+- The CLI bundles with esbuild and keeps libsignal external. The server runs from source; Vite
+  builds the web app into `packages/web/dist`.
+
+## Releases
+
+Run the **Release** workflow on `main`, optionally specifying a version. It determines the version
+from commits, updates manifests and the changelog, tests, builds, and pushes the release commit and
+tag. While on 0.x, features and breaking changes bump the minor version; other changes bump patch.
+
+The GitHub release contains the CLI bundle and a build provenance attestation:
+
+```sh
+gh attestation verify signal-stickers.mjs --repo EhabY/signal-stickers
+```
+
+Branch protection must permit the release workflow to push to `main`.
