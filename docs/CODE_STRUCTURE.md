@@ -26,8 +26,9 @@ packages/
   web/      Vite + Svelte UI
     src/                App.svelte; components/ has one component per screen (ImportView, Editor,
                         PublishView, AccountView) plus their parts; lib/ has the API client,
-                        events, the edited pack session, the image encoder, and the animation
-                        to APNG conversion with its worker
+                        events, the edited pack session, its request queue and pack changes,
+                        background conversions, the image encoder, and the animation to APNG
+                        conversion with its worker
 scripts/    repo scripts, run directly with Node
 docs/       these guides
 ```

@@ -30,21 +30,22 @@ Signal animates only APNG (animated PNG) stickers. The editor turns an added GIF
 APNG that breaks Signal's rules into a square APNG that loops forever and fits in 300 KiB. To keep
 the motion smooth, it makes the image smaller (down to 160 pixels) and uses fewer colors before it
 drops frames, and then says what it made, such as `320×320, 30 fps, 284 KiB`. This needs a browser
-with WebCodecs' `ImageDecoder`, such as Chrome, Edge, or Firefox. Elsewhere a GIF or animated WebP
-becomes a still image, as in Signal's own sticker creator, and an APNG must already fit. An animated
-WebP already in the pack, such as one from an imported pack, shows a **Convert to animated PNG**
-button that converts it in place, keeping its position, emoji, and cover; **Convert all to animated
-PNG**, shown when there are several, does every one.
+with WebCodecs' `ImageDecoder` support for the image type and `OffscreenCanvas`. Elsewhere a GIF or
+animated WebP becomes a still image, as in Signal's own sticker creator, and an APNG must already
+fit. An animated WebP already in the pack, such as one from an imported pack, shows a **Convert to
+animated PNG** button that converts it in place, keeping its position, emoji, and cover; **Convert
+all to animated PNG**, shown when there are several, does every one.
 
 Conversions run in the background, and the pack stays fully editable meanwhile: change emoji, the
 title, or the order, remove stickers, add more images, or start other conversions. Each conversion
 shows its progress and its own **Cancel**. Removing a sticker that is being converted cancels its
-conversion, and publishing waits until every conversion is done.
+conversion, and publishing waits until every conversion and pending image change is done.
 
 To upload, link your account from the Account tab by scanning its QR code with your phone (see
 [Link your account](#link-your-account)), then publish from the Publish tab. It lists anything
 Signal would reject and notes stickers without an emoji, and once uploaded shows the new pack's link
-and QR code. Each publish makes a new pack, so publishing again waits until you change something.
+and QR code. Publishing is disabled during imports and uploads. Each publish makes a new pack, so
+publishing again waits until you change something.
 
 Every change is saved to a `pack` folder next to the credentials (see
 [Link your account](#link-your-account)), which the server prints when it starts:
@@ -55,8 +56,10 @@ Every change is saved to a `pack` folder next to the credentials (see
 
 `pnpm start --dir ./my-pack` picks another folder, such as one the command line pulled into (it uses
 `./pack` by default). Importing a pack replaces that folder, which must hold a pack, be empty, or
-not exist yet, so the editor asks first when you are editing a pack. Add `--staging` for Signal's
-staging servers, `--no-open` to skip opening the browser, or `--port` to choose the port.
+not exist yet, so the editor asks first when you are editing a pack. A failed import keeps the
+previous working pack. Choosing a sticker as the cover also asks first if it replaces an uploaded
+cover image. Add `--staging` for Signal's staging servers, `--no-open` to skip opening the browser,
+or `--port` to choose the port.
 
 ## Pull a pack
 
@@ -67,7 +70,9 @@ pnpm pull "https://signal.art/addstickers/#pack_id=…&pack_key=…" ./my-pack
 ```
 
 This writes the images (`001.png`, `002.webp`, …) and a `pack.json` with the title, author, cover,
-and each sticker's emoji. The folder must be empty or not exist yet.
+and each sticker's emoji. The folder must be empty or not exist yet. Images finish downloading
+before any files are written. If a write fails, the files created by that pull, including partial
+files, are removed after the other writes finish.
 
 Add `--staging` (or set `SIGNAL_STICKERS_ENV=staging`) to use Signal's staging servers.
 

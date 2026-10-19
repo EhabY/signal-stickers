@@ -6,8 +6,9 @@ a Vite + Svelte web UI (`packages/web`). It links itself as its own Signal devic
 Signal Desktop's data.
 
 > The build plan lives in a local, uncommitted `PLAN.md` (gitignored, like `AGENTS.local.md`). When
-> it is present, read it first; it holds the agreed decisions and the Signal protocol specifics
-> (endpoints, crypto parameters, protobuf schemas, libsignal APIs) in its appendices.
+> it is present, read it first; it holds the agreed decisions and original protocol research.
+> Current implementation details live in the guides below, with Signal dependencies and verification
+> dates in [docs/SIGNAL_COMPAT.md](docs/SIGNAL_COMPAT.md).
 
 Make the smallest correct change, follow existing patterns, and verify the result. Prefer simple,
 readable solutions over clever ones; doing it right beats doing it fast. We're colleagues:

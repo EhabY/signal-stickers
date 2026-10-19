@@ -10,7 +10,9 @@ repo). Last verified against Signal-Desktop `8.34.0-alpha.1` on 2026-10-17.
 Last confirmed end to end against Signal production on 2026-10-17: linking a device from the CLI and
 from the web editor (QR scan, `PUT /v1/devices/link`), unlinking it (`DELETE /v1/devices/{id}`),
 pushing a pack (upload form and S3 upload), and pulling it back with byte-identical images. If
-something breaks after that date, Signal changed it.
+something breaks after that date, compare these dependencies with Signal's implementation as well as
+checking for local regressions and network failures. These dates record past verification, not an
+automated compatibility check.
 
 ## Triage by symptom
 
@@ -127,8 +129,10 @@ something breaks after that date, Signal changed it.
   with `URLSearchParams` like Signal-Desktop.
 - A new code every 45 s with the previous one still scannable (two sockets at most), 6 codes in all,
   and 10 s for each socket to connect and receive its address (`ROTATION_INTERVAL`,
-  `MAX_OPEN_SOCKETS`, `MAX_ROTATIONS`, `QR_CODE_TIMEOUTS`). Unlike Signal-Desktop, a socket that
-  fails to connect fails the link instead of retrying with backoff.
+  `MAX_OPEN_SOCKETS`, `MAX_ROTATIONS`, `QR_CODE_TIMEOUTS`). Like Signal-Desktop, failed connections
+  retry while a previously shown socket remains open, waiting 1, 2, 3, 5, 8, 13, 21, 34, then 55 s
+  between attempts, capped at 55 s (`FIBONACCI_TIMEOUTS`; ours: `RETRY_DELAYS_MS`). A failed
+  connection ends the link when no shown socket remains open.
 
 ## Provisioning cipher and message
 

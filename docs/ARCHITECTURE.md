@@ -41,8 +41,12 @@ Pulling needs no account.
    one outside the sticker list (`stickers/pull.ts`).
 5. Write `001.png`, `002.webp`, …, an optional `cover.*`, and `pack.json` (`stickers/pack.ts`).
    Nothing is written until every image has downloaded, and the first failed download cancels the
-   others. Files are created exclusively, so nothing that appears in the folder meanwhile is
-   overwritten, and a failed write removes what was written.
+   others. Files are written eight at a time and created exclusively, so existing files are never
+   overwritten. A failed write waits for active writes to finish before removing the files this pull
+   created, including partially written files.
+
+`util/mapConcurrent.ts` bounds concurrent work, aborts other workers when one fails, stops starting
+new work, and waits for active workers to settle before rejecting so cleanup cannot race them.
 
 All requests use Signal's pinned CA (`net/signalCa.ts`); the default root store is not trusted.
 
@@ -83,10 +87,11 @@ goes through `getLinkStatus`, which drops it.
 
 `pushPack` (`stickers/push.ts`) uploads a pack folder as a new pack:
 
-1. Read `pack.json` and its images (`stickers/validateFolder.ts`), leaving any over the size limit
-   unread, and check them against Signal's limits (`stickers/validate.ts`). Each issue is an error
-   or a warning. Warnings, such as a sticker without an emoji, which Signal then never suggests
-   while typing, go to `onWarnings` and do not stop the push. Then any error throws a
+1. Read `pack.json` and its images (`stickers/validateFolder.ts`), opening at most eight images at a
+   time. Images over the size limit are not read whole; their headers are inspected for animated
+   WebP. Check them against Signal's limits (`stickers/validate.ts`). Each issue is an error or a
+   warning. Warnings, such as a sticker without an emoji, which Signal then never suggests while
+   typing, go to `onWarnings` and do not stop the push. Then any error throws a
    `PackValidationError` listing every error, before any request.
 2. Build and encrypt the manifest and images under a fresh pack key (`stickers/encryptPack.ts`). The
    cover reuses a sticker's id when it is the same image, as Signal's sticker creator does.
@@ -116,9 +121,11 @@ tool's config directory, so it does not depend on where the server starts. Edits
 time. A pull writes into a sibling folder and swaps it in, so a failed pull keeps the old copy.
 Image routes only serve files that `pack.json` names, and added images get server-chosen names.
 Removing the cover's sticker makes the first remaining sticker the cover. A separate cover is saved
-as `cover.png` or `cover.webp` (`PUT /api/pack/cover`), replacing the previous separate cover.
-Replacing a sticker's image (`PUT /api/pack/sticker/:index/:file`) saves it under a new name in the
-same place, with the same emoji, and as the cover if the old image was.
+as `cover.png` or `cover.webp` (`PUT /api/pack/cover`), replacing the previous separate cover. The
+cover route refuses to overwrite that file if a sticker uses it. The editor asks before replacing an
+uploaded cover with a sticker's image. Replacing a sticker's image
+(`PUT /api/pack/sticker/:index/:file`) saves it under a new name in the same place, with the same
+emoji, and as the cover if the old image was.
 
 ## Web
 
@@ -169,8 +176,9 @@ dropped if that sticker was removed or replaced meanwhile, a converted cover app
 cover is still the image it replaces, and an uploaded cover applies unless another cover is chosen.
 A removal also finds its sticker by position and image, following an in-place replacement. Removing
 the sticker or choosing another cover cancels the conversion; importing another pack cancels them
-all and ignores answers to requests already sent. Publishing waits until no conversion or change is
-pending.
+all and ignores answers to requests already sent. Publishing waits until no conversion or image
+change is pending and no pull or push holds the request queue's lock. After a successful upload, the
+Publish button stays disabled until the pack changes.
 
 The editor animates only what Signal animates. A pack image the server flags `unsupportedAnimation`
 (an animated WebP, from a pulled pack or the disk) shows only its first frame: `PackImage.svelte`

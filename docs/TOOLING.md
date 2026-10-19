@@ -33,10 +33,10 @@ restrictions AGENTS.md requires (no `console`, `any`, or non-null assertions), t
 boundaries, `no-import-type-side-effects` (with `verbatimModuleSyntax`, an inline `type` import
 still loads the module), and two documented exceptions. The boundaries keep core free of other
 workspace packages and of WebSocket servers, and let web import only types from core and from
-`@signal-stickers/server`. Two inline `no-await-in-loop` exceptions are intentional: in
-`mapConcurrent`, and in web's `PackSession`, which uploads added images one at a time so the server
-names them in order. `style` and `restriction` stay off: they contain contradictory and taste-only
-rules.
+`@signal-stickers/server`. Inline `no-await-in-loop` exceptions document sequential work: each
+`mapConcurrent` worker runs one item at a time, the WebP reader follows offsets from earlier chunk
+headers, and web's `Conversions` processes a batch in the order chosen. `style` and `restriction`
+stay off: they contain contradictory and taste-only rules.
 
 Changing a rule's level needs approval (see AGENTS.md).
 

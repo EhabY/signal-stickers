@@ -50,10 +50,13 @@ No test talks to Signal.
 - The animation conversion runs in jsdom without a browser: `test/support/animation.ts` builds GIF,
   WebP, and PNG headers and RGBA frames in code, fakes the worker and the frame decoder, and decodes
   results with upng-js to check them. The fitting tests use the real encoder.
+- Pull write-failure tests (`core/test/stickers/pullWrites.test.ts`) inject partial and delayed
+  writes and check that a failed pull removes its files. `mapConcurrent.test.ts` checks that active
+  work settles before rejection. The publish component tests check that importing disables Publish.
 
 ## Crypto and protocol
 
-Every crypto change needs a round-trip and a known-answer test. The vectors in
+Every crypto change needs a round-trip or known-answer test. The vectors in
 `test/stickers/crypto.test.ts` were computed with OpenSSL, and those for the provisioning cipher and
 the device name with `node:crypto` alone, independently of the code under test and libsignal. The
 protobuf tests pin the exact wire bytes. The sample images in `test/fixtures/images` were made with
@@ -73,6 +76,10 @@ The credentials store test checks the Windows ACL with `icacls` on Windows and t
 POSIX; each skips on the other platform, so CI covers both. The working copy test of the `0700`
 folders it creates runs on POSIX only.
 
+The Windows owner-only assertion expects exactly one ACL entry for the current user. Extra sandbox
+or logon-session entries can make it fail locally. Inspect the temporary file's ACL and the test
+process's environment when diagnosing it; keep the assertion strict.
+
 ## Manual checks
 
 These hit Signal and need a person, so they are not automated. Try them on staging first where you
@@ -87,7 +94,11 @@ can; staging needs a phone registered on Signal's staging servers.
    `ls -l` shows `-rw-------`.
 3. **Push** a one-sticker pack with `pnpm push`, then pull the printed link back and compare.
 4. **Web**: run `pnpm dev` (or `pnpm start`), and link, import, edit, and publish in a real browser,
-   including adding a large or non-square image to check the canvas conversion.
+   including adding a large or non-square image to check the canvas conversion. Check animation
+   conversion, progress, cancellation, and editing during a conversion. Upload a separate cover,
+   then choose a sticker as the cover and check the confirmation. Start another import and check
+   that Publish stays disabled until it finishes; after publishing, it stays disabled until the pack
+   changes.
 5. **Unlink** with `pnpm run unlink` and check the device disappears from the phone. After linking
    again, `pnpm run unlink --local` deletes the credentials and leaves the device on the phone to
    remove there.
