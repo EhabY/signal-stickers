@@ -37,6 +37,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Changed
 
 - Convert flat-color animations many times faster
+- Speed up duplicate sticker comparisons
 
 ### Fixed
 

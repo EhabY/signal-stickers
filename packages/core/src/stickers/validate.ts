@@ -222,7 +222,15 @@ function findDuplicateImages(
 }
 
 function equalBytes(a: Uint8Array, b: Uint8Array): boolean {
-	return a.length === b.length && a.every((byte, i) => byte === b[i]);
+	if (a.length !== b.length) {
+		return false;
+	}
+	for (let i = 0; i < a.length; i += 1) {
+		if (a[i] !== b[i]) {
+			return false;
+		}
+	}
+	return true;
 }
 
 function duplicateImage(file: string, problem: string): ValidationIssue {
