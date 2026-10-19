@@ -54,5 +54,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Make pack editing clearer and more accessible
 - Simplify controls and protect uploaded covers
 - Clean up failed imports after all writes finish
+- Wait for imports before enabling publish
 
 

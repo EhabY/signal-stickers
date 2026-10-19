@@ -30,7 +30,12 @@
 	const warnings = $derived(warningsIn(session.issues));
 	const unchanged = $derived(published !== undefined && session.pack === publishedPack);
 	const ready = $derived(
-		link.linked && link.env === status.env && errors.length === 0 && !session.pending && !unchanged,
+		link.linked &&
+			link.env === status.env &&
+			errors.length === 0 &&
+			!session.pending &&
+			!session.locked &&
+			!unchanged,
 	);
 
 	async function publish(): Promise<void> {

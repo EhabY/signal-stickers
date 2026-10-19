@@ -119,4 +119,20 @@ describe("PublishView", () => {
 		expect(alert.textContent).toContain("The pack is not ready");
 		expect(alert.textContent).toContain("001.png is over 300 KiB");
 	});
+
+	it("disables publishing while another pack is importing", async () => {
+		const { api, session, publish } = renderPublish();
+		const imported = Promise.withResolvers<ReturnType<typeof packResponse>>();
+		api.pull.mockReturnValueOnce(imported.promise);
+
+		const pulling = session.pull("pack link");
+		await tick();
+		expect(publish).toHaveProperty("disabled", true);
+		imported.resolve(packResponse());
+		await pulling;
+		await tick();
+
+		expect(publish).toHaveProperty("disabled", false);
+		expect(api.push).not.toHaveBeenCalled();
+	});
 });
