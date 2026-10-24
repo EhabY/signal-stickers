@@ -55,5 +55,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Simplify controls and protect uploaded covers
 - Clean up failed imports after all writes finish
 - Wait for imports before enabling publish
+- Save a new link even when its QR code cannot be printed
 
 

@@ -84,6 +84,22 @@ describe("link", () => {
 		expect(stderr).toMatch(/Link new device\nError: Linking timed out\n$/u);
 	});
 
+	it("saves the credentials even when a step cannot be printed", async () => {
+		const credentialsStore = memoryCredentialsStore();
+
+		const { code } = await runCli(["link"], {
+			credentialsStore,
+			linkDevice: ({ onProgress }) => {
+				// Too long for a QR code.
+				onProgress?.({ step: "waitingForScan", qrUrl: "x".repeat(4000) });
+				return Promise.resolve(CREDENTIALS);
+			},
+		});
+
+		expect(code).toBe(0);
+		expect(credentialsStore.current()).toEqual(CREDENTIALS);
+	});
+
 	it("refuses when already linked", async () => {
 		const linkDevice = fakeLinkDevice();
 

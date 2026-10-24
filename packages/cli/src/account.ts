@@ -148,9 +148,11 @@ async function withLinkProgress<T>(
 	let printed: Promise<unknown> = Promise.resolve();
 	try {
 		return await start((progress) => {
-			printed = printed.then(() => describeLinkStep(progress)).then((text) => output.write(text));
-			// The finally block reports a failed print; this only stops Node flagging it as unhandled.
-			printed.catch(() => null);
+			// A failed print must not hide whether linking worked, so it only skips that step.
+			printed = printed
+				.then(() => describeLinkStep(progress))
+				.then((text) => output.write(text))
+				.catch(() => null);
 		});
 	} finally {
 		await printed;
