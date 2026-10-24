@@ -129,7 +129,7 @@ describe("App while images convert", () => {
 		});
 
 		expect((await screen.findByRole("status")).textContent).toBe(
-			"This browser cannot convert animations, so these became still images: cat.gif. To keep them animated, add them in Chrome, Edge, or Firefox.",
+			"This browser cannot convert animations, so these became still images: cat.gif. To keep them animated, update the browser and add them again.",
 		);
 	});
 });

@@ -241,13 +241,12 @@ describe("decodedShare", () => {
 
 describe("frameDuration", () => {
 	it.each([
-		[40_000, 40],
-		[1_500_000, 1500],
-		[10_000, 100],
+		[40, 40],
+		[1500, 1500],
+		[10, 100],
 		[0, 100],
-		[null, 100],
-	])("shows a frame of %s microseconds for %i ms", (microseconds, milliseconds) => {
-		expect(frameDuration(microseconds)).toBe(milliseconds);
+	])("shows a frame of %i ms for %i ms", (decoded, shown) => {
+		expect(frameDuration(decoded)).toBe(shown);
 	});
 });
 

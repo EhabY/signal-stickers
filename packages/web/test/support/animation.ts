@@ -29,20 +29,49 @@ export function gif(frames: number): Uint8Array<ArrayBuffer> {
 	]);
 }
 
+/** A chunk type, holding 3 bytes, or a type and its data. */
+export type WebpChunk = string | Readonly<{ type: string; data: readonly number[] }>;
+
 /**
- * A 512x512 extended WebP whose `VP8X` header precedes a chunk of each type in `chunks`, each with 3
- * bytes of data and a pad byte. `ANIM` sets the animation flag, and `ALPH` the alpha flag.
+ * A 512x512 extended WebP whose `VP8X` header precedes `chunks`, each padded to an even length.
+ * `ANIM` sets the animation flag, and `ALPH` the alpha flag.
  */
-export function extendedWebp(chunks: readonly string[]): Uint8Array<ArrayBuffer> {
-	const flags = (chunks.includes("ANIM") ? 0x02 : 0) | (chunks.includes("ALPH") ? 0x10 : 0);
+export function extendedWebp(chunks: readonly WebpChunk[]): Uint8Array<ArrayBuffer> {
+	const types = new Set(
+		chunks.map((webpChunk) => (typeof webpChunk === "string" ? webpChunk : webpChunk.type)),
+	);
+	const flags = (types.has("ANIM") ? 0x02 : 0) | (types.has("ALPH") ? 0x10 : 0);
 	// The flags, reserved bytes, and a 512x512 canvas.
 	const vp8x = [flags, 0, 0, 0, 255, 1, 0, 255, 1, 0];
 	const body = [
 		...encoder.encode("WEBP"),
 		...riffChunk("VP8X", vp8x),
-		...chunks.flatMap((type) => riffChunk(type, [1, 2, 3])),
+		...chunks.flatMap((webpChunk) => webpChunkBytes(webpChunk)),
 	];
 	return Uint8Array.from([...encoder.encode("RIFF"), ...uint32Le(body.length), ...body]);
+}
+
+export type AnmfOptions = {
+	x?: number;
+	y?: number;
+	width: number;
+	height: number;
+	duration?: number;
+	/** Bit 1 turns blending off, and bit 0 clears the frame's area after it. */
+	flags?: number;
+};
+
+/** An `ANMF` frame holding `chunks`. */
+export function anmfChunk(
+	{ x = 0, y = 0, width, height, duration = 100, flags = 0 }: AnmfOptions,
+	chunks: readonly WebpChunk[],
+): WebpChunk {
+	// Each field is 24 bits; offsets are stored halved, and sizes minus one.
+	const header = [x / 2, y / 2, width - 1, height - 1, duration].flatMap((value) =>
+		Array.from(uint32Le(value).subarray(0, 3)),
+	);
+	const frame = chunks.flatMap((webpChunk) => webpChunkBytes(webpChunk));
+	return { type: "ANMF", data: [...header, flags, ...frame] };
 }
 
 export type PngOptions = { width: number; height: number; plays?: number; padding?: number };
@@ -111,8 +140,8 @@ export type FakeDecoderOptions = {
 	width?: number;
 	height?: number;
 	frameCount?: number;
-	/** Each frame's duration in microseconds, as WebCodecs reports it. */
-	duration?: number | null;
+	/** Each frame's duration in milliseconds. */
+	duration?: number;
 	failAt?: number;
 	/** Draws a frame's pixels; solid colors by default. */
 	draw?: (index: number, size: number) => ArrayBuffer;
@@ -123,7 +152,7 @@ export function fakeDecoder({
 	width = 200,
 	height = 100,
 	frameCount = 3,
-	duration = 50_000,
+	duration = 50,
 	failAt,
 	draw = solidFrame,
 }: FakeDecoderOptions = {}) {
@@ -186,6 +215,12 @@ export const encodeUntilAborted: StickerEncoder = (_image, _limits, { signal } =
 			reject(new Error("Converting was canceled"));
 		});
 	});
+
+function webpChunkBytes(webpChunk: WebpChunk): number[] {
+	return typeof webpChunk === "string"
+		? riffChunk(webpChunk, [1, 2, 3])
+		: riffChunk(webpChunk.type, webpChunk.data);
+}
 
 /** A RIFF chunk, padded to an even length. */
 function riffChunk(type: string, data: readonly number[]): number[] {

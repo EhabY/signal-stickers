@@ -105,7 +105,7 @@
 	}
 
 	function describeFlattened(files: readonly string[]): string {
-		return `This browser cannot convert animations, so these became still images: ${files.join(", ")}. To keep them animated, add them in Chrome, Edge, or Firefox.`;
+		return `This browser cannot convert animations, so these became still images: ${files.join(", ")}. To keep them animated, update the browser and add them again.`;
 	}
 </script>
 

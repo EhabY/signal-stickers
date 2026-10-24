@@ -86,12 +86,7 @@ describe("serveConversions", () => {
 	});
 
 	it("draws 150 frames of a longer animation, each showing for those dropped after it", async () => {
-		const { open, decoded } = openFake({
-			width: 16,
-			height: 16,
-			frameCount: 300,
-			duration: 30_000,
-		});
+		const { open, decoded } = openFake({ width: 16, height: 16, frameCount: 300, duration: 30 });
 
 		const { answer } = await convert(open);
 

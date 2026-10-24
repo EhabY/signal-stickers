@@ -30,7 +30,7 @@ export type EncodeOptions = Readonly<{
 }>;
 
 export const CANNOT_CONVERT =
-	"This browser cannot convert animations. Use Chrome, Edge, or Firefox, or add an animated PNG that already fits.";
+	"This browser cannot convert animations. Update it, or add an animated PNG that already fits.";
 
 export class StickerImageError extends Error {
 	override name = "StickerImageError";

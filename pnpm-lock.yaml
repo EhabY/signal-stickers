@@ -195,6 +195,9 @@ catalogs:
     '@vitest/coverage-v8':
       specifier: ^5.0.5
       version: 5.0.5
+    apng-js:
+      specifier: ^1.1.5
+      version: 1.1.5
     concurrently:
       specifier: ^10.0.6
       version: 10.0.6
@@ -207,6 +210,9 @@ catalogs:
     esbuild:
       specifier: ^0.28.2
       version: 0.28.2
+    gifuct-js:
+      specifier: ^2.1.2
+      version: 2.1.2
     git-cliff:
       specifier: ^2.14.2
       version: 2.14.2
@@ -333,12 +339,18 @@ importers:
       '@signal-stickers/shared':
         specifier: workspace:*
         version: link:../shared
+      apng-js:
+        specifier: 'catalog:'
+        version: 1.1.5
       emoji-picker-element:
         specifier: 'catalog:'
         version: 1.29.1
       emoji-picker-element-data:
         specifier: 'catalog:'
         version: 1.8.0
+      gifuct-js:
+        specifier: 'catalog:'
+        version: 2.1.2
       qrcode:
         specifier: 'catalog:'
         version: 1.5.4
@@ -1266,6 +1278,9 @@ packages:
     resolution: {integrity: sha512-4Dj6M28JB+oAH8kFkTLUo+a2jwOFkuqb3yucU0CANcRRUbxS0cP0nZYCGjcc3BNXwRIsUVmDGgzawme7zvJHvg==}
     engines: {node: '>=12'}
 
+  apng-js@1.1.5:
+    resolution: {integrity: sha512-ENBjy3HAyu7slaOgWRvVtFUdSGFWIHZvz8bGKSEM6/OWQm6NgwFquqY8R7YPgm4vnDISEczhZE2NoLAtKlnUfw==}
+
   aria-query@5.3.0:
     resolution: {integrity: sha512-b0P0sZPKtyu8HkeRAfCq0IfURZK+SuwMjY1UXGBU27wpAiTwQAIlq56IbIO+ytk/JjS1fMR14ee5WBBfKi5J6A==}
 
@@ -1450,6 +1465,9 @@ packages:
     resolution: {integrity: sha512-kVCxPF3vQM/N0B1PmoqVUqgHP+EeVjmZSQn+1oCRPxd2P21P2F19lIgbR3HBosbB1PUhOAoctJnfEn2GbN2eZA==}
     engines: {node: '>=18'}
 
+  gifuct-js@2.1.2:
+    resolution: {integrity: sha512-rI2asw77u0mGgwhV3qA+OEgYqaDn5UNqgs+Bx0FGwSpuqfYn+Ir6RQY5ENNQ8SbIiG/m5gVa7CD5RriO4f4Lsg==}
+
   git-cliff-darwin-arm64@2.14.2:
     resolution: {integrity: sha512-Ylk39hv5flEUrXeoGvH6M3WjHBNERFH7a9DVEcGU2a8Q7a7fPtVasNk1fMuJ7CVbZCRIzUNyQV0ejRpxBdFnag==}
     cpu: [arm64]
@@ -1517,6 +1535,9 @@ packages:
 
   isexe@2.0.0:
     resolution: {integrity: sha512-RHxMLp9lnKHGHRng9QFhRCMbYAcVpn69smSGcq3f36xjgVVWThj4qqLbTLlq7Ssj8B+fIQ1EuCEGI2lKsyQeIw==}
+
+  js-binary-schema-parser@2.0.3:
+    resolution: {integrity: sha512-xezGJmOb4lk/M1ZZLTR/jaBHQ4gG/lqQnJqdIv4721DMggsa1bDVlHXNeHYogaIEHD9vCRv0fcL4hMA+Coarkg==}
 
   js-tokens@10.0.0:
     resolution: {integrity: sha512-lM/UBzQmfJRo9ABXbPWemivdCW8V2G8FHaHdypQaIy523snUjog0W71ayWXTjiR+ixeMyVHN2XcpnTd/liPg/Q==}
@@ -2632,6 +2653,8 @@ snapshots:
 
   ansi-styles@6.2.3: {}
 
+  apng-js@1.1.5: {}
+
   aria-query@5.3.0:
     dependencies:
       dequal: 2.0.3
@@ -2820,6 +2843,10 @@ snapshots:
       '@sec-ant/readable-stream': 0.4.1
       is-stream: 4.0.1
 
+  gifuct-js@2.1.2:
+    dependencies:
+      js-binary-schema-parser: 2.0.3
+
   git-cliff-darwin-arm64@2.14.2:
     optional: true
 
@@ -2872,6 +2899,8 @@ snapshots:
   is-unicode-supported@2.1.0: {}
 
   isexe@2.0.0: {}
+
+  js-binary-schema-parser@2.0.3: {}
 
   js-tokens@10.0.0: {}
 

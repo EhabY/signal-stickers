@@ -24,11 +24,15 @@ const upngWithBundledPako: Plugin = {
 
 // svelteTesting only applies under Vitest: browser builds of Svelte and DOM cleanup between tests.
 // Workers and pre-bundled dependencies take their own plugins. The dependency scan misses imports
-// from workers, so upng-js is pre-bundled up front rather than reloading the page on first use.
+// from workers, so their dependencies are pre-bundled up front rather than reloading the page on
+// first use.
 export default defineConfig({
 	plugins: [svelte(), svelteTesting()],
 	worker: { plugins: () => [upngWithBundledPako] },
-	optimizeDeps: { include: ["upng-js"], rolldownOptions: { plugins: [upngWithBundledPako] } },
+	optimizeDeps: {
+		include: ["apng-js", "gifuct-js", "upng-js"],
+		rolldownOptions: { plugins: [upngWithBundledPako] },
+	},
 	server: {
 		port: 5173,
 		strictPort: true,

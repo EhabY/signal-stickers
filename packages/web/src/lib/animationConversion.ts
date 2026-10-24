@@ -39,10 +39,10 @@ export type AnimationDecoder<T> = Readonly<{
 	height: number;
 	frameCount: number;
 	/**
-	 * Decodes frame `index` for its duration in microseconds, and draws it fitted in a transparent
-	 * `size` square if `size` is set.
+	 * Decodes frame `index` for its duration in milliseconds, and draws it fitted in a transparent
+	 * `size` square if `size` is set. Frames decode in order.
 	 */
-	decode(index: number, size?: number): Promise<{ duration: number | null; image?: T }>;
+	decode(index: number, size?: number): Promise<{ duration: number; image?: T }>;
 	/** Draws each image as RGBA pixels on a transparent `size` square. */
 	render(images: readonly T[], size: number): Promise<ArrayBuffer[]>;
 	close(): void;

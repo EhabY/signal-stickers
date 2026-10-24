@@ -18,8 +18,8 @@ pack. Importing needs no account. Publishing requires linking this tool from the
 scanning a QR code in Signal on your phone.
 
 The editor runs on `127.0.0.1` and saves changes locally. It resizes still images and converts
-animations to APNG. Animation conversion requires browser support for `ImageDecoder` and
-`OffscreenCanvas`; unsupported GIF and WebP animations may become still images.
+animations to APNG in any current browser; one without `OffscreenCanvas` turns GIF and WebP
+animations into still images.
 
 Use `pnpm start --dir ./my-pack` to choose the working folder. Server options include
 `--port <number>` and `--no-open`.

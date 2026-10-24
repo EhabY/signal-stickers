@@ -111,12 +111,8 @@ export function decodedShare(frameCount: number): FrameShare {
 	return frameCount > MAX_FRAMES ? { keep: MAX_FRAMES, of: frameCount } : { keep: 1, of: 1 };
 }
 
-/**
- * A decoded frame's duration in milliseconds, from WebCodecs' microseconds. Like browsers playing
- * GIFs, a missing duration or one of 10 ms or less shows for 100 ms.
- */
-export function frameDuration(microseconds: number | null): number {
-	const milliseconds = (microseconds ?? 0) / 1000;
+/** How long a decoded frame shows: like browsers playing GIFs, 10 ms or less shows for 100 ms. */
+export function frameDuration(milliseconds: number): number {
 	return milliseconds <= 10 ? 100 : milliseconds;
 }
 

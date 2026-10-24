@@ -14,8 +14,10 @@
 	},
 	"dependencies": {
 		"@signal-stickers/shared": "workspace:*",
+		"apng-js": "catalog:",
 		"emoji-picker-element": "catalog:",
 		"emoji-picker-element-data": "catalog:",
+		"gifuct-js": "catalog:",
 		"qrcode": "catalog:",
 		"upng-js": "catalog:"
 	},
