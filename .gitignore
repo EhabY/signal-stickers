@@ -8,9 +8,8 @@ dist/
 pnpm-debug.log
 *.log
 
-# Personal agent instructions and the local build plan
+# Personal agent instructions
 AGENTS.local.md
-PLAN.md
 
 # Claude Code (settings, worktrees)
 /.claude/

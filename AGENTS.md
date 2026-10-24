@@ -5,10 +5,8 @@ A standalone tool to import, edit, and re-upload Signal sticker packs: a Node en
 a Vite + Svelte web UI (`packages/web`), with code both core and web run in `packages/shared`. It
 links itself as its own Signal device; it never reads Signal Desktop's data.
 
-> The build plan lives in a local, uncommitted `PLAN.md` (gitignored, like `AGENTS.local.md`). When
-> it is present, read it first; it holds the agreed decisions and original protocol research.
-> Current implementation details live in the guides below, with Signal dependencies and verification
-> dates in [docs/SIGNAL_COMPAT.md](docs/SIGNAL_COMPAT.md).
+> Implementation details live in the guides below, with Signal dependencies and verification dates
+> in [docs/SIGNAL_COMPAT.md](docs/SIGNAL_COMPAT.md).
 
 Make the smallest correct change, follow existing patterns, and verify the result. Prefer simple,
 readable solutions over clever ones; doing it right beats doing it fast. We're colleagues:
@@ -17,9 +15,8 @@ instead of guessing.
 
 ## Autonomy
 
-- Resolve routine ambiguity from the code, tests, docs, PLAN.md (if present), and git history. Make
-  reasonable, reversible assumptions that match existing patterns, state the consequential ones, and
-  keep going.
+- Resolve routine ambiguity from the code, tests, docs, and git history. Make reasonable, reversible
+  assumptions that match existing patterns, state the consequential ones, and keep going.
 - Ask only when the answer can't be recovered and would change the result, or before a destructive
   or irreversible action (e.g. anything that hits Signal's **production** servers, links/unlinks a
   device, or uploads a pack).
