@@ -40,6 +40,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Speed up duplicate sticker comparisons
 - Reread only the images that changed when checking an edited pack
 - Reload only the thumbnails of images that changed
+- Count an animation's colors once while fitting it
 
 ### Fixed
 

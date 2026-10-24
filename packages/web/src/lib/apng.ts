@@ -130,21 +130,31 @@ export const encodeApng: ApngEncoder = (frames, size, colors, durations) => {
 	const delays = durations.map((duration) => Math.min(Math.round(duration), MAX_APNG_DELAY_MS));
 	// UPNG takes seconds to quantize large areas of one color. Frames with fewer colors than the
 	// palette holds need no quantizing: 0 keeps them all, plus transparent black.
-	const quantized = hasMoreColors(frames, colors - 1) ? colors : 0;
+	const quantized = countColors(frames) >= colors ? colors : 0;
 	return new Uint8Array(UPNG.encode(frames, size, size, quantized, delays));
 };
 
-function hasMoreColors(frames: readonly ArrayBuffer[], count: number): boolean {
+/** Fitting encodes the same frames with each palette size, so their colors are counted once. */
+const colorCounts = new WeakMap<readonly ArrayBuffer[], number>();
+
+function countColors(frames: readonly ArrayBuffer[]): number {
+	const count = colorCounts.get(frames) ?? countDistinct(frames, COLORS[0]);
+	colorCounts.set(frames, count);
+	return count;
+}
+
+/** Counts the distinct colors in `frames`, up to `limit`. */
+function countDistinct(frames: readonly ArrayBuffer[], limit: number): number {
 	const seen = new Set<number>();
 	for (const frame of frames) {
 		for (const color of new Uint32Array(frame)) {
 			seen.add(color);
-			if (seen.size > count) {
-				return true;
+			if (seen.size === limit) {
+				return limit;
 			}
 		}
 	}
-	return false;
+	return seen.size;
 }
 
 /** Encodes `frames` at `size` with `colors`, resolving the result only if it fits. */
