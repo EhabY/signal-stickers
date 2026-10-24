@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { readImageInfo, type ImageInfo } from "./image.ts";
 import type { Pack } from "./pack.ts";
 
@@ -36,6 +38,13 @@ export type ValidationCode =
 
 /** An image too large to read whole: its byte length, and whether it is an animated WebP. */
 export type OversizedImage = Readonly<{ length: number; animated: boolean }>;
+
+/** What validating a pack needs from one image: its own issues, and a digest to find duplicates. */
+export type ImageCheck = Readonly<{
+	issues: readonly ValidationIssue[];
+	/** The image's SHA-256, unless it was too large to read. */
+	digest?: string | undefined;
+}>;
 
 /** An error stops a push; a warning tells what Signal will do differently. */
 export type IssueSeverity = "error" | "warning";
@@ -98,15 +107,28 @@ export function validateImage(file: string, bytes: Uint8Array): ValidationIssue[
 	return issues;
 }
 
+/** Checks an image read whole with {@link validateImage}. */
+export function checkImage(file: string, bytes: Uint8Array): ImageCheck {
+	const digest = createHash("sha256").update(bytes).digest("hex");
+	return { issues: validateImage(file, bytes), digest };
+}
+
+/** Checks an image too large to read whole by what its headers tell. */
+export function checkOversizedImage(
+	file: string,
+	{ length, animated }: OversizedImage,
+): ImageCheck {
+	return { issues: [...(animated ? [unsupportedAnimation(file)] : []), tooLarge(file, length)] };
+}
+
 /**
  * Checks a pack for push: title, author, sticker count, every image it names (the cover included),
- * and that no two stickers share an image. A sticker without an emoji is only a warning. `images`
- * maps file names to their bytes, and `oversizedImages` those too large to read; others are missing.
+ * and that no two stickers share an image. A sticker without an emoji is only a warning. `checks`
+ * maps file names to their images' checks; images without one are missing.
  */
 export function validatePack(
 	pack: Pack,
-	images: ReadonlyMap<string, Uint8Array>,
-	oversizedImages: ReadonlyMap<string, OversizedImage> = new Map(),
+	checks: ReadonlyMap<string, ImageCheck>,
 ): ValidationIssue[] {
 	const { minStickers, maxStickers } = STICKER_LIMITS;
 	const issues: ValidationIssue[] = [];
@@ -132,20 +154,13 @@ export function validatePack(
 	}
 	issues.push(...findMissingEmoji(pack));
 	for (const file of packImageFiles(pack)) {
-		const bytes = images.get(file);
-		const oversized = oversizedImages.get(file);
-		if (bytes) {
-			issues.push(...validateImage(file, bytes));
-		} else if (oversized === undefined) {
-			issues.push({ code: "missingImage", severity: "error", file, message: `${file} is missing` });
-		} else {
-			if (oversized.animated) {
-				issues.push(unsupportedAnimation(file));
-			}
-			issues.push(tooLarge(file, oversized.length));
-		}
+		issues.push(
+			...(checks.get(file)?.issues ?? [
+				{ code: "missingImage", severity: "error", file, message: `${file} is missing` },
+			]),
+		);
 	}
-	issues.push(...findDuplicateImages(pack, images));
+	issues.push(...findDuplicateImages(pack, checks));
 	return issues;
 }
 
@@ -195,22 +210,22 @@ function findMissingEmoji(pack: Pack): ValidationIssue[] {
 /** Reports stickers whose image repeats an earlier sticker's; the cover may repeat one. */
 function findDuplicateImages(
 	pack: Pack,
-	images: ReadonlyMap<string, Uint8Array>,
+	checks: ReadonlyMap<string, ImageCheck>,
 ): ValidationIssue[] {
 	const issues: ValidationIssue[] = [];
 	const files = new Set<string>();
 	const repeatedFiles = new Set<string>();
-	const distinct: { file: string; bytes: Uint8Array }[] = [];
+	const firstFileByDigest = new Map<string, string>();
 	for (const { file } of pack.stickers) {
-		const bytes = images.get(file);
+		const digest = checks.get(file)?.digest;
 		if (files.has(file)) {
 			repeatedFiles.add(file);
-		} else if (bytes) {
-			const original = distinct.find((image) => equalBytes(image.bytes, bytes));
-			if (original) {
-				issues.push(duplicateImage(file, `${file} is the same image as ${original.file}`));
+		} else if (digest !== undefined) {
+			const original = firstFileByDigest.get(digest);
+			if (original === undefined) {
+				firstFileByDigest.set(digest, file);
 			} else {
-				distinct.push({ file, bytes });
+				issues.push(duplicateImage(file, `${file} is the same image as ${original}`));
 			}
 		}
 		files.add(file);
@@ -219,18 +234,6 @@ function findDuplicateImages(
 		issues.push(duplicateImage(file, `${file} is used by more than one sticker`));
 	}
 	return issues;
-}
-
-function equalBytes(a: Uint8Array, b: Uint8Array): boolean {
-	if (a.length !== b.length) {
-		return false;
-	}
-	for (let i = 0; i < a.length; i += 1) {
-		if (a[i] !== b[i]) {
-			return false;
-		}
-	}
-	return true;
 }
 
 function duplicateImage(file: string, problem: string): ValidationIssue {

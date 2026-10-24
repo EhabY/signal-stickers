@@ -2,6 +2,7 @@ import {
 	createCdnClient,
 	createChatClient,
 	createCredentialsStore,
+	createPackFolderValidator,
 	credentialsWarning,
 	getChatAuth,
 	getLinkStatus,
@@ -81,7 +82,7 @@ export function withDefaultDeps(overrides: Partial<ServerDeps> = {}): ServerDeps
 		unlinkDevice,
 		pullPack,
 		pushPack,
-		validatePackFolder,
+		validatePackFolder: createPackFolderValidator(),
 		...overrides,
 		credentials: overrides.credentials ?? createCredentialsStore(),
 	};

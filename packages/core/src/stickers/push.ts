@@ -43,8 +43,8 @@ export async function pushPack({
 	onProgress,
 	onWarnings,
 }: PushOptions): Promise<PushResult> {
-	const { pack, images, oversizedImages } = await readPackFolder(dir);
-	const issues = validatePack(pack, images, oversizedImages);
+	const { pack, images, checks } = await readPackFolder(dir);
+	const issues = validatePack(pack, checks);
 	const warnings = issues.filter(({ severity }) => severity === "warning");
 	if (warnings.length > 0) {
 		onWarnings?.(warnings);

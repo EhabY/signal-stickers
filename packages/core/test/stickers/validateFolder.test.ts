@@ -4,7 +4,11 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { PackFormatError } from "../../src/stickers/pack.ts";
-import { readPackFolder, validatePackFolder } from "../../src/stickers/validateFolder.ts";
+import {
+	createPackFolderValidator,
+	readPackFolder,
+	validatePackFolder,
+} from "../../src/stickers/validateFolder.ts";
 import { stickerPng, stickerWebp, validPack, writePackFolder } from "../support/index.ts";
 
 const MIB = 1024 * 1024;
@@ -35,9 +39,6 @@ describe("validatePackFolder", () => {
 		const issues = await validatePackFolder(dir);
 
 		expect(folder.images.has("002.png")).toBe(false);
-		expect(folder.oversizedImages).toEqual(
-			new Map([["002.png", { length: MIB, animated: false }]]),
-		);
 		expect(issues).toEqual([
 			{
 				code: "tooLarge",
@@ -64,6 +65,24 @@ describe("validatePackFolder", () => {
 			["tooLarge", "001.webp"],
 			["unsupportedAnimation", "002.webp"],
 			["tooLarge", "002.webp"],
+		]);
+	});
+
+	it("checks an image again once it changes", async () => {
+		const { pack, images } = validPack();
+		const dir = await writePackFolder(pack, images);
+		const validate = createPackFolderValidator();
+		await validate(dir);
+
+		await writeFile(join(dir, "002.png"), stickerPng(0));
+
+		expect(await validate(dir)).toEqual([
+			{
+				code: "duplicateImage",
+				severity: "error",
+				file: "002.png",
+				message: "002.png is the same image as 001.png; each sticker needs its own image",
+			},
 		]);
 	});
 

@@ -1,11 +1,19 @@
 import { describe, expect, it } from "vitest";
 
 import type { Pack } from "../../src/stickers/pack.ts";
-import { STICKER_LIMITS, validateImage, validatePack } from "../../src/stickers/validate.ts";
+import {
+	checkImage,
+	STICKER_LIMITS,
+	validateImage,
+	validatePack,
+} from "../../src/stickers/validate.ts";
 import { imageFixture, stickerPng, stickerWebp, validPack } from "../support/index.ts";
 
 function validate(pack: Pack, images: Readonly<Record<string, Uint8Array>>) {
-	return validatePack(pack, new Map(Object.entries(images)));
+	const checks = Object.entries(images).map(
+		([file, bytes]) => [file, checkImage(file, bytes)] as const,
+	);
+	return validatePack(pack, new Map(checks));
 }
 
 function pngOfLength(length: number) {
