@@ -3,7 +3,7 @@ packages:
 
 catalog:
   # Signal-Desktop's exact version, so linking behaves like the client Signal ships.
-  "@signalapp/libsignal-client": 0.105.0
+  "@signalapp/libsignal-client": 0.105.2
   "@sveltejs/vite-plugin-svelte": ^7.3.1
   "@testing-library/svelte": ^5.4.2
   "@tsconfig/node24": ^24.0.5
@@ -30,7 +30,7 @@ catalog:
   svelte-check: ^4.7.7
   typescript: npm:@typescript/typescript6@^6.0.2
   upng-js: ^2.1.0
-  vite: ^8.3.4
+  vite: ^8.3.5
   vitest: ^5.0.5
   ws: ^8.22.0
 
