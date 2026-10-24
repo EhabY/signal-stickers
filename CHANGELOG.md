@@ -57,5 +57,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Wait for imports before enabling publish
 - Save a new link even when its QR code cannot be printed
 - Explain how to recover when a new link cannot be saved
+- Stop showing a new QR code after the phone scans one
 
 

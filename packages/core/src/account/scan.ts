@@ -80,9 +80,10 @@ async function showCodes(
 		await delay(RETRY_DELAYS_MS[index] ?? 0, session.stopped);
 		return showCodes(session, onQrUrl, remaining, failedConnects + 1);
 	}
+	// Shown first: a scan while old sockets close ends linking, which would leave this code dead.
+	onQrUrl(qrUrl);
 	const closing = session.shown.splice(0, Math.max(0, session.shown.length - MAX_OPEN_SOCKETS));
 	await Promise.all(closing.map((old) => old.disconnect()));
-	onQrUrl(qrUrl);
 	await delay(ROTATION_INTERVAL_MS, session.stopped);
 	return showCodes(session, onQrUrl, remaining - 1);
 }
