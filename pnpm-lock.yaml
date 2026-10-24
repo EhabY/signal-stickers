@@ -306,6 +306,9 @@ importers:
 
   packages/core:
     dependencies:
+      '@signal-stickers/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@signalapp/libsignal-client':
         specifier: 'catalog:'
         version: 0.105.0
@@ -323,8 +326,13 @@ importers:
         specifier: 'catalog:'
         version: 8.18.2
 
+  packages/shared: {}
+
   packages/web:
     dependencies:
+      '@signal-stickers/shared':
+        specifier: workspace:*
+        version: link:../shared
       emoji-picker-element:
         specifier: 'catalog:'
         version: 1.29.1

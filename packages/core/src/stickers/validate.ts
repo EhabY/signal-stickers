@@ -1,7 +1,6 @@
 import { createHash } from "node:crypto";
 
-import { readImageInfo, type ImageInfo } from "./image.ts";
-import type { Pack } from "./pack.ts";
+import { readImageInfo, type ImageInfo, type Pack } from "@signal-stickers/shared";
 
 /** Signal's limits for creating a pack; readers accept more (see `MAX_STICKERS_PER_PACK`). */
 export type StickerLimits = Readonly<{

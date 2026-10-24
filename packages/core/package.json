@@ -14,6 +14,7 @@
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
+		"@signal-stickers/shared": "workspace:*",
 		"@signalapp/libsignal-client": "catalog:"
 	}
 }

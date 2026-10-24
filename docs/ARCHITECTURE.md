@@ -7,14 +7,17 @@ to the server over HTTP and WebSocket.
 
 | Package           | Responsibility                                                                         |
 | ----------------- | -------------------------------------------------------------------------------------- |
+| `packages/shared` | Pack shape and edit rules, and image header parsing, for Node and the browser          |
 | `packages/core`   | Accounts, crypto, protocol, network clients, pack files, validation, import and upload |
 | `packages/cli`    | Arguments, terminal output, and commands over core                                     |
 | `packages/server` | Local API, progress events, static assets, and the working copy                        |
 | `packages/web`    | Svelte editor, session state, and browser image conversion                             |
 
-`core` imports no workspace packages and has no server, DOM, or argument-parsing code. Operations
-accept `AbortSignal` and report progress through callbacks. The web app imports only shared types;
-[server/api.ts](../packages/server/src/api.ts) defines its API contract.
+`shared` imports nothing from Node, the DOM, or the repo; its typecheck has neither Node nor DOM
+types. `core` imports only `shared`, re-exports it, and has no server, DOM, or argument-parsing
+code. Operations accept `AbortSignal` and report progress through callbacks. The web app imports
+`shared` and the server's types; [server/api.ts](../packages/server/src/api.ts) defines its API
+contract.
 
 libsignal is a native Node addon, loaded lazily so importing a pack does not load it. Keep runtime
 imports behind the account loaders. This boundary also allows a future Electron wrapper to reuse the

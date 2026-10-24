@@ -2,10 +2,11 @@ import type { Stats } from "node:fs";
 import { open, type FileHandle } from "node:fs/promises";
 import { join } from "node:path";
 
+import { isAnimatedWebp, type Pack } from "@signal-stickers/shared";
+
 import { ignoreNotFound } from "../util/isNotFound.ts";
 import { mapConcurrent } from "../util/mapConcurrent.ts";
-import { isAnimatedWebp } from "./image.ts";
-import { readPack, type Pack } from "./pack.ts";
+import { readPack } from "./pack.ts";
 import {
 	checkImage,
 	checkOversizedImage,

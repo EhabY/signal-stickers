@@ -1,14 +1,15 @@
 import { mkdir, open, readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 
+import { sniffImageFormat, type Pack } from "@signal-stickers/shared";
+
 import type { CdnClient } from "../net/cdn.ts";
 import { decodeStickerPack, type StickerProto } from "../protocol/protobuf.ts";
 import { strictAssert } from "../util/assert.ts";
 import { mapConcurrent } from "../util/mapConcurrent.ts";
 import { decryptAttachment, derivePackKeys, type PackKeys } from "./crypto.ts";
-import { sniffImageFormat } from "./image.ts";
 import type { PackLocator } from "./link.ts";
-import { formatPack, PACK_FILE, PackFormatError, type Pack } from "./pack.ts";
+import { formatPack, PACK_FILE, PackFormatError } from "./pack.ts";
 
 export class DirectoryNotEmptyError extends Error {
 	override name = "DirectoryNotEmptyError";

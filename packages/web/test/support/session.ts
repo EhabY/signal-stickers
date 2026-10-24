@@ -1,3 +1,4 @@
+import { removeStickerAt, replaceStickerImage } from "@signal-stickers/shared";
 import { vi } from "vitest";
 
 import { ApiError, type Pack } from "../../src/lib/api.ts";
@@ -46,12 +47,10 @@ export function servedSession() {
 		imageCount += 1;
 		return `00${imageCount}.${extension}`;
 	};
-	const stickerAt = (index: number, file: string) => {
-		const sticker = stored.stickers[index];
-		if (sticker?.file !== file) {
+	const assertStickerImage = (index: number, file: string) => {
+		if (stored.stickers[index]?.file !== file) {
 			throw new ApiError(404, `${file} is not sticker ${index + 1} in the pack`);
 		}
-		return sticker;
 	};
 	api.savePack.mockImplementation(store);
 	api.addSticker.mockImplementation(async () => {
@@ -59,15 +58,12 @@ export function servedSession() {
 		return { ...(await store({ ...stored, stickers: [...stored.stickers, { file }] })), file };
 	});
 	api.removeSticker.mockImplementation((index, file) => {
-		stickerAt(index, file);
-		const stickers = stored.stickers.toSpliced(index, 1);
-		const cover = stored.cover === file ? (stickers[0]?.file ?? file) : stored.cover;
-		return store({ ...stored, cover, stickers });
+		assertStickerImage(index, file);
+		return store(removeStickerAt(stored, index));
 	});
 	api.replaceSticker.mockImplementation((index, file) => {
-		const sticker = { ...stickerAt(index, file), file: newImage("png") };
-		const cover = stored.cover === file ? sticker.file : stored.cover;
-		return store({ ...stored, cover, stickers: stored.stickers.with(index, sticker) });
+		assertStickerImage(index, file);
+		return store(replaceStickerImage(stored, index, newImage("png")));
 	});
 	api.setCover.mockImplementation((image) =>
 		store({ ...stored, cover: image.type === "image/png" ? "cover.png" : "cover.webp" }),

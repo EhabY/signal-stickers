@@ -1,3 +1,5 @@
+import { readImageInfo } from "@signal-stickers/shared";
+
 import type { StickerLimits } from "./api.ts";
 
 /** The MIME type of an image that animates: a GIF, a WebP, or an APNG. */
@@ -12,22 +14,11 @@ export function sniffAnimation(bytes: Uint8Array): AnimationType | undefined {
 	if (startsWith(bytes, GIF) && countGifFrames(bytes, 2) > 1) {
 		return "image/gif";
 	}
-	if (hasWebpAnimationFlag(bytes) && countWebpFrames(bytes, 2) > 1) {
+	const info = readImageInfo(bytes);
+	if (info?.animated) {
 		return "image/webp";
 	}
-	return readApng(bytes) ? "image/png" : undefined;
-}
-
-/**
- * Whether a WebP's `VP8X` header sets the animation flag, which encoders also set on a single frame
- * that {@link sniffAnimation} counts as a still image.
- */
-export function hasWebpAnimationFlag(bytes: Uint8Array): boolean {
-	return (
-		startsWith(bytes, RIFF) &&
-		startsWith(bytes.subarray(8), WEBP_VP8X) &&
-		(byteAt(bytes, VP8X_FLAGS) & VP8X_ANIMATION_FLAG) !== 0
-	);
+	return info?.plays === undefined ? undefined : "image/png";
 }
 
 /**
@@ -38,23 +29,17 @@ export function isReadyApng(
 	bytes: Uint8Array,
 	{ size, minAnimatedSize, maxBytes }: StickerLimits,
 ): boolean {
-	const apng = readApng(bytes);
+	const info = readImageInfo(bytes);
 	return (
-		apng !== undefined &&
-		apng.width === apng.height &&
-		apng.width >= minAnimatedSize &&
-		apng.width <= size &&
-		apng.plays === 0 &&
+		info?.plays === 0 &&
+		info.width === info.height &&
+		info.width >= minAnimatedSize &&
+		info.width <= size &&
 		bytes.length <= maxBytes
 	);
 }
 
 const GIF = [0x47, 0x49, 0x46, 0x38];
-const RIFF = [0x52, 0x49, 0x46, 0x46];
-const WEBP_VP8X = [0x57, 0x45, 0x42, 0x50, 0x56, 0x50, 0x38, 0x58];
-const VP8X_FLAGS = 20;
-const VP8X_ANIMATION_FLAG = 0x02;
-const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 
 function startsWith(bytes: Uint8Array, prefix: readonly number[]): boolean {
 	return prefix.every((byte, i) => bytes[i] === byte);
@@ -100,62 +85,4 @@ function skipSubBlocks(bytes: Uint8Array, offset: number): number {
 		next += byteAt(bytes, next) + 1;
 	}
 	return next + 1;
-}
-
-const RIFF_HEADER_SIZE = 12;
-const RIFF_CHUNK_HEADER_SIZE = 8;
-const MAX_WEBP_CHUNKS = 64;
-
-/** Like core's `readImageInfo`: counts `ANMF` chunks, up to `limit`, in the first 64 chunks. */
-function countWebpFrames(bytes: Uint8Array, limit: number): number {
-	const view = dataView(bytes);
-	let offset = RIFF_HEADER_SIZE;
-	let frames = 0;
-	for (
-		let chunks = 0;
-		frames < limit && chunks < MAX_WEBP_CHUNKS && offset + RIFF_CHUNK_HEADER_SIZE <= bytes.length;
-		chunks += 1
-	) {
-		if (fourCc(bytes, offset) === "ANMF") {
-			frames += 1;
-		}
-		const size = view.getUint32(offset + 4, true);
-		// RIFF pads a chunk of odd size with a byte.
-		offset += RIFF_CHUNK_HEADER_SIZE + size + (size % 2);
-	}
-	return frames;
-}
-
-function dataView(bytes: Uint8Array): DataView {
-	return new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-}
-
-function fourCc(bytes: Uint8Array, offset: number): string {
-	return String.fromCodePoint(...bytes.subarray(offset, offset + 4));
-}
-
-const PNG_CHUNK_HEADER_SIZE = 8;
-const PNG_CHUNK_CRC_SIZE = 4;
-
-/** Like core's `readImageInfo`: IHDR's size, and `num_plays` from an `acTL` before `IDAT`. */
-function readApng(bytes: Uint8Array): { width: number; height: number; plays: number } | undefined {
-	if (!startsWith(bytes, PNG_SIGNATURE) || bytes.length < 24) {
-		return undefined;
-	}
-	const view = dataView(bytes);
-	let offset = PNG_SIGNATURE.length;
-	while (offset + PNG_CHUNK_HEADER_SIZE <= bytes.length) {
-		const type = fourCc(bytes, offset + 4);
-		if (type === "acTL") {
-			const plays = offset + PNG_CHUNK_HEADER_SIZE + 4;
-			return plays + 4 <= bytes.length
-				? { width: view.getUint32(16), height: view.getUint32(20), plays: view.getUint32(plays) }
-				: undefined;
-		}
-		if (type === "IDAT") {
-			return undefined;
-		}
-		offset += PNG_CHUNK_HEADER_SIZE + view.getUint32(offset) + PNG_CHUNK_CRC_SIZE;
-	}
-	return undefined;
 }

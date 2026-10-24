@@ -106,7 +106,7 @@ automated compatibility check.
 
 ## Image formats
 
-- **Ours:** `packages/core/src/stickers/image.ts`
+- **Ours:** `packages/shared/src/image.ts`
 - **Signal:** `sticker-creator/src/constants.ts`, `ts/util/sniffImageMimeType.std.ts`
 - Stickers are PNG/APNG or WebP. Anything else is saved as `.bin` so it is visible rather than
   mislabelled.

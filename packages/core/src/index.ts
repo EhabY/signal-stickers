@@ -1,3 +1,4 @@
+export * from "@signal-stickers/shared";
 export * from "./account/credentials.ts";
 export * from "./account/link.ts";
 export * from "./account/provisioningTransport.ts";
@@ -7,7 +8,6 @@ export * from "./net/chat.ts";
 export { HttpError, type HttpMethod } from "./net/http.ts";
 export { ProtobufError } from "./protocol/protobuf.ts";
 export { DecryptionError } from "./stickers/crypto.ts";
-export * from "./stickers/image.ts";
 export * from "./stickers/link.ts";
 export * from "./stickers/pack.ts";
 export * from "./stickers/pull.ts";

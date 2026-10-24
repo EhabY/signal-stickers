@@ -1,6 +1,11 @@
+import {
+	hasWebpAnimationFlag,
+	isAnimatedWebp,
+	readImageInfo,
+	sniffImageFormat,
+} from "@signal-stickers/shared";
 import { describe, expect, it } from "vitest";
 
-import { isAnimatedWebp, readImageInfo, sniffImageFormat } from "../../src/stickers/image.ts";
 import { imageFixture, png, stickerWebp } from "../support/index.ts";
 
 const WEBP_ANIMATIONS = [
@@ -73,4 +78,14 @@ describe("isAnimatedWebp", () => {
 			expect(await isAnimatedWebp(read)).toBe(animated === true);
 		},
 	);
+});
+
+describe("hasWebpAnimationFlag", () => {
+	it.each([
+		["an animation of one frame", stickerWebp(["ANIM", "ANMF"]), true],
+		["a still WebP with alpha", stickerWebp(["ALPH", "VP8 "]), false],
+		["an APNG", imageFixture("animated.png"), false],
+	])("tells whether %s has the flag", (_, bytes, flagged) => {
+		expect(hasWebpAnimationFlag(bytes)).toBe(flagged);
+	});
 });

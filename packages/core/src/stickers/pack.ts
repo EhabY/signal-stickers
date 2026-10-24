@@ -1,28 +1,17 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
+import type { Pack } from "@signal-stickers/shared";
+
 import { isRecord } from "../util/isRecord.ts";
+
+export type { Pack, PackSticker } from "@signal-stickers/shared";
 
 export class PackFormatError extends Error {
 	override name = "PackFormatError";
 }
 
 export const PACK_FILE = "pack.json";
-
-export type PackSticker = {
-	/** Image file name inside the pack folder. */
-	file: string;
-	emoji?: string;
-};
-
-/** The `pack.json` describing a pack folder. */
-export type Pack = {
-	title: string;
-	author: string;
-	/** Image file name of the cover, either a sticker's or a separate one. */
-	cover: string;
-	stickers: PackSticker[];
-};
 
 export async function readPack(dir: string): Promise<Pack> {
 	const text = await readFile(join(dir, PACK_FILE), "utf8");

@@ -2,8 +2,8 @@
 
 A standalone tool to import, edit, and re-upload Signal sticker packs: a Node engine
 (`packages/core`) wrapped by a CLI (`packages/cli`), a local HTTP+WS server (`packages/server`), and
-a Vite + Svelte web UI (`packages/web`). It links itself as its own Signal device; it never reads
-Signal Desktop's data.
+a Vite + Svelte web UI (`packages/web`), with code both core and web run in `packages/shared`. It
+links itself as its own Signal device; it never reads Signal Desktop's data.
 
 > The build plan lives in a local, uncommitted `PLAN.md` (gitignored, like `AGENTS.local.md`). When
 > it is present, read it first; it holds the agreed decisions and original protocol research.
@@ -105,7 +105,7 @@ affected tests.
 ## Version control
 
 - Commit often. Titles use Conventional Commits (`type(scope): message`), imperative, around 70
-  characters. Scopes map to packages: `core`, `cli`, `server`, `web`, plus `repo`/`docs`.
+  characters. Scopes map to packages: `shared`, `core`, `cli`, `server`, `web`, plus `repo`/`docs`.
 - Never skip hooks. Check `git status` before `git add`. Never force push unless asked.
 - Never add `Co-Authored-By` trailers to commits.
 - `CHANGELOG.md` is generated from commits; never edit it by hand. User-facing changes use `feat`,

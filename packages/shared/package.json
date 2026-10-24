@@ -1,0 +1,14 @@
+{
+	"name": "@signal-stickers/shared",
+	"version": "0.1.0",
+	"private": true,
+	"description": "Pack and image code that runs in both Node and the browser.",
+	"license": "AGPL-3.0-only",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"scripts": {
+		"typecheck": "tsc --noEmit"
+	}
+}

@@ -1,0 +1,6 @@
+{
+	"extends": "../../tsconfig.base.json",
+	// No Node or DOM types, so code that only runs in one of them fails to typecheck.
+	"compilerOptions": { "types": [], "lib": ["ES2024"] },
+	"include": ["src"]
+}

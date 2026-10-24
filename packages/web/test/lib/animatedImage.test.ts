@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { hasWebpAnimationFlag, isReadyApng, sniffAnimation } from "../../src/lib/animatedImage.ts";
+import { isReadyApng, sniffAnimation } from "../../src/lib/animatedImage.ts";
 import { encodeApng } from "../../src/lib/apng.ts";
 import { extendedWebp, gif, pngChunks, solidFrame } from "../support/animation.ts";
 import { LIMITS } from "../support/api.ts";
@@ -33,16 +33,6 @@ describe("sniffAnimation", () => {
 		["nothing", new Uint8Array(), undefined],
 	])("detects %s", (_, bytes, type) => {
 		expect(sniffAnimation(bytes)).toBe(type);
-	});
-});
-
-describe("hasWebpAnimationFlag", () => {
-	it.each([
-		["an animation of one frame", extendedWebp(["ANIM", "ANMF"]), true],
-		["a still WebP with alpha", extendedWebp(["ALPH", "VP8 "]), false],
-		["a GIF", gif(2), false],
-	])("tells whether %s has the flag", (_, bytes, flagged) => {
-		expect(hasWebpAnimationFlag(bytes)).toBe(flagged);
 	});
 });
 

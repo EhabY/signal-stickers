@@ -13,6 +13,7 @@
 		"watch": "vite build --watch"
 	},
 	"dependencies": {
+		"@signal-stickers/shared": "workspace:*",
 		"emoji-picker-element": "catalog:",
 		"emoji-picker-element-data": "catalog:",
 		"qrcode": "catalog:",

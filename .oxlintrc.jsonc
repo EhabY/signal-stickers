@@ -59,12 +59,29 @@
 								"message": "Test support is for tests only.",
 							},
 							{
-								"group": ["@signal-stickers/**"],
-								"message": "core depends on nothing in the repo.",
+								"group": ["@signal-stickers/**", "!@signal-stickers/shared"],
+								"message": "core depends on nothing in the repo but shared.",
 							},
 							{
 								"group": ["ws"],
 								"message": "core stays transport-agnostic: no WebSocket servers.",
+							},
+						],
+					},
+				],
+			},
+		},
+		{
+			"files": ["packages/shared/src/**/*.ts"],
+			"env": { "builtin": true, "node": false },
+			"rules": {
+				"no-restricted-imports": [
+					"error",
+					{
+						"patterns": [
+							{
+								"group": ["node:*", "@signal-stickers/**"],
+								"message": "shared runs in Node and the browser and depends on nothing in the repo.",
 							},
 						],
 					},

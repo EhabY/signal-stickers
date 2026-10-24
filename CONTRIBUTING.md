@@ -28,8 +28,9 @@ tests on Linux, Windows, and macOS. See [Testing](docs/TESTING.md) for fixtures 
 Keep changes focused and follow [AGENTS.md](AGENTS.md). Put reusable operations in `core`; CLI,
 server, and web code should respect the [package boundaries](docs/ARCHITECTURE.md).
 
-Use Conventional Commit titles: `type(scope): message`. Scopes are `core`, `cli`, `server`, `web`,
-`repo`, and `docs`. PR titles follow the same convention and become squash-merge commits.
+Use Conventional Commit titles: `type(scope): message`. Scopes are `shared`, `core`, `cli`,
+`server`, `web`, `repo`, and `docs`. PR titles follow the same convention and become squash-merge
+commits.
 
 For user-facing `feat`, `fix`, `perf`, or `security` changes, generate the changelog entry in the
 same change:

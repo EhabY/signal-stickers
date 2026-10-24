@@ -8,11 +8,12 @@ import {
 	PACK_FILE,
 	parsePack,
 	readPack,
+	removeStickerAt,
+	replaceStickerImage,
 	sniffImageFormat,
 	writePack,
 	type ImageFormat,
 	type Pack,
-	type PackSticker,
 } from "@signal-stickers/core";
 
 import { ApiError } from "./errors.ts";
@@ -138,21 +139,15 @@ async function nextImageNumber(dir: string): Promise<string> {
 
 async function removeSticker(dir: string, index: number, file: string): Promise<Pack> {
 	const pack = await readWorkingPack(dir);
-	stickerAt(pack, index, file);
-	const stickers = pack.stickers.toSpliced(index, 1);
-	const [first] = stickers;
-	const coverRemoved = pack.cover === file && !stickers.some((sticker) => sticker.file === file);
-	const cover = coverRemoved && first ? first.file : pack.cover;
-	return writePackWithout(dir, { ...pack, cover, stickers }, file);
+	assertStickerImage(pack, index, file);
+	return writePackWithout(dir, removeStickerAt(pack, index), file);
 }
 
-/** The sticker at `index`; a 404 unless its image is `file`, since the position may be stale. */
-function stickerAt(pack: Pack, index: number, file: string): PackSticker {
-	const sticker = pack.stickers[index];
-	if (sticker?.file !== file) {
+/** A 404 unless the sticker at `index` has the image `file`, since the position may be stale. */
+function assertStickerImage(pack: Pack, index: number, file: string): void {
+	if (pack.stickers[index]?.file !== file) {
 		throw new ApiError(404, `${file} is not sticker ${index + 1} in the pack`);
 	}
-	return sticker;
 }
 
 /** Writes `pack`, then removes the image `file` unless `pack` still uses it. */
@@ -172,15 +167,10 @@ async function replaceSticker(
 ): Promise<Pack> {
 	const format = imageFormat(image);
 	const pack = await readWorkingPack(dir);
-	const sticker = stickerAt(pack, index, file);
+	assertStickerImage(pack, index, file);
 	const replacement = `${await nextImageNumber(dir)}.${format}`;
 	await writeFile(join(dir, replacement), image, { flag: "wx" });
-	const updated = {
-		...pack,
-		cover: pack.cover === file ? replacement : pack.cover,
-		stickers: pack.stickers.with(index, { ...sticker, file: replacement }),
-	};
-	return writePackWithout(dir, updated, file);
+	return writePackWithout(dir, replaceStickerImage(pack, index, replacement), file);
 }
 
 async function setCover(dir: string, image: Uint8Array): Promise<Pack> {

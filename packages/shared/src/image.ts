@@ -142,11 +142,7 @@ export type ReadImageBytes = (offset: number, length: number) => Promise<Uint8Ar
  */
 export async function isAnimatedWebp(read: ReadImageBytes): Promise<boolean> {
 	const head = await read(0, WEBP_CHUNK + 1);
-	if (
-		sniffImageFormat(head) !== "webp" ||
-		fourCc(head, RIFF_HEADER_SIZE) !== "VP8X" ||
-		!hasWebpAnimationFlag(head)
-	) {
+	if (!hasWebpAnimationFlag(head)) {
 		return false;
 	}
 	const end = RIFF_CHUNK_HEADER_SIZE + dataView(head).getUint32(4, true);
@@ -174,8 +170,16 @@ function webpInfo(width: number, height: number): ImageInfo {
 	return { format: "webp", width, height };
 }
 
-function hasWebpAnimationFlag(bytes: Uint8Array): boolean {
-	return ((bytes[WEBP_CHUNK] ?? 0) & VP8X_ANIMATION_FLAG) !== 0;
+/**
+ * Whether a WebP's `VP8X` header sets the animation flag, which encoders also set on a single frame
+ * that `readImageInfo` counts as a still image.
+ */
+export function hasWebpAnimationFlag(bytes: Uint8Array): boolean {
+	return (
+		sniffImageFormat(bytes) === "webp" &&
+		fourCc(bytes, RIFF_HEADER_SIZE) === "VP8X" &&
+		((bytes[WEBP_CHUNK] ?? 0) & VP8X_ANIMATION_FLAG) !== 0
+	);
 }
 
 /**

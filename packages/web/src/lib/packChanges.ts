@@ -1,4 +1,5 @@
 import type { PackResponse } from "@signal-stickers/server/api";
+import { removeStickerAt, replaceStickerImage } from "@signal-stickers/shared";
 
 import type { Api, Pack } from "./api.ts";
 
@@ -89,23 +90,12 @@ export function findSticker(pack: Pack, index: number, file: string): number | u
 	return found === -1 ? undefined : found;
 }
 
-/** Like the server's removal: a cover that only this sticker used becomes the first sticker. */
 function withoutSticker(edited: Pack, index: number, file: string): Pack {
 	const at = findSticker(edited, index, file);
-	if (at === undefined) {
-		return edited;
-	}
-	const stickers = edited.stickers.toSpliced(at, 1);
-	const coverRemoved = edited.cover === file && !stickers.some((sticker) => sticker.file === file);
-	const cover = coverRemoved ? (stickers[0]?.file ?? edited.cover) : edited.cover;
-	return { ...edited, cover, stickers };
+	return at === undefined ? edited : removeStickerAt(edited, at);
 }
 
-/** Like the server's replacement: the sticker, and the cover if it was `file`, show `replacement`. */
 function withImage(edited: Pack, index: number, file: string, replacement: string): Pack {
 	const at = findSticker(edited, index, file);
-	const stickers = edited.stickers.map((sticker, i) =>
-		i === at ? { ...sticker, file: replacement } : sticker,
-	);
-	return { ...edited, cover: edited.cover === file ? replacement : edited.cover, stickers };
+	return at === undefined ? edited : replaceStickerImage(edited, at, replacement);
 }

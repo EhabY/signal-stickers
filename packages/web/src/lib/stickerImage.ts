@@ -1,4 +1,6 @@
-import { hasWebpAnimationFlag, isReadyApng, sniffAnimation } from "./animatedImage.ts";
+import { hasWebpAnimationFlag } from "@signal-stickers/shared";
+
+import { isReadyApng, sniffAnimation } from "./animatedImage.ts";
 import type {
 	ConversionMessage,
 	ConversionProgress,
