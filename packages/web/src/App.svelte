@@ -190,7 +190,7 @@
 					pack={session.pack}
 					issues={session.issues}
 					{limits}
-					imageUrl={(file) => api.stickerUrl(file, session.imageVersion)}
+					imageUrl={(file) => api.stickerUrl(file, session.imageVersions.get(file))}
 					converting={session.conversions.inPlace}
 					disabled={session.locked}
 					onchange={(pack) => {

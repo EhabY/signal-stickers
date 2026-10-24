@@ -8,6 +8,7 @@ import {
 	type ValidationIssue,
 } from "./api.ts";
 import { Conversions, type ConversionStep } from "./conversions.svelte.ts";
+import { ImageVersions } from "./imageVersions.svelte.ts";
 import {
 	addSticker,
 	removeSticker,
@@ -34,8 +35,6 @@ const SAVE_DELAY_MS = 300;
 export class PackSession {
 	pack: Pack | undefined = $state.raw();
 	issues: readonly ValidationIssue[] = $state.raw([]);
-	/** Changes whenever images may have changed, so thumbnails reload. */
-	imageVersion = $state(0);
 	/** Why the last save failed, until one succeeds or a pack loads. */
 	saveError: string | undefined = $state();
 	/** Why the last changes to the images failed, until the next one starts or a pack loads. */
@@ -46,6 +45,7 @@ export class PackSession {
 	 */
 	flattened: readonly string[] = $state.raw([]);
 	readonly conversions = new Conversions();
+	readonly imageVersions = new ImageVersions();
 
 	readonly #api: Api;
 	readonly #encode: StickerEncoder;
@@ -86,6 +86,7 @@ export class PackSession {
 		this.saveError = undefined;
 		this.error = undefined;
 		this.flattened = [];
+		this.imageVersions.reset(response.pack);
 		this.#show(response);
 	}
 
@@ -230,10 +231,10 @@ export class PackSession {
 			if (applied.renamed) {
 				this.#renamed.set(applied.renamed.from, applied.renamed.to);
 			}
+			this.imageVersions.renew(applied.written);
 			if (edited === sent || !edited) {
 				this.#show(applied.answer);
 			} else {
-				this.imageVersion += 1;
 				this.#showEdited(applied.merge(edited));
 			}
 		});
@@ -281,7 +282,6 @@ export class PackSession {
 	#show({ pack, issues }: PackResponse): void {
 		this.pack = pack;
 		this.issues = issues;
-		this.imageVersion += 1;
 		this.conversions.cancelStale(pack);
 	}
 

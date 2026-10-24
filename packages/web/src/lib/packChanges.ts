@@ -14,13 +14,19 @@ export type AppliedChange = Readonly<{
 	merge: (edited: Pack) => Pack;
 	/** The sticker image the change replaced, and its replacement. */
 	renamed?: Readonly<{ from: string; to: string }>;
+	/** The image files the change wrote, which may reuse the names of earlier images. */
+	written: readonly string[];
 }>;
 
 export function addSticker(api: Api, image: Blob): PackChange {
 	return async (pack): Promise<AppliedChange | undefined> => {
 		const answer = await api.addSticker(image);
 		const added = answer.pack.stickers.slice(pack.stickers.length);
-		return { answer, merge: (edited) => ({ ...edited, stickers: [...edited.stickers, ...added] }) };
+		return {
+			answer,
+			merge: (edited) => ({ ...edited, stickers: [...edited.stickers, ...added] }),
+			written: [answer.file],
+		};
 	};
 }
 
@@ -41,7 +47,7 @@ export function removeSticker(
 			return undefined;
 		}
 		const answer = await api.removeSticker(at, current);
-		return { answer, merge: (edited) => withoutSticker(edited, at, current) };
+		return { answer, merge: (edited) => withoutSticker(edited, at, current), written: [] };
 	};
 }
 
@@ -61,6 +67,7 @@ export function replaceSticker(api: Api, index: number, file: string, image: Blo
 			answer,
 			merge: (edited) => withImage(edited, at, file, replacement),
 			renamed: { from: file, to: replacement },
+			written: [replacement],
 		};
 	};
 }
@@ -77,6 +84,7 @@ export function replaceCover(api: Api, image: Blob, applies: (pack: Pack) => boo
 			// A cover chosen while the image was sent stays.
 			merge: (edited) =>
 				edited.cover === pack.cover ? { ...edited, cover: answer.pack.cover } : edited,
+			written: [answer.pack.cover],
 		};
 	};
 }

@@ -110,6 +110,31 @@ describe("PackSession", () => {
 		expect(editing.pack?.cover).toBe("cover.webp");
 	});
 
+	it("reloads the thumbnail of an image written again, and only that one", async () => {
+		const { editing } = session();
+		const cover = new File(["png"], "cover.png", { type: "image/png" });
+		await editing.setCover(cover, LIMITS);
+		const versions = () =>
+			["cover.webp", ...files(CATS)].map((file) => editing.imageVersions.get(file));
+		const [before, ...stickers] = versions();
+
+		await editing.setCover(cover, LIMITS);
+
+		const [after, ...unchanged] = versions();
+		expect(after).not.toBe(before);
+		expect(unchanged).toEqual(stickers);
+	});
+
+	it("reloads every thumbnail when another pack loads", () => {
+		const { editing } = session();
+		const before = new Set(files(CATS).map((file) => editing.imageVersions.get(file)));
+
+		editing.load(packResponse());
+
+		const after = files(CATS).map((file) => editing.imageVersions.get(file));
+		expect(after.some((version) => before.has(version))).toBe(false);
+	});
+
 	it("converts a sticker's image to an animated PNG in its place", async () => {
 		const { api, encode, editing } = session();
 		const converted = { ...CATS, stickers: CATS.stickers.with(2, { file: "004.png" }) };
