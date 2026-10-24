@@ -56,5 +56,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Clean up failed imports after all writes finish
 - Wait for imports before enabling publish
 - Save a new link even when its QR code cannot be printed
+- Explain how to recover when a new link cannot be saved
 
 

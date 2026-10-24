@@ -134,6 +134,25 @@ export function credentialsWarning(path: string): string {
 	);
 }
 
+/**
+ * Saves a newly linked device's credentials. The device is already on the account, so a failure
+ * tells the user to remove it on their phone before linking again.
+ */
+export async function saveLinkedCredentials(
+	store: CredentialsStore,
+	credentials: Credentials,
+): Promise<void> {
+	try {
+		await store.save(credentials);
+	} catch (error) {
+		const reason = error instanceof Error ? error.message : String(error);
+		throw new Error(
+			`Linked, but could not save the credentials to ${store.path} (${reason}). Remove "signal-stickers" from Linked devices on your phone, then link again.`,
+			{ cause: error },
+		);
+	}
+}
+
 function parseCredentials(text: string, path: string): Credentials {
 	let value: unknown;
 	try {

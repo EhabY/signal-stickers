@@ -3,6 +3,7 @@ import {
 	credentialsWarning,
 	getLinkStatus,
 	linkDevice,
+	saveLinkedCredentials,
 	unlinkDevice,
 	type Credentials,
 	type CredentialsStore,
@@ -53,7 +54,7 @@ export async function link(
 	const credentials = await withLinkProgress(stderr, (onProgress) =>
 		linkNewDevice({ env, createChat, signal, onProgress }),
 	);
-	await saveLinked(store, credentials);
+	await saveLinkedCredentials(store, credentials);
 	stdout.write(`Linked to Signal ${env} as device ${credentials.deviceId}\n`);
 	stderr.write(`${credentialsWarning(store.path)}\n`);
 }
@@ -156,18 +157,6 @@ async function withLinkProgress<T>(
 		});
 	} finally {
 		await printed;
-	}
-}
-
-async function saveLinked(store: CredentialsStore, credentials: Credentials): Promise<void> {
-	try {
-		await store.save(credentials);
-	} catch (error) {
-		const reason = error instanceof Error ? error.message : String(error);
-		throw new Error(
-			`Linked, but could not save the credentials to ${store.path} (${reason}). Remove "signal-stickers" from Linked devices on your phone, then link again.`,
-			{ cause: error },
-		);
 	}
 }
 

@@ -9,6 +9,7 @@ import {
 	parsePackLink,
 	pullPack,
 	pushPack,
+	saveLinkedCredentials,
 	STICKER_LIMITS,
 	unlinkDevice,
 	validatePackFolder,
@@ -122,7 +123,7 @@ function accountHandlers(
 						broadcast({ type: "link", progress });
 					},
 				});
-				await deps.credentials.save(credentials);
+				await saveLinkedCredentials(deps.credentials, credentials);
 				log(`Linked. ${credentialsWarning(deps.credentials.path)}`);
 				return status();
 			}),
