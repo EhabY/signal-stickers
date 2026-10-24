@@ -4,6 +4,9 @@ updates:
     directory: "/"
     schedule:
       interval: "monthly"
+    # PR Title Lint only accepts the repo's scopes, not Dependabot's default "deps".
+    commit-message:
+      prefix: "ci(repo)"
     cooldown:
       default-days: 7
     groups:
@@ -14,6 +17,8 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    commit-message:
+      prefix: "build(repo)"
     cooldown:
       semver-major-days: 7
       semver-minor-days: 5
@@ -25,3 +30,5 @@ updates:
       # @types/node major must match our minimum Node.js version.
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
+      # Pinned to Signal-Desktop's exact version and updated with it (docs/SIGNAL_COMPAT.md).
+      - dependency-name: "@signalapp/libsignal-client"
