@@ -38,6 +38,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Download the editor as an app for Windows, macOS, and Linux
 - Show a tray icon to reopen the editor or quit the app
 - Say when the app stops, and reconnect once it starts again
+- Close older editor tabs when the app opens a new one
 
 ### Changed
 

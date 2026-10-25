@@ -263,4 +263,21 @@ describe("App", () => {
 			expect(screen.queryByText(/Could not save your changes/u)).toBeNull();
 		});
 	});
+
+	it("shows the edits an older tab saved after this one loaded", async () => {
+		const api = fakeApi();
+		api.getPack.mockResolvedValue(packResponse());
+		renderApp(api);
+		await screen.findByRole("textbox", { name: "Title" });
+		api.getPack.mockResolvedValue(packResponse({ ...CATS, title: "Dogs" }));
+
+		const olderTab = new BroadcastChannel("signal-stickers-editor");
+		// oxlint-disable-next-line unicorn/require-post-message-target-origin -- A BroadcastChannel has no target origin.
+		olderTab.postMessage("saved");
+		olderTab.close();
+
+		await waitFor(() => {
+			expect(screen.getByRole("textbox", { name: "Title" })).toHaveProperty("value", "Dogs");
+		});
+	});
 });

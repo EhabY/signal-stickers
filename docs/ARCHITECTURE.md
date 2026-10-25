@@ -44,7 +44,9 @@ Each working copy has one server. A running server records its URL in the config
 `servers/` folder, and starting another for the same pack opens that one instead. A server that
 opened the browser stops five minutes after its last events WebSocket closes. It listens on port
 27183 unless that is taken, so a tab left open reconnects once the app starts again; the editor then
-reloads the status and saves the edits the server missed.
+reloads the status and saves the edits the server missed. Opening the editor again opens a new tab,
+so older tabs give way over a `BroadcastChannel`: an idle one saves and closes itself, and one that
+is busy or that the browser keeps open says where the editor is.
 
 The browser's `PackSession` shows edits immediately and serializes saves and image changes.
 Responses merge with edits made while requests were pending. Importing another pack invalidates old

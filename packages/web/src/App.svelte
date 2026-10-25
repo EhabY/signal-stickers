@@ -32,6 +32,8 @@
 	let loadError: string | undefined = $state();
 	let packError: string | undefined = $state();
 	let connected = $state(true);
+	let linking = $state(false);
+	let loading = Promise.resolve();
 	let conversionList: HTMLElement | undefined = $state();
 	let editor: ReturnType<typeof Editor> | undefined = $state();
 
@@ -43,7 +45,7 @@
 	];
 
 	onMount(() => {
-		void load();
+		loading = load();
 		return connect({
 			onEvent: (event) => {
 				progress.apply(event);
@@ -69,6 +71,19 @@
 			packError = `Could not open the pack folder: ${errorMessage(pack.reason)}. Import a pack to replace it.`;
 		} else if (pack.value) {
 			showPulled(pack.value);
+		}
+	}
+
+	/** Loads the pack again, after the first load so that one cannot replace it. */
+	async function reloadPack(): Promise<void> {
+		await loading;
+		try {
+			const pack = await api.getPack();
+			if (pack) {
+				session.load(pack);
+			}
+		} catch {
+			// The tab keeps showing what it has.
 		}
 	}
 
@@ -167,7 +182,12 @@
 	{:else if !status}
 		<p class="muted" role="status">Loading…</p>
 	{:else}
-		<StatusNotices {connected} />
+		<StatusNotices
+			{connected}
+			busy={session.locked || session.pending || linking}
+			save={() => session.save()}
+			reload={() => void reloadPack()}
+		/>
 		<!-- Views stay mounted while hidden, so a running link, pull, or push and its outcome survive. -->
 		<div class="view" hidden={view !== "import"}>
 			{#if packError !== undefined}
@@ -236,7 +256,13 @@
 			</div>
 		{/if}
 		<div class="view" hidden={view !== "account"}>
-			<AccountView {api} {status} {progress} onstatus={(updated) => (status = updated)} />
+			<AccountView
+				{api}
+				{status}
+				{progress}
+				bind:linking
+				onstatus={(updated) => (status = updated)}
+			/>
 		</div>
 	{/if}
 </main>

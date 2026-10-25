@@ -1,14 +1,16 @@
 <script lang="ts">
 	import ConnectionNotice from "./ConnectionNotice.svelte";
+	import TabHandoff from "./TabHandoff.svelte";
 
-	type Props = { connected: boolean };
+	type Props = { connected: boolean; busy: boolean; save: () => Promise<void>; reload: () => void };
 
-	let { connected }: Props = $props();
+	let { connected, busy, save, reload }: Props = $props();
 </script>
 
 <!-- Floats above the page, so a notice moves nothing. -->
 <div class="notices">
 	<ConnectionNotice {connected} />
+	<TabHandoff {busy} {save} {reload} />
 </div>
 
 <style>

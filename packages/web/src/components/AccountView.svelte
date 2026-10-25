@@ -10,18 +10,21 @@
 		status: StatusResponse;
 		progress: LiveProgress;
 		onstatus: (status: StatusResponse) => void;
+		/** Whether linking is running, which closing the page would cancel. */
+		linking?: boolean;
 	};
 
-	let { api, status, progress, onstatus }: Props = $props();
+	let { api, status, progress, onstatus, linking = $bindable(false) }: Props = $props();
 	const link = $derived(status.link);
-	let linking: AbortController | undefined = $state.raw();
+	let linkController: AbortController | undefined = $state.raw();
 	let confirmingUnlink = $state(false);
 	let unlinking = $state(false);
 	let error: string | undefined = $state();
 
 	async function startLinking(): Promise<void> {
 		const controller = new AbortController();
-		linking = controller;
+		linkController = controller;
+		linking = true;
 		progress.link = undefined;
 		error = undefined;
 		try {
@@ -31,7 +34,8 @@
 				error = errorMessage(caught);
 			}
 		} finally {
-			linking = undefined;
+			linkController = undefined;
+			linking = false;
 		}
 	}
 
@@ -108,7 +112,7 @@
 				<p>Connecting to Signal {status.env}…</p>
 			{/if}
 		</div>
-		<button type="button" onclick={() => linking?.abort()}>Cancel</button>
+		<button type="button" onclick={() => linkController?.abort()}>Cancel</button>
 	{:else}
 		<p>
 			Publishing needs this tool linked to your Signal account as its own device, named
