@@ -31,14 +31,21 @@ export type EventsOptions = Readonly<{
 	retryMs?: number;
 }>;
 
-export type ConnectEvents = (
-	onEvent: (event: ServerEvent) => void,
-	options?: EventsOptions,
-) => () => void;
+export type EventHandlers = Readonly<{
+	onEvent: (event: ServerEvent) => void;
+	/** Runs each time the connection opens or drops, as when the server stops. */
+	onConnection: (connected: boolean) => void;
+}>;
 
-/** Listens to the server's events, reconnecting after a drop until the returned function runs. */
+export type ConnectEvents = (handlers: EventHandlers, options?: EventsOptions) => () => void;
+
+/**
+ * Listens to the server's events until the returned function runs. After a drop it reconnects,
+ * waiting twice as long after each failure up to {@link MAX_RETRY_MS}, or at once when the tab shows,
+ * since background tabs run timers late.
+ */
 export const connectEvents: ConnectEvents = (
-	onEvent,
+	{ onEvent, onConnection },
 	{
 		url = eventsUrl(),
 		createSocket = (target: string) => new WebSocket(target),
@@ -47,9 +54,11 @@ export const connectEvents: ConnectEvents = (
 ) => {
 	let socket: EventSocket | undefined;
 	let retry: ReturnType<typeof setTimeout> | undefined;
-	let stopped = false;
+	let delay = retryMs;
+	const stopping = new AbortController();
 
 	function open(): void {
+		retry = undefined;
 		socket = createSocket(url);
 		socket.addEventListener("message", ({ data }: MessageEvent<unknown>) => {
 			const event = parseEvent(data);
@@ -57,20 +66,36 @@ export const connectEvents: ConnectEvents = (
 				onEvent(event);
 			}
 		});
+		socket.addEventListener("open", () => {
+			delay = retryMs;
+			onConnection(true);
+		});
 		socket.addEventListener("close", () => {
-			if (!stopped) {
-				retry = setTimeout(open, retryMs);
+			if (!stopping.signal.aborted) {
+				onConnection(false);
+				retry = setTimeout(open, delay);
+				delay = Math.min(delay * 2, MAX_RETRY_MS);
 			}
 		});
 	}
 
+	function retryNow(): void {
+		if (retry !== undefined && document.visibilityState === "visible") {
+			clearTimeout(retry);
+			open();
+		}
+	}
+
+	document.addEventListener("visibilitychange", retryNow, { signal: stopping.signal });
 	open();
 	return () => {
-		stopped = true;
+		stopping.abort();
 		clearTimeout(retry);
 		socket?.close();
 	};
 };
+
+const MAX_RETRY_MS = 10_000;
 
 function eventsUrl(): string {
 	const protocol = location.protocol === "https:" ? "wss:" : "ws:";

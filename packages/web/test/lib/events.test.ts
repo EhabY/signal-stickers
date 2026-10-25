@@ -14,6 +14,10 @@ class FakeSocket extends EventTarget {
 		this.dispatchEvent(new MessageEvent("message", { data }));
 	}
 
+	open(): void {
+		this.dispatchEvent(new Event("open"));
+	}
+
 	drop(): void {
 		this.dispatchEvent(new Event("close"));
 	}
@@ -22,9 +26,15 @@ class FakeSocket extends EventTarget {
 function connect() {
 	const sockets: FakeSocket[] = [];
 	const received: ServerEvent[] = [];
+	const connections: boolean[] = [];
 	const stop = connectEvents(
-		(event) => {
-			received.push(event);
+		{
+			onEvent: (event) => {
+				received.push(event);
+			},
+			onConnection: (connected) => {
+				connections.push(connected);
+			},
 		},
 		{
 			url: "ws://test/api/events",
@@ -36,7 +46,7 @@ function connect() {
 			},
 		},
 	);
-	return { sockets, received, stop };
+	return { sockets, received, connections, stop };
 }
 
 describe("connectEvents", () => {
@@ -48,6 +58,52 @@ describe("connectEvents", () => {
 		sockets[0]!.receive(JSON.stringify({ type: "other", progress: {} }));
 
 		expect(received).toEqual([{ type: "pull", progress: { done: 1, total: 2 } }]);
+	});
+
+	it("reports when the connection opens and drops", () => {
+		vi.useFakeTimers();
+		const { sockets, connections, stop } = connect();
+
+		sockets[0]!.open();
+		sockets[0]!.drop();
+		vi.advanceTimersByTime(1000);
+		sockets[1]!.open();
+		stop();
+		vi.useRealTimers();
+
+		expect(connections).toEqual([true, false, true]);
+	});
+
+	it("waits twice as long after each failed reconnect, until one succeeds", () => {
+		vi.useFakeTimers();
+		const { sockets, stop } = connect();
+
+		sockets[0]!.drop();
+		vi.advanceTimersByTime(1000);
+		sockets[1]!.drop();
+		vi.advanceTimersByTime(1000);
+		const afterOneSecond = sockets.length;
+		vi.advanceTimersByTime(1000);
+		sockets[2]!.open();
+		sockets[2]!.drop();
+		vi.advanceTimersByTime(1000);
+		stop();
+		vi.useRealTimers();
+
+		expect(afterOneSecond).toBe(2);
+		expect(sockets).toHaveLength(4);
+	});
+
+	it("reconnects at once when the tab shows again", () => {
+		vi.useFakeTimers();
+		const { sockets, stop } = connect();
+
+		sockets[0]!.drop();
+		document.dispatchEvent(new Event("visibilitychange"));
+		stop();
+		vi.useRealTimers();
+
+		expect(sockets).toHaveLength(2);
 	});
 
 	it("reconnects after a drop until stopped", () => {

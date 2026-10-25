@@ -1,9 +1,17 @@
 import type { PackResponse } from "@signal-stickers/server/api";
-import { fireEvent, screen } from "@testing-library/svelte";
-import { describe, expect, it, vi } from "vitest";
+import { fireEvent, screen, waitFor } from "@testing-library/svelte";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { ApiError } from "../src/lib/api.ts";
-import { CATS, fakeApi, LINKED, linkUntilAborted, packResponse, QR_URL } from "./support/api.ts";
+import {
+	CATS,
+	fakeApi,
+	LINKED,
+	linkUntilAborted,
+	packResponse,
+	QR_URL,
+	UNLINKED,
+} from "./support/api.ts";
 import { renderApp } from "./support/app.ts";
 import { stubModalDialogs } from "./support/dialog.ts";
 
@@ -33,7 +41,7 @@ describe("App", () => {
 			target: { value: LINK },
 		});
 		await fireEvent.click(screen.getByRole("button", { name: "Import pack" }));
-		events.send?.({ type: "pull", progress: { done: 1, total: 3 } });
+		events.handlers?.onEvent({ type: "pull", progress: { done: 1, total: 3 } });
 
 		expect(await screen.findByText("Downloaded: 1 of 3")).toBeTruthy();
 		pulled.resolve(packResponse());
@@ -186,7 +194,7 @@ describe("App", () => {
 
 		await fireEvent.click(await screen.findByRole("button", { name: "Account" }));
 		await fireEvent.click(screen.getByRole("button", { name: "Link to Signal production" }));
-		events.send?.({ type: "link", progress: { step: "waitingForScan", qrUrl: QR_URL } });
+		events.handlers?.onEvent({ type: "link", progress: { step: "waitingForScan", qrUrl: QR_URL } });
 		await fireEvent.click(screen.getByRole("button", { name: "Import" }));
 		await fireEvent.click(screen.getByRole("button", { name: "Account" }));
 
@@ -204,5 +212,55 @@ describe("App", () => {
 		expect((await screen.findByRole("alert")).textContent).toContain(
 			"Could not reach the signal-stickers server: Failed to fetch",
 		);
+	});
+
+	it("says when the app stops until it is back", async () => {
+		const { events } = renderApp();
+		await screen.findByRole("navigation");
+		vi.useFakeTimers();
+		onTestFinished(() => {
+			vi.useRealTimers();
+		});
+
+		events.handlers?.onConnection(false);
+		await vi.advanceTimersByTimeAsync(2000);
+		const alert = screen.getByRole("alert");
+		events.handlers?.onConnection(true);
+		await vi.advanceTimersByTimeAsync(0);
+
+		expect(alert.textContent).toContain("Signal Stickers has stopped");
+		expect(screen.queryByRole("alert")).toBeNull();
+	});
+
+	it("catches up with the app once it is back", async () => {
+		const api = fakeApi();
+		const { events } = renderApp(api);
+		await screen.findByText("Signal production");
+		api.getStatus.mockResolvedValue({ ...UNLINKED, env: "staging" });
+
+		events.handlers?.onConnection(false);
+		events.handlers?.onConnection(true);
+
+		expect(await screen.findByText("Signal staging")).toBeTruthy();
+	});
+
+	it("saves the changes the app missed once it is back", async () => {
+		const api = fakeApi();
+		api.getPack.mockResolvedValue(packResponse());
+		api.savePack.mockRejectedValueOnce(new Error("Failed to fetch"));
+		const { events } = renderApp(api);
+		const title = await screen.findByRole("textbox", { name: "Title" });
+		events.handlers?.onConnection(false);
+		await fireEvent.input(title, { target: { value: "Dogs" } });
+		await screen.findByText("Could not save your changes: Failed to fetch");
+
+		events.handlers?.onConnection(true);
+
+		await waitFor(() => {
+			expect(api.savePack).toHaveBeenLastCalledWith({ ...CATS, title: "Dogs" });
+		});
+		await waitFor(() => {
+			expect(screen.queryByText(/Could not save your changes/u)).toBeNull();
+		});
 	});
 });

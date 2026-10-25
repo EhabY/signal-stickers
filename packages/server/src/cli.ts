@@ -11,7 +11,7 @@ import {
 
 import { openBrowser } from "./browser.ts";
 import type { ServerDeps } from "./routes.ts";
-import { startServer } from "./server.ts";
+import { startServer, type RunningServer, type ServerOptions } from "./server.ts";
 import {
 	findRecordedServer,
 	recordServer,
@@ -51,7 +51,7 @@ pack reopens it.
 Options:
   --dir <path>          Working copy of the pack (default: a "pack" folder in this
                         tool's config directory, printed at startup)
-  --port <number>       Port to listen on (default: any free port)
+  --port <number>       Port to listen on (default: 27183, or any free port if taken)
   --allow-origin <url>  Also accept requests from this origin, e.g. the web dev server
   --no-open             Do not open a browser, and serve until stopped
   --staging             Use Signal's staging servers (or SIGNAL_STICKERS_ENV=staging)
@@ -109,7 +109,10 @@ export async function run(args: readonly string[], context: ServerCliContext): P
 	}
 }
 
-function parsePort(value = "0"): number {
+function parsePort(value: string | undefined): number | undefined {
+	if (value === undefined) {
+		return undefined;
+	}
 	const port = Number(value);
 	if (!/^\d+$/u.test(value) || port > 65_535) {
 		throw new UsageError(`--port must be a number from 0 to 65535: ${value}`);
@@ -129,7 +132,8 @@ type ServeOptions = Readonly<{
 	env: Environment;
 	configDir: string;
 	packDir: string;
-	port: number;
+	/** Defaults to {@link PREFERRED_PORT}. */
+	port: number | undefined;
 	allowedOrigins: string[];
 	open: boolean;
 }>;
@@ -146,7 +150,7 @@ async function serve(
 		return;
 	}
 	const stop = new AbortController();
-	const server = await startServer({
+	const server = await listen({
 		...options,
 		webDir,
 		deps: context.deps,
@@ -199,6 +203,24 @@ async function reopen(
 	stdout.write(`${running.url}\n`);
 	if (open) {
 		await openInBrowser(running.url, stderr, openUrl);
+	}
+}
+
+/** The editor's usual port, so a tab left open reaches the app once it starts again. */
+const PREFERRED_PORT = 27_183;
+
+/** Starts the server on `port`, or else on {@link PREFERRED_PORT}, or any free port if that is taken. */
+async function listen(options: ServerOptions): Promise<RunningServer> {
+	if (options.port !== undefined) {
+		return startServer(options);
+	}
+	try {
+		return await startServer({ ...options, port: PREFERRED_PORT });
+	} catch (error) {
+		if (!(error instanceof Error && "code" in error && error.code === "EADDRINUSE")) {
+			throw error;
+		}
+		return startServer({ ...options, port: 0 });
 	}
 }
 

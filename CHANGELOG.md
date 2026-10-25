@@ -37,6 +37,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Reopen the running editor and stop once it is closed
 - Download the editor as an app for Windows, macOS, and Linux
 - Show a tray icon to reopen the editor or quit the app
+- Say when the app stops, and reconnect once it starts again
 
 ### Changed
 

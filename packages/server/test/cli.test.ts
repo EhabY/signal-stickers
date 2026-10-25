@@ -1,8 +1,9 @@
 import { mkdir, writeFile } from "node:fs/promises";
+import { createServer } from "node:net";
 import { dirname, join } from "node:path";
 
 import { memoryCredentialsStore, tempDir } from "@signal-stickers/core/testing";
-import { describe, expect, it, vi, type Mock } from "vitest";
+import { describe, expect, it, onTestFinished, vi, type Mock } from "vitest";
 
 import { run, USAGE } from "../src/cli.ts";
 import { serverRecordFile } from "../src/serverRecord.ts";
@@ -215,5 +216,25 @@ describe("server cli", () => {
 			expect(cli.opened).toEqual([url]);
 		});
 		await cli.stop();
+	});
+
+	it("falls back to a free port when its usual one is taken", async () => {
+		const taken = createServer();
+		// Something else may already hold the port, which also suits this test.
+		await new Promise<void>((resolve) => {
+			taken.once("error", () => {
+				resolve();
+			});
+			taken.listen(27_183, "127.0.0.1", resolve);
+		});
+		onTestFinished(() => {
+			taken.close(() => {});
+		});
+
+		const cli = await startCli([]);
+		const url = await untilListening(cli);
+		await cli.stop();
+
+		expect(new URL(url).port).not.toBe("27183");
 	});
 });

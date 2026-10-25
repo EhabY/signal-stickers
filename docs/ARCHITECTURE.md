@@ -42,7 +42,9 @@ serve only files named by the pack.
 
 Each working copy has one server. A running server records its URL in the config directory's
 `servers/` folder, and starting another for the same pack opens that one instead. A server that
-opened the browser stops five minutes after its last events WebSocket closes.
+opened the browser stops five minutes after its last events WebSocket closes. It listens on port
+27183 unless that is taken, so a tab left open reconnects once the app starts again; the editor then
+reloads the status and saves the edits the server missed.
 
 The browser's `PackSession` shows edits immediately and serializes saves and image changes.
 Responses merge with edits made while requests were pending. Importing another pack invalidates old

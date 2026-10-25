@@ -5,6 +5,7 @@
 	import Editor from "./components/Editor.svelte";
 	import ImportView from "./components/ImportView.svelte";
 	import PublishView from "./components/PublishView.svelte";
+	import StatusNotices from "./components/StatusNotices.svelte";
 	import {
 		createApi,
 		errorMessage,
@@ -30,6 +31,7 @@
 	let view: View = $state("import");
 	let loadError: string | undefined = $state();
 	let packError: string | undefined = $state();
+	let connected = $state(true);
 	let conversionList: HTMLElement | undefined = $state();
 	let editor: ReturnType<typeof Editor> | undefined = $state();
 
@@ -42,8 +44,16 @@
 
 	onMount(() => {
 		void load();
-		return connect((event) => {
-			progress.apply(event);
+		return connect({
+			onEvent: (event) => {
+				progress.apply(event);
+			},
+			onConnection: (value) => {
+				if (value && !connected) {
+					void catchUp();
+				}
+				connected = value;
+			},
 		});
 	});
 
@@ -60,6 +70,16 @@
 		} else if (pack.value) {
 			showPulled(pack.value);
 		}
+	}
+
+	/** The server may have restarted while away, so load what it has and save what it missed. */
+	async function catchUp(): Promise<void> {
+		if (!status) {
+			await load();
+			return;
+		}
+		status = await api.getStatus().catch(() => status);
+		await session.save().catch(() => {});
 	}
 
 	function showPulled(response: PackResponse): void {
@@ -147,6 +167,7 @@
 	{:else if !status}
 		<p class="muted" role="status">Loading…</p>
 	{:else}
+		<StatusNotices {connected} />
 		<!-- Views stay mounted while hidden, so a running link, pull, or push and its outcome survive. -->
 		<div class="view" hidden={view !== "import"}>
 			{#if packError !== undefined}
