@@ -15,6 +15,10 @@
 	},
 	"dependencies": {
 		"@signal-stickers/shared": "workspace:*",
-		"@signalapp/libsignal-client": "catalog:"
+		"@signalapp/libsignal-client": "catalog:",
+		"graceful-fs": "catalog:"
+	},
+	"devDependencies": {
+		"@types/graceful-fs": "catalog:"
 	}
 }
