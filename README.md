@@ -3,9 +3,30 @@
 Import, edit, and publish [Signal](https://signal.org) sticker packs from a local web editor or CLI.
 No Signal Desktop installation required.
 
+## Download
+
+Each [release](https://github.com/EhabY/signal-stickers/releases/latest) has an app for Windows,
+macOS, and Linux, on x64 and arm64, and needs nothing else installed: a `.7z` for Windows (Windows
+11 opens it), a `.dmg` for macOS, and a `.tar.xz` for Linux. Open the app inside: the editor opens
+in your browser, and the app quits shortly after you close the editor. Opening the app again reopens
+the editor you left.
+
+The app is not signed by a publisher your system knows, so the first launch needs one extra step:
+
+- **Windows:** at "Windows protected your PC", choose **More info**, then **Run anyway**.
+- **macOS:** drag `Signal Stickers.app` to Applications and open it, then allow it in **System
+  Settings > Privacy & Security** with **Open Anyway**.
+- **Linux:** run `signal-stickers`.
+
+Each archive has a build provenance attestation:
+
+```sh
+gh attestation verify signal-stickers-windows-x64.7z --repo EhabY/signal-stickers
+```
+
 ## Quick start
 
-Requires Node.js 24+ and pnpm.
+To run from source, install Node.js 24+ and pnpm.
 
 ```sh
 corepack enable pnpm
@@ -64,8 +85,9 @@ Remove the device at any time in Signal: **Settings > Linked devices**.
 | macOS    | `~/Library/Application Support/signal-stickers` |
 | Linux    | `${XDG_CONFIG_HOME:-~/.config}/signal-stickers` |
 
-The directory holds `credentials.json` and the web editor's `pack/` folder. Credentials are stored
-as plaintext with owner-only permissions. Keep them private: they grant access as this device.
+The directory holds `credentials.json` and the web editor's `pack/` folder, which keeps the pack you
+are editing until you import another. Credentials are stored as plaintext with owner-only
+permissions. Keep them private: they grant access as this device.
 
 ## Development
 

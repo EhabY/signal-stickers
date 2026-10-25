@@ -231,6 +231,9 @@ catalogs:
     qrcode:
       specifier: ^1.5.4
       version: 1.5.4
+    resedit:
+      specifier: ^3.1.0
+      version: 3.1.0
     svelte:
       specifier: ^5.57.2
       version: 5.57.2
@@ -331,6 +334,12 @@ importers:
       '@types/ws':
         specifier: 'catalog:'
         version: 8.18.2
+      esbuild:
+        specifier: 'catalog:'
+        version: 0.28.2
+      resedit:
+        specifier: 'catalog:'
+        version: 3.1.0
 
   packages/shared: {}
 
@@ -1747,6 +1756,10 @@ packages:
     resolution: {integrity: sha512-haREypq7xkM7ErfgIyA0z+Bj4AGKlMSdlQE2jvJo6huWD1EdkKYV+G/T4nq0YEF2vgTT8kqMFKo1uHn950r4SQ==}
     engines: {node: '>=12'}
 
+  pe-library@2.0.1:
+    resolution: {integrity: sha512-/qjYFqNSlq59B5DI36am++5/3gMgh02QnzpYigrwrW6s+QpU0mHf09/iA4wjTu21UUxodyV7ZCetV5MiDhaN/A==}
+    engines: {node: '>=20'}
+
   picocolors@1.1.1:
     resolution: {integrity: sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA==}
 
@@ -1796,6 +1809,10 @@ packages:
 
   require-main-filename@2.0.0:
     resolution: {integrity: sha512-NKN5kMDylKuldxYLSUfrbo5Tuzh4hd+2E8NPPX02mZtn1VuREQToYe/ZdlJy+J3uCpfaiGF05e7B8W0iXbQHmg==}
+
+  resedit@3.1.0:
+    resolution: {integrity: sha512-i6CN8E6FzTpzsGq/oUnm2GTWhddpZEbnAE+zeNwqTppucTK7xd178q1xWEMrFb+nLnCh+geDqZ4QwhFN8VEgVQ==}
+    engines: {node: '>=20'}
 
   rolldown@1.2.15:
     resolution: {integrity: sha512-6odND+fel5zVw3I4Yc2e69gvguDnX0CAAGiNDZSq4ik5WUcaLrkD2GLuog0XcODbor31hZ5ayEMgVDno+KPV5g==}
@@ -3102,6 +3119,8 @@ snapshots:
 
   path-key@4.0.0: {}
 
+  pe-library@2.0.1: {}
+
   picocolors@1.1.1: {}
 
   picomatch@4.0.7: {}
@@ -3141,6 +3160,10 @@ snapshots:
   require-from-string@2.0.2: {}
 
   require-main-filename@2.0.0: {}
+
+  resedit@3.1.0:
+    dependencies:
+      pe-library: 2.0.1
 
   rolldown@1.2.15:
     dependencies:

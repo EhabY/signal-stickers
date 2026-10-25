@@ -2,7 +2,7 @@ name: Release
 
 # One click from main: picks the next version from Conventional Commits (or the input), updates the
 # package versions and CHANGELOG.md, tags, and publishes a GitHub release with the CLI bundle and its
-# build provenance.
+# build provenance, then adds the double-click app for each platform.
 on:
   workflow_dispatch:
     inputs:
@@ -26,6 +26,8 @@ jobs:
       contents: write
       id-token: write
       attestations: write
+    outputs:
+      version: ${{ steps.version.outputs.version }}
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -77,3 +79,47 @@ jobs:
           pnpm exec git-cliff --latest --strip header > "$RUNNER_TEMP/notes.md"
           gh release create "v$VERSION" packages/cli/dist/signal-stickers.mjs \
             --title "v$VERSION" --notes-file "$RUNNER_TEMP/notes.md" --verify-tag
+
+  executables:
+    name: Executable (${{ matrix.os }})
+    needs: release
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-24.04
+          - ubuntu-24.04-arm
+          - windows-2025-vs2026
+          - windows-11-arm
+          - macos-15
+          - macos-15-intel
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: v${{ needs.release.outputs.version }}
+          persist-credentials: false
+      - name: Setup pnpm, Node.js, and dependencies
+        uses: ./.github/actions/setup
+        with:
+          node: "26"
+
+      - run: pnpm --filter web build
+
+      - run: pnpm --filter server build:executable --archive
+
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: packages/server/dist/release/*
+
+      - name: Upload to the GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.release.outputs.version }}
+        run: gh release upload "v$VERSION" packages/server/dist/release/*

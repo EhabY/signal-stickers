@@ -28,6 +28,7 @@ catalog:
   oxlint: ^1.89.0
   oxlint-tsgolint: ^7.0.2005
   qrcode: ^1.5.4
+  resedit: ^3.1.0
   svelte: ^5.57.2
   svelte-check: ^4.7.7
   typescript: npm:@typescript/typescript6@^6.0.2

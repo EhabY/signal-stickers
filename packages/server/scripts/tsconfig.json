@@ -1,0 +1,2 @@
+// resedit declares DOM types, which must not leak into the server.
+{ "extends": "../../../tsconfig.base.json", "include": ["."] }

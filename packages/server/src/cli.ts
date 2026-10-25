@@ -33,7 +33,7 @@ export type ServerCliContext = Readonly<{
 	/** Holds the default working copy; defaults to the tool's own config directory. */
 	configDir?: string;
 	/** Defaults to the built web UI in `packages/web/dist`. */
-	webDir?: string;
+	webDir?: string | undefined;
 	openBrowser?: (url: string) => Promise<boolean>;
 	/** How long the server waits for a closed editor to reconnect before stopping. */
 	idleMs?: number;
