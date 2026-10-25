@@ -1,7 +1,7 @@
 // Builds this platform's app into dist/executable, and with --archive packs it into dist/release.
 // Needs Node.js 26, Rust, and the built web UI (`pnpm build`).
 import { execFileSync } from "node:child_process";
-import { copyFile, mkdir, readdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readdir, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { parseArgs } from "node:util";
@@ -142,10 +142,18 @@ if (values.archive) {
 	if (platform === "win32") {
 		execFileSync("7z", ["a", "-t7z", "-mx=9", `${archive}.7z`, name], { cwd: OUT_DIR });
 	} else if (platform === "darwin") {
+		const files = await readdir(folder, { recursive: true, withFileTypes: true });
+		const sizes = await Promise.all(
+			files
+				.filter((file) => file.isFile())
+				.map(async (file) => (await stat(join(file.parentPath, file.name))).size),
+		);
+		const megabytes = Math.ceil((sizes.reduce((sum, size) => sum + size, 0) * 1.2) / 2 ** 20);
 		await symlink("/Applications", join(folder, "Applications"));
 		execFileSync("hdiutil", [
 			"create",
-			"-quiet",
+			"-size",
+			`${megabytes}m`,
 			"-volname",
 			NAME,
 			"-srcfolder",
