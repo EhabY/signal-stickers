@@ -15,3 +15,4 @@ export * from "./stickers/push.ts";
 export * from "./stickers/validate.ts";
 export * from "./stickers/validateFolder.ts";
 export * from "./util/isNotFound.ts";
+export * from "./util/renameWithRetries.ts";

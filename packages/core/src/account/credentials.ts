@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, posix, win32 } from "node:path";
 
@@ -8,6 +8,7 @@ import { isEnvironment, type Environment } from "../env.ts";
 import type { ChatAuth } from "../net/chat.ts";
 import { isNotFound } from "../util/isNotFound.ts";
 import { isRecord } from "../util/isRecord.ts";
+import { renameWithRetries } from "../util/renameWithRetries.ts";
 
 /** The credentials file exists but is not valid; the message never echoes its contents. */
 export class CredentialsFormatError extends Error {
@@ -101,7 +102,7 @@ export function createCredentialsStore(dir: string = defaultConfigDir()): Creden
 				await writeFile(temp, "", { flag: "wx", mode: 0o600 });
 				await restrictToOwner(temp);
 				await writeFile(temp, text);
-				await rename(temp, path);
+				await renameWithRetries(temp, path);
 			} catch (error) {
 				await rm(temp, { force: true });
 				throw error;

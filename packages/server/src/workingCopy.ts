@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import {
@@ -9,6 +9,7 @@ import {
 	parsePack,
 	readPack,
 	removeStickerAt,
+	renameWithRetries,
 	replaceStickerImage,
 	sniffImageFormat,
 	writePack,
@@ -214,10 +215,10 @@ async function moveOnto(source: string, target: string): Promise<void> {
 	const backup = `${source}.old`;
 	const hadTarget = await renameIfExists(target, backup);
 	try {
-		await rename(source, target);
+		await renameWithRetries(source, target);
 	} catch (error) {
 		if (hadTarget) {
-			await rename(backup, target);
+			await renameWithRetries(backup, target);
 		}
 		throw error;
 	}
@@ -226,7 +227,7 @@ async function moveOnto(source: string, target: string): Promise<void> {
 
 async function renameIfExists(from: string, to: string): Promise<boolean> {
 	try {
-		await rename(from, to);
+		await renameWithRetries(from, to);
 		return true;
 	} catch (error) {
 		if (isNotFound(error)) {
