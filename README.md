@@ -66,6 +66,15 @@ Linked devices too.
 Production is the default. Add `--staging` or set `SIGNAL_STICKERS_ENV=staging` to use staging.
 Uploads must use the environment in which the device was linked.
 
+Without the source, use the release's `signal-stickers-cli.mjs` with Node.js 24 or later. `pull`
+works on its own. Linking, pushing, and the other account commands also need Signal's native library
+in the same folder, at the version the release notes name:
+
+```sh
+npm install @signalapp/libsignal-client@<version>
+node signal-stickers-cli.mjs pull "<pack share link>" ./my-pack
+```
+
 ## Pack requirements
 
 - A title, author, cover, and 1 to 200 stickers.

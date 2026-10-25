@@ -2,7 +2,7 @@ import * as esbuild from "esbuild";
 
 const options: esbuild.BuildOptions = {
 	entryPoints: ["src/main.ts"],
-	outfile: "dist/signal-stickers.mjs",
+	outfile: "dist/signal-stickers-cli.mjs",
 	bundle: true,
 	platform: "node",
 	format: "esm",

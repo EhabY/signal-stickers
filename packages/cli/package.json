@@ -5,7 +5,7 @@
 	"description": "Command-line interface for signal-stickers.",
 	"license": "AGPL-3.0-only",
 	"bin": {
-		"signal-stickers": "./dist/signal-stickers.mjs"
+		"signal-stickers": "./dist/signal-stickers-cli.mjs"
 	},
 	"type": "module",
 	"scripts": {

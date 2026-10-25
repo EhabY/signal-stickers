@@ -71,7 +71,7 @@ The GitHub release contains the CLI bundle, the app for each platform, and their
 attestations:
 
 ```sh
-gh attestation verify signal-stickers.mjs --repo EhabY/signal-stickers
+gh attestation verify signal-stickers-cli.mjs --repo EhabY/signal-stickers
 ```
 
 Branch protection must permit the release workflow to push to `main`.
