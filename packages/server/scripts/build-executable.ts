@@ -4,6 +4,7 @@ import { execFileSync } from "node:child_process";
 import { copyFile, mkdir, readdir, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
+import { setTimeout } from "node:timers/promises";
 import { parseArgs } from "node:util";
 
 import * as esbuild from "esbuild";
@@ -150,8 +151,7 @@ if (values.archive) {
 		);
 		const megabytes = Math.ceil((sizes.reduce((sum, size) => sum + size, 0) * 1.2) / 2 ** 20);
 		await symlink("/Applications", join(folder, "Applications"));
-		execFileSync("hdiutil", [
-			"create",
+		await createDiskImage([
 			"-size",
 			`${megabytes}m`,
 			"-volname",
@@ -167,5 +167,18 @@ if (values.archive) {
 			cwd: OUT_DIR,
 			env: { ...process.env, XZ_OPT: "-9" },
 		});
+	}
+}
+
+/** Runs `hdiutil create`, retrying while macOS reports the files busy, as create-dmg does. */
+async function createDiskImage(args: string[], retries = 0): Promise<void> {
+	try {
+		execFileSync("hdiutil", ["create", ...args]);
+	} catch (error) {
+		if (retries === 4 || !String(error).includes("Resource busy")) {
+			throw error;
+		}
+		await setTimeout(2000 * 2 ** retries);
+		await createDiskImage(args, retries + 1);
 	}
 }
