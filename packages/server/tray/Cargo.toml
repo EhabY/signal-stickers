@@ -1,0 +1,27 @@
+[package]
+name = "signal-stickers-tray"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-only"
+publish = false
+
+[dependencies]
+png = "0.18"
+
+[build-dependencies]
+embed-manifest = "1.5"
+
+# KSNI talks to the tray over D-Bus itself, so Linux needs no GTK or AppIndicator libraries.
+[target.'cfg(target_os = "linux")'.dependencies]
+tray-icon = { version = "0.26", default-features = false, features = ["ksni"] }
+
+[target.'cfg(not(target_os = "linux"))'.dependencies]
+tao = "0.37"
+tray-icon = "0.26"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true

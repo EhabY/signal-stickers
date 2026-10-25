@@ -8,8 +8,8 @@ No Signal Desktop installation required.
 Each [release](https://github.com/EhabY/signal-stickers/releases/latest) has an app for Windows,
 macOS, and Linux, on x64 and arm64, and needs nothing else installed: a `.7z` for Windows (Windows
 11 opens it), a `.dmg` for macOS, and a `.tar.xz` for Linux. Open the app inside: the editor opens
-in your browser, and the app quits shortly after you close the editor. Opening the app again reopens
-the editor you left.
+in your browser, and a tray icon (in the menu bar on macOS) reopens the editor or quits. The app
+also quits five minutes after you close the editor.
 
 The app is not signed by a publisher your system knows, so the first launch needs one extra step:
 
@@ -42,9 +42,9 @@ The editor runs on `127.0.0.1` and saves changes locally. It resizes still image
 animations to APNG in any current browser; one without `OffscreenCanvas` turns GIF and WebP
 animations into still images.
 
-The editor stops once you close it, and starting it again for the same folder reopens the running
-one. Use `pnpm start --dir ./my-pack` to choose the working folder. Server options include
-`--port <number>` and `--no-open`, which keeps the server running until you stop it.
+The editor stops five minutes after you close it, and starting it again for the same folder reopens
+the running one. Use `pnpm start --dir ./my-pack` to choose the working folder. Server options
+include `--port <number>` and `--no-open`, which keeps the server running until you stop it.
 
 ## CLI
 

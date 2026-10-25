@@ -2,10 +2,11 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { memoryCredentialsStore, tempDir } from "@signal-stickers/core/testing";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, type Mock } from "vitest";
 
 import { run, USAGE } from "../src/cli.ts";
 import { serverRecordFile } from "../src/serverRecord.ts";
+import type { TrayActions } from "../src/tray.ts";
 import { openEditor } from "./support.ts";
 
 type CliOptions = {
@@ -28,6 +29,7 @@ async function startCli(args: string[], options: CliOptions = {}) {
 	const stdout = capture();
 	const stderr = capture();
 	const opened: string[] = [];
+	const tray: { actions?: TrayActions; close: Mock<() => void> } = { close: vi.fn<() => void>() };
 	const controller = new AbortController();
 	const exit = run(args, {
 		stdout,
@@ -43,12 +45,16 @@ async function startCli(args: string[], options: CliOptions = {}) {
 			return Promise.resolve(opens);
 		},
 		deps: { credentials: memoryCredentialsStore() },
+		showTray: (actions) => {
+			tray.actions = actions;
+			return tray.close;
+		},
 	});
 	const stop = async () => {
 		controller.abort();
 		return { code: await exit, stdout: stdout.text, stderr: stderr.text };
 	};
-	return { cwd, configDir, opened, exit, stop, stdout, stderr };
+	return { cwd, configDir, opened, tray, exit, stop, stdout, stderr };
 }
 
 function untilListening({ stdout }: { stdout: { text: string } }): Promise<string> {
@@ -186,5 +192,28 @@ describe("server cli", () => {
 		const { stderr } = await cli.stop();
 
 		expect(stderr).toContain("Serving Signal production");
+	});
+
+	it("stops when the tray quits, and closes the tray", async () => {
+		const cli = await startCli([]);
+		await untilListening(cli);
+
+		cli.tray.actions?.quit();
+
+		expect(await cli.exit).toBe(0);
+		expect(cli.stderr.text).toContain("Stopping, as chosen from the tray");
+		expect(cli.tray.close).toHaveBeenCalledOnce();
+	});
+
+	it("opens the editor from the tray", async () => {
+		const cli = await startCli(["--no-open"]);
+		const url = await untilListening(cli);
+
+		cli.tray.actions?.open();
+
+		await vi.waitFor(() => {
+			expect(cli.opened).toEqual([url]);
+		});
+		await cli.stop();
 	});
 });

@@ -36,6 +36,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Convert animations in Safari and other WebKit browsers
 - Reopen the running editor and stop once it is closed
 - Download the editor as an app for Windows, macOS, and Linux
+- Show a tray icon to reopen the editor or quit the app
 
 ### Changed
 

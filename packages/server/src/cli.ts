@@ -1,4 +1,3 @@
-import { once } from "node:events";
 import { access } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
@@ -19,6 +18,7 @@ import {
 	serverRecordFile,
 	type RecordedServer,
 } from "./serverRecord.ts";
+import type { TrayActions } from "./tray.ts";
 
 export type Output = { write(text: string): unknown };
 
@@ -37,13 +37,16 @@ export type ServerCliContext = Readonly<{
 	openBrowser?: (url: string) => Promise<boolean>;
 	/** How long the server waits for a closed editor to reconnect before stopping. */
 	idleMs?: number;
+	/** Shows a tray icon until the returned function runs. */
+	showTray?: ((actions: TrayActions) => () => void) | undefined;
 	deps?: Partial<ServerDeps>;
 }>;
 
 export const USAGE = `Usage: signal-stickers-server [options]
 
 Starts the sticker pack editor on this computer and opens it in your browser. It
-stops once the editor closes, and starting it again for the same pack reopens it.
+stops five minutes after the editor closes, and starting it again for the same
+pack reopens it.
 
 Options:
   --dir <path>          Working copy of the pack (default: a "pack" folder in this
@@ -135,14 +138,14 @@ async function serve(
 	{ open, configDir, ...options }: ServeOptions,
 	context: ServerCliContext,
 ): Promise<void> {
-	const { stdout, stderr, webDir = DEFAULT_WEB_DIR, openBrowser: openUrl } = context;
+	const { stderr, webDir = DEFAULT_WEB_DIR, openBrowser: openUrl } = context;
 	const record = serverRecordFile(configDir, options.packDir);
 	const running = await findRecordedServer(record);
 	if (running) {
 		await reopen(running, { open, ...options }, context);
 		return;
 	}
-	const closed = new AbortController();
+	const stop = new AbortController();
 	const server = await startServer({
 		...options,
 		webDir,
@@ -153,29 +156,31 @@ async function serve(
 		// With --no-open, editors may come and go.
 		onIdle: open
 			? () => {
-					closed.abort();
+					stop.abort("Stopping, since the editor was closed");
 				}
 			: undefined,
 		idleMs: context.idleMs,
 	});
+	const closeTray = context.showTray?.({
+		open: () => void openInBrowser(server.url, stderr, openUrl),
+		quit: () => {
+			stop.abort("Stopping, as chosen from the tray");
+		},
+	});
 	const forget = await recordServer(record, server.url);
-	stderr.write(`Serving Signal ${options.env} with the pack in ${options.packDir}\n`);
-	// With --allow-origin, the web UI is usually served by the Vite dev server.
-	if (options.allowedOrigins.length === 0 && !(await exists(join(webDir, "index.html")))) {
-		stderr.write("The web UI is not built, so only the API is available: run pnpm build\n");
+	await announce(server.url, { open, webDir, ...options }, context);
+	if (!context.signal.aborted) {
+		// Not AbortSignal.any(), which Node may collect, unaborted, when only its listener holds it.
+		await new Promise((stopped) => {
+			context.signal.addEventListener("abort", stopped, { once: true });
+			stop.signal.addEventListener("abort", stopped, { once: true });
+		});
 	}
-	stdout.write(`${server.url}\n`);
-	if (open) {
-		void openInBrowser(server.url, stderr, openUrl);
-	}
-	const stopped = AbortSignal.any([context.signal, closed.signal]);
-	if (!stopped.aborted) {
-		await once(stopped, "abort");
-	}
-	if (closed.signal.aborted) {
-		stderr.write("Stopping, since the editor was closed\n");
+	if (stop.signal.aborted) {
+		stderr.write(`${String(stop.signal.reason)}\n`);
 	}
 	await server.close();
+	closeTray?.();
 	await forget();
 }
 
@@ -194,6 +199,29 @@ async function reopen(
 	stdout.write(`${running.url}\n`);
 	if (open) {
 		await openInBrowser(running.url, stderr, openUrl);
+	}
+}
+
+/** Tells the user where the server runs, and opens it in the browser. */
+async function announce(
+	url: string,
+	{
+		env,
+		packDir,
+		allowedOrigins,
+		open,
+		webDir,
+	}: Omit<ServeOptions, "configDir"> & { webDir: string },
+	{ stdout, stderr, openBrowser: openUrl }: ServerCliContext,
+): Promise<void> {
+	stderr.write(`Serving Signal ${env} with the pack in ${packDir}\n`);
+	// With --allow-origin, the web UI is usually served by the Vite dev server.
+	if (allowedOrigins.length === 0 && !(await exists(join(webDir, "index.html")))) {
+		stderr.write("The web UI is not built, so only the API is available: run pnpm build\n");
+	}
+	stdout.write(`${url}\n`);
+	if (open) {
+		void openInBrowser(url, stderr, openUrl);
 	}
 }
 

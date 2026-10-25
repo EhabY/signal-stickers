@@ -32,6 +32,12 @@ jobs:
 
       - run: pnpm lint
 
+      - name: Check the tray icon's Rust
+        working-directory: packages/server/tray
+        run: |
+          cargo fmt --check
+          cargo clippy --locked -- --deny warnings
+
       - run: pnpm build
 
   test:

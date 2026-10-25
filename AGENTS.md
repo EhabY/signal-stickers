@@ -39,7 +39,7 @@ Read only what the task needs:
 
 ## Commands
 
-- Build: `pnpm build`, `pnpm watch`, and with Node.js 26 this platform's app:
+- Build: `pnpm build`, `pnpm watch`, and with Node.js 26 and Rust this platform's app:
   `pnpm --filter server build:executable`
 - Run: `pnpm dev` (server and web, at http://localhost:5173), `pnpm start` (build web, then serve
   it), and the CLI with `pnpm pull`, `pnpm push`, `pnpm run link`, `pnpm status`, `pnpm run unlink`

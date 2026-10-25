@@ -52,10 +52,11 @@ Do not edit `CHANGELOG.md` by hand. Crypto changes need a round-trip or known-an
   rules requires approval.
 - The CLI bundles with esbuild and keeps libsignal external. The server runs from source; Vite
   builds the web app into `packages/web/dist`.
-- `pnpm --filter server build:executable`, run with Node.js 26 after `pnpm build`, bundles the
-  server, the web app, and this platform's libsignal into a Node
+- `pnpm --filter server build:executable`, run with Node.js 26 and Rust after `pnpm build`, bundles
+  the server, the web app, this platform's libsignal, and the tray icon (`packages/server/tray`, in
+  Rust) into a Node
   [single executable application](https://nodejs.org/api/single-executable-applications.html) in
-  `packages/server/dist/executable` and smoke-tests it: a windowless `.exe` on Windows, an ad-hoc
+  `packages/server/dist/executable` and checks it starts: a windowless `.exe` on Windows, an ad-hoc
   signed `.app` on macOS, and a binary on Linux. `--archive` also packs it into
   `packages/server/dist/release`, which CI keeps for a week. The icons in `packages/server/assets`
   are rendered from `packages/web/public/favicon.svg`.

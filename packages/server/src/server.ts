@@ -84,7 +84,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
 }
 
 /** Each browser tab holds an events connection, so none left means the user closed the editor. */
-function watchIdle(events: WebSocketServer, { onIdle, idleMs = 10_000 }: ServerOptions): void {
+function watchIdle(events: WebSocketServer, { onIdle, idleMs = 5 * 60_000 }: ServerOptions): void {
 	if (!onIdle) {
 		return;
 	}
