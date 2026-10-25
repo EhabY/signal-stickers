@@ -28,6 +28,9 @@ export type ServerOptions = Readonly<{
 	deps?: Partial<ServerDeps> | undefined;
 	/** Messages for the user, such as which file holds the credentials. */
 	log?: ((message: string) => void) | undefined;
+	/** Runs once no browser tab has been connected for `idleMs`, after the first one connected. */
+	onIdle?: (() => void) | undefined;
+	idleMs?: number | undefined;
 }>;
 
 export type RunningServer = Readonly<{
@@ -41,6 +44,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
 	const { env, packDir, webDir, port = 0, allowedOrigins = [], log = () => {} } = options;
 	const stopping = new AbortController();
 	const events = new WebSocketServer({ noServer: true });
+	watchIdle(events, options);
 	const handleApi = createApiRequestHandler({
 		env,
 		deps: withDefaultDeps(options.deps),
@@ -77,6 +81,23 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
 			await closeServer(server, events);
 		},
 	};
+}
+
+/** Each browser tab holds an events connection, so none left means the user closed the editor. */
+function watchIdle(events: WebSocketServer, { onIdle, idleMs = 10_000 }: ServerOptions): void {
+	if (!onIdle) {
+		return;
+	}
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	events.on("connection", (client: WebSocket) => {
+		clearTimeout(timer);
+		client.on("close", () => {
+			if (events.clients.size === 0) {
+				// Closing the server closes every connection too, and must not wait for this.
+				timer = setTimeout(onIdle, idleMs).unref();
+			}
+		});
+	});
 }
 
 function broadcast(events: WebSocketServer, event: ServerEvent): void {
@@ -173,6 +194,7 @@ function handleUpgrade(req: IncomingMessage, socket: Duplex, head: Buffer, site:
 			client.on("error", () => {
 				client.terminate();
 			});
+			site.events.emit("connection", client, req);
 		});
 	} else {
 		socket.end("HTTP/1.1 404 Not Found\r\n\r\n");

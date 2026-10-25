@@ -21,8 +21,9 @@ The editor runs on `127.0.0.1` and saves changes locally. It resizes still image
 animations to APNG in any current browser; one without `OffscreenCanvas` turns GIF and WebP
 animations into still images.
 
-Use `pnpm start --dir ./my-pack` to choose the working folder. Server options include
-`--port <number>` and `--no-open`.
+The editor stops once you close it, and starting it again for the same folder reopens the running
+one. Use `pnpm start --dir ./my-pack` to choose the working folder. Server options include
+`--port <number>` and `--no-open`, which keeps the server running until you stop it.
 
 ## CLI
 

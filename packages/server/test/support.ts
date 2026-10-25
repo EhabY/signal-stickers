@@ -140,20 +140,24 @@ export function rawRequest(
 
 /** Connects to the events WebSocket and collects every event it receives. */
 export async function listenForEvents(server: TestServer): Promise<unknown[]> {
-	const socket = new WebSocket(`${server.url.replace("http", "ws")}/api/events`, {
-		origin: server.url,
-	});
+	const socket = await openEditor(server.url);
 	const received: unknown[] = [];
 	socket.on("message", (data) => {
 		received.push(parseMessage(data));
 	});
+	return received;
+}
+
+/** Connects to the events WebSocket of the server at `url`, as an editor tab does. */
+export async function openEditor(url: string): Promise<WebSocket> {
+	const socket = new WebSocket(`${url.replace("http", "ws")}/api/events`, { origin: url });
 	onTestFinished(() => {
 		socket.terminate();
 	});
 	await new Promise((resolve, reject) => {
 		socket.once("open", resolve).once("error", reject);
 	});
-	return received;
+	return socket;
 }
 
 export async function untilReceived(events: readonly unknown[], count: number): Promise<void> {

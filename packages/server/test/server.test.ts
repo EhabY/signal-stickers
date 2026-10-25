@@ -1,12 +1,13 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { setTimeout } from "node:timers/promises";
 
 import { tempDir } from "@signal-stickers/core/testing";
 import { describe, expect, it, vi } from "vitest";
 import { WebSocket } from "ws";
 
 import { HOST } from "../src/index.ts";
-import { blockUntilAborted, rawRequest, serve, startRequest } from "./support.ts";
+import { blockUntilAborted, openEditor, rawRequest, serve, startRequest } from "./support.ts";
 
 const EVIL = "https://evil.example";
 
@@ -116,6 +117,30 @@ describe("startServer", () => {
 			expect(signal.aborted).toBe(true);
 		});
 		expect(await server.send("POST", "/api/unlink")).toMatchObject({ status: 200 });
+	});
+
+	it("reports idle once the last editor tab has closed", async () => {
+		const onIdle = vi.fn<() => void>();
+		const server = await serve({ onIdle, idleMs: 10 });
+		const editor = await openEditor(server.url);
+
+		editor.close();
+
+		await vi.waitFor(() => {
+			expect(onIdle).toHaveBeenCalledOnce();
+		});
+	});
+
+	it("stays busy while a closed editor reconnects in time", async () => {
+		const onIdle = vi.fn<() => void>();
+		const server = await serve({ onIdle, idleMs: 100 });
+		const editor = await openEditor(server.url);
+
+		editor.close();
+		await openEditor(server.url);
+		await setTimeout(200);
+
+		expect(onIdle).not.toHaveBeenCalled();
 	});
 
 	it("cancels running operations when it closes", async () => {

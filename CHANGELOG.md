@@ -34,6 +34,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Say what size, frame rate, and file size a conversion made
 - Add theme choice and polish the pack editor
 - Convert animations in Safari and other WebKit browsers
+- Reopen the running editor and stop once it is closed
 
 ### Changed
 

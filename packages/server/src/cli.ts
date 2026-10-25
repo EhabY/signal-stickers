@@ -13,6 +13,12 @@ import {
 import { openBrowser } from "./browser.ts";
 import type { ServerDeps } from "./routes.ts";
 import { startServer } from "./server.ts";
+import {
+	findRecordedServer,
+	recordServer,
+	serverRecordFile,
+	type RecordedServer,
+} from "./serverRecord.ts";
 
 export type Output = { write(text: string): unknown };
 
@@ -29,19 +35,22 @@ export type ServerCliContext = Readonly<{
 	/** Defaults to the built web UI in `packages/web/dist`. */
 	webDir?: string;
 	openBrowser?: (url: string) => Promise<boolean>;
+	/** How long the server waits for a closed editor to reconnect before stopping. */
+	idleMs?: number;
 	deps?: Partial<ServerDeps>;
 }>;
 
 export const USAGE = `Usage: signal-stickers-server [options]
 
-Starts the sticker pack editor on this computer and opens it in your browser.
+Starts the sticker pack editor on this computer and opens it in your browser. It
+stops once the editor closes, and starting it again for the same pack reopens it.
 
 Options:
   --dir <path>          Working copy of the pack (default: a "pack" folder in this
                         tool's config directory, printed at startup)
   --port <number>       Port to listen on (default: any free port)
   --allow-origin <url>  Also accept requests from this origin, e.g. the web dev server
-  --no-open             Do not open a browser
+  --no-open             Do not open a browser, and serve until stopped
   --staging             Use Signal's staging servers (or SIGNAL_STICKERS_ENV=staging)
   -h, --help            Show this help
 `;
@@ -69,10 +78,13 @@ export async function run(args: readonly string[], context: ServerCliContext): P
 			context.stdout.write(USAGE);
 			return 0;
 		}
+		const configDir = context.configDir ?? defaultConfigDir({ env: context.env });
 		await serve(
 			{
 				env: resolveEnvironment(values.staging, context.env),
-				packDir: resolvePackDir(values.dir, context),
+				configDir,
+				packDir:
+					values.dir === undefined ? join(configDir, "pack") : resolve(context.cwd, values.dir),
 				port: parsePort(values.port),
 				allowedOrigins: values["allow-origin"].map(parseOrigin),
 				open: values.open,
@@ -94,13 +106,6 @@ export async function run(args: readonly string[], context: ServerCliContext): P
 	}
 }
 
-function resolvePackDir(
-	dir: string | undefined,
-	{ cwd, env, configDir = defaultConfigDir({ env }) }: ServerCliContext,
-): string {
-	return dir === undefined ? join(configDir, "pack") : resolve(cwd, dir);
-}
-
 function parsePort(value = "0"): number {
 	const port = Number(value);
 	if (!/^\d+$/u.test(value) || port > 65_535) {
@@ -119,6 +124,7 @@ function parseOrigin(value: string): string {
 
 type ServeOptions = Readonly<{
 	env: Environment;
+	configDir: string;
 	packDir: string;
 	port: number;
 	allowedOrigins: string[];
@@ -126,24 +132,33 @@ type ServeOptions = Readonly<{
 }>;
 
 async function serve(
-	{ open, ...options }: ServeOptions,
-	{
-		stdout,
-		stderr,
-		signal,
-		webDir = DEFAULT_WEB_DIR,
-		deps,
-		openBrowser: openUrl,
-	}: ServerCliContext,
+	{ open, configDir, ...options }: ServeOptions,
+	context: ServerCliContext,
 ): Promise<void> {
+	const { stdout, stderr, webDir = DEFAULT_WEB_DIR, openBrowser: openUrl } = context;
+	const record = serverRecordFile(configDir, options.packDir);
+	const running = await findRecordedServer(record);
+	if (running) {
+		await reopen(running, { open, ...options }, context);
+		return;
+	}
+	const closed = new AbortController();
 	const server = await startServer({
 		...options,
 		webDir,
-		deps,
+		deps: context.deps,
 		log: (message) => {
 			stderr.write(`${message}\n`);
 		},
+		// With --no-open, editors may come and go.
+		onIdle: open
+			? () => {
+					closed.abort();
+				}
+			: undefined,
+		idleMs: context.idleMs,
 	});
+	const forget = await recordServer(record, server.url);
 	stderr.write(`Serving Signal ${options.env} with the pack in ${options.packDir}\n`);
 	// With --allow-origin, the web UI is usually served by the Vite dev server.
 	if (options.allowedOrigins.length === 0 && !(await exists(join(webDir, "index.html")))) {
@@ -153,10 +168,33 @@ async function serve(
 	if (open) {
 		void openInBrowser(server.url, stderr, openUrl);
 	}
-	if (!signal.aborted) {
-		await once(signal, "abort");
+	const stopped = AbortSignal.any([context.signal, closed.signal]);
+	if (!stopped.aborted) {
+		await once(stopped, "abort");
+	}
+	if (closed.signal.aborted) {
+		stderr.write("Stopping, since the editor was closed\n");
 	}
 	await server.close();
+	await forget();
+}
+
+/** Opens the server that already serves the pack, rather than serving it twice. */
+async function reopen(
+	running: RecordedServer,
+	{ env, packDir, open }: Pick<ServeOptions, "env" | "packDir" | "open">,
+	{ stdout, stderr, openBrowser: openUrl }: ServerCliContext,
+): Promise<void> {
+	if (running.env !== env) {
+		throw new Error(
+			`Signal ${running.env} is already serving the pack in ${packDir} at ${running.url}; stop it first`,
+		);
+	}
+	stderr.write(`Already serving the pack in ${packDir}\n`);
+	stdout.write(`${running.url}\n`);
+	if (open) {
+		await openInBrowser(running.url, stderr, openUrl);
+	}
 }
 
 async function exists(path: string): Promise<boolean> {

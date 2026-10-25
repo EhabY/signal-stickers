@@ -1,14 +1,19 @@
-import { join } from "node:path";
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 
 import { memoryCredentialsStore, tempDir } from "@signal-stickers/core/testing";
 import { describe, expect, it, vi } from "vitest";
 
 import { run, USAGE } from "../src/cli.ts";
+import { serverRecordFile } from "../src/serverRecord.ts";
+import { openEditor } from "./support.ts";
 
 type CliOptions = {
 	env?: Record<string, string>;
 	/** What opening the browser reports; omit to record nothing opened. */
 	opens?: boolean;
+	/** Shares the config directory, and so the default pack, with an earlier run. */
+	configDir?: string;
 };
 
 function capture() {
@@ -17,8 +22,9 @@ function capture() {
 }
 
 /** Runs the server CLI until the test calls `stop()`. */
-async function startCli(args: string[], { env = {}, opens = true }: CliOptions = {}) {
+async function startCli(args: string[], options: CliOptions = {}) {
 	const cwd = await tempDir();
+	const { env = {}, opens = true, configDir = join(cwd, "config") } = options;
 	const stdout = capture();
 	const stderr = capture();
 	const opened: string[] = [];
@@ -29,8 +35,9 @@ async function startCli(args: string[], { env = {}, opens = true }: CliOptions =
 		env,
 		cwd,
 		signal: controller.signal,
-		configDir: join(cwd, "config"),
+		configDir,
 		webDir: cwd,
+		idleMs: 10,
 		openBrowser: (url) => {
 			opened.push(url);
 			return Promise.resolve(opens);
@@ -41,7 +48,7 @@ async function startCli(args: string[], { env = {}, opens = true }: CliOptions =
 		controller.abort();
 		return { code: await exit, stdout: stdout.text, stderr: stderr.text };
 	};
-	return { cwd, opened, exit, stop, stdout, stderr };
+	return { cwd, configDir, opened, exit, stop, stdout, stderr };
 }
 
 function untilListening({ stdout }: { stdout: { text: string } }): Promise<string> {
@@ -131,5 +138,53 @@ describe("server cli", () => {
 			expect(cli.stderr.text).toContain(`Could not open a browser: open ${url} yourself\n`);
 		});
 		await cli.stop();
+	});
+
+	it("stops once the editor it opened closes", async () => {
+		const cli = await startCli([]);
+		const editor = await openEditor(await untilListening(cli));
+
+		editor.close();
+
+		expect(await cli.exit).toBe(0);
+		expect(cli.stderr.text).toContain("Stopping, since the editor was closed\n");
+	});
+
+	it("opens the server already running for the same pack", async () => {
+		const first = await startCli([]);
+		const url = await untilListening(first);
+
+		const second = await startCli([], { configDir: first.configDir });
+
+		expect(await second.exit).toBe(0);
+		expect(second.stdout.text).toBe(`${url}\n`);
+		expect(second.opened).toEqual([url]);
+		await first.stop();
+	});
+
+	it("refuses to serve a pack that another environment is serving", async () => {
+		const first = await startCli([]);
+		const url = await untilListening(first);
+
+		const second = await startCli(["--staging"], { configDir: first.configDir });
+
+		expect(await second.exit).toBe(1);
+		expect(second.stderr.text).toContain(
+			`Signal production is already serving the pack in ${join(first.configDir, "pack")} at ${url}; stop it first`,
+		);
+		await first.stop();
+	});
+
+	it("starts over a server that stopped without cleaning up", async () => {
+		const configDir = join(await tempDir(), "config");
+		const record = serverRecordFile(configDir, join(configDir, "pack"));
+		await mkdir(dirname(record), { recursive: true });
+		await writeFile(record, JSON.stringify({ url: "http://127.0.0.1:1" }));
+
+		const cli = await startCli([], { configDir });
+		await untilListening(cli);
+		const { stderr } = await cli.stop();
+
+		expect(stderr).toContain("Serving Signal production");
 	});
 });

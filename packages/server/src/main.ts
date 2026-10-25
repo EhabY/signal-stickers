@@ -2,7 +2,8 @@
 import { run } from "./cli.ts";
 
 const controller = new AbortController();
-for (const signal of ["SIGINT", "SIGTERM"] as const) {
+// SIGHUP: the terminal running the server closed.
+for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"] as const) {
 	process.once(signal, () => {
 		controller.abort();
 	});
