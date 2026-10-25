@@ -40,34 +40,5 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Say when the app stops, and reconnect once it starts again
 - Close older editor tabs when the app opens a new one
 
-### Changed
-
-- Convert flat-color animations many times faster
-- Speed up duplicate sticker comparisons
-- Reread only the images that changed when checking an edited pack
-- Reload only the thumbnails of images that changed
-- Count an animation's colors once while fitting it
-
-### Fixed
-
-- Keep saved credentials private to your Windows user on every setup
-- Refuse a link whose account differs from the one the phone sent
-- Refuse to push a pack where two stickers share an image
-- Reject oversized sticker files without loading them
-- Stop saying the web UI is not built when the dev server serves it
-- Explain what to do when the browser cannot make WebP stickers
-- Remove the sticker you clicked when two share an image
-- Treat single-frame WebPs as still images, not animations
-- Keep focus after canceling a conversion
-- Keep animations smooth by shrinking before dropping frames
-- Make pack editing clearer and more accessible
-- Simplify controls and protect uploaded covers
-- Clean up failed imports after all writes finish
-- Wait for imports before enabling publish
-- Save a new link even when its QR code cannot be printed
-- Explain how to recover when a new link cannot be saved
-- Stop showing a new QR code after the phone scans one
-- Retry moving files that antivirus briefly locks on Windows
-
 [0.1.0]: https://github.com/EhabY/signal-stickers/releases/tag/v0.1.0
 

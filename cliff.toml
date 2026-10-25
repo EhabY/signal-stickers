@@ -15,12 +15,14 @@ body = """
 {% else -%}
 ## [Unreleased]
 {% endif -%}
-{% for group, commits in commits | group_by(attribute="group") %}
+{% for group, commits in commits | group_by(attribute="group") %}\
+{% if (previous and previous.version) or group is ending_with("Added") %}
 ### {{ group | striptags | trim }}
 {% for commit in commits %}
 - {% if commit.breaking %}**Breaking:** {% endif %}{{ commit.message | upper_first }}\
   {% if commit.breaking_description and commit.breaking_description != commit.message %}: {{ commit.breaking_description }}{% endif %}\
 {% endfor %}
+{% endif %}\
 {% endfor %}\n
 """
 # Links are written out rather than using [remote.github], which calls the GitHub API on every run.
