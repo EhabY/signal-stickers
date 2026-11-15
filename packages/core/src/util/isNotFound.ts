@@ -6,7 +6,7 @@ export function isNotFound(error: unknown): boolean {
 /** A `catch` handler that turns a missing path into `undefined` and rethrows anything else. */
 export function ignoreNotFound(error: unknown): undefined {
 	if (isNotFound(error)) {
-		return undefined;
+		return;
 	}
 	throw error;
 }

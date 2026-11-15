@@ -227,7 +227,7 @@ function isPushResponse(value: unknown): value is PushResponse {
 
 function ignoreNotFound(error: unknown): undefined {
 	if (error instanceof ApiError && error.status === 404) {
-		return undefined;
+		return;
 	}
 	throw error;
 }

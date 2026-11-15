@@ -1,19 +1,15 @@
-import { mkdir, open, readdir, rm } from "node:fs/promises";
-import { join } from "node:path";
-
 import { sniffImageFormat, type Pack } from "@signal-stickers/shared";
 
 import type { CdnClient } from "../net/cdn.ts";
 import { decodeStickerPack, type StickerProto } from "../protocol/protobuf.ts";
 import { strictAssert } from "../util/assert.ts";
 import { mapConcurrent } from "../util/mapConcurrent.ts";
+import { assertEmptyDirectory, writeFolder } from "../util/writeFolder.ts";
 import { decryptAttachment, derivePackKeys, type PackKeys } from "./crypto.ts";
 import type { PackLocator } from "./link.ts";
 import { formatPack, PACK_FILE, PackFormatError } from "./pack.ts";
 
-export class DirectoryNotEmptyError extends Error {
-	override name = "DirectoryNotEmptyError";
-}
+export { DirectoryNotEmptyError } from "../util/writeFolder.ts";
 
 export type PullProgress = Readonly<{ done: number; total: number }>;
 
@@ -29,11 +25,9 @@ export type PullOptions = Readonly<{
 // Signal's reader limit; uploads are capped lower.
 export const MAX_STICKERS_PER_PACK = 1024;
 const DOWNLOAD_CONCURRENCY = 3;
-const WRITE_CONCURRENCY = 8;
 
 type Sticker = StickerProto & { id: number };
 type Image = Readonly<{ sticker: Sticker; data: Uint8Array }>;
-type OutputFile = Readonly<{ name: string; data: Uint8Array | string }>;
 
 /**
  * Downloads and decrypts a pack into `dir` as `001.png`, `002.webp`, …, an optional `cover.*`, and
@@ -87,13 +81,6 @@ export async function pullPack(options: PullOptions): Promise<Pack> {
 	return pack;
 }
 
-async function assertEmptyDirectory(dir: string): Promise<void> {
-	const entries = await readdir(dir).catch(ignoreNotFound);
-	if (entries && entries.length > 0) {
-		throw new DirectoryNotEmptyError(`${dir} is not empty`);
-	}
-}
-
 /** Downloads every image, cancelling the rest when one fails. */
 function download(
 	stickers: readonly Sticker[],
@@ -112,32 +99,4 @@ function download(
 		},
 		signal,
 	);
-}
-
-/** Creates every file exclusively, and removes the ones it wrote if any write fails. */
-async function writeFolder(dir: string, files: readonly OutputFile[]): Promise<void> {
-	await mkdir(dir, { recursive: true });
-	await assertEmptyDirectory(dir);
-	const written: string[] = [];
-	try {
-		await mapConcurrent(files, WRITE_CONCURRENCY, async ({ name, data }) => {
-			const handle = await open(join(dir, name), "wx");
-			written.push(name);
-			try {
-				await handle.writeFile(data);
-			} finally {
-				await handle.close();
-			}
-		});
-	} catch (error) {
-		await Promise.all(written.map((name) => rm(join(dir, name), { force: true })));
-		throw error;
-	}
-}
-
-function ignoreNotFound(error: unknown): undefined {
-	if (error instanceof Error && "code" in error && error.code === "ENOENT") {
-		return undefined;
-	}
-	throw error;
 }
